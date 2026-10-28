@@ -1,23 +1,22 @@
-// A Props tab league's list (NbaMatchups.jsx, NflMatchups.jsx): a table row
-// for every prop PrizePicks posts in it, with how good the opponent is for
-// it (the row's big number) and how often it has cleared its line lately,
-// sortable by each from the buttons or the column headings. Oct 25, the
-// owner: just the matchup, clean like RotoBot. The Prop grade, Hitting,
-// Blowout and Starter/Bench marks are off the rows; a big spread and his
-// role are still in the Why panel. A row opens that
-// player's matchup page; its arrow shows what made the scores.
+// A Props tab league's list (NbaMatchups.jsx, NflMatchups.jsx): a row for
+// every prop PrizePicks posts in it, with how good the opponent is for it
+// (the row's matchup score) and how often it has cleared its line lately,
+// sortable by each from the filters or the column headings. A row opens
+// that player's matchup page; its arrow shows what made the score.
 // `config` says which league: its stats, its lines (props-data.js), its score
 // and page.
-// Oct 27, the owner: the tab is theirs alone, nicer and premium, but "I
-// don't want it to look like it was made with AI ... not the futuristic
-// look". So: a plain title with when the board last updated, a soft-spots
-// map of every defense by stat that filters the list on a tap, rows ranked
-// with Last 10 as ten tiny bars against the line, and calm motion (an
-// underline that glides between tabs, rows easing in). No glows, no
-// pulsing, no gradient text.
+// Oct 28, the owner: "redesign this whole thing ... nicer and easier to
+// research ... don't remove data ... nothing should look alike", and a
+// button to save a prop to the slip. The look is a stat sheet now: the
+// title, search and the slip across the top, the games as a strip of
+// stubs, the filters out in the open on a computer, rows split by thin
+// rules with the score as a solid badge, the last 10 games as bars above
+// or below his line (how far over or under), L5 / L20 / season beside them
+// when there's room, and a + on every row that puts it on the slip. Still
+// no glows, no gradient text, nothing that pulses (Oct 27).
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowDown,ArrowRight,Check,ChevronDown,LayoutGrid,LineChart,RefreshCw,Search,SlidersHorizontal,X} from 'lucide-react';
-import {windowGames,windowRate} from './unified-finder-data';
+import {ArrowDown,ArrowRight,ChevronDown,LayoutGrid,LineChart,RefreshCw,Search,SlidersHorizontal,Ticket,X} from 'lucide-react';
+import {finderSlipId,windowGames,windowRate} from './unified-finder-data';
 import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
 import {loadLearning} from './learning';
@@ -27,6 +26,8 @@ import {mainLines,tierOf} from './props-lines';
 import {CountUp} from './count-up';
 import {useWide} from './use-wide';
 import {inkStyle,useInk} from './use-ink';
+import {pickBuilder} from './pick-builder-client';
+import {SlipToggle,useSlipIds} from './SlipToggle';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Last 10']];
@@ -40,6 +41,8 @@ const PICS={demon:['/prizepicks/demon-64.png','Demon','PrizePicks Demon: a highe
  goblin:['/prizepicks/goblin.png','Goblin','PrizePicks Goblin: a lower line that pays less']};
 // The table's headings for the sorted columns: full, and on a phone.
 const HEADS={matchup:['Matchup','Match'],hit:['Last 10','L10']};
+// His other hit rates, beside Last 10 where the list has the room.
+const EXTRA=[['l5','L5'],['l20','L20'],['season','SZN']];
 const READS={teammates:'His teammates out',back:'Teammates back',missing:'Their players out',recent:'Their last 10 games',defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
  script:'The game line',scoring:'His team’s scoring',role:'His role'};
 // What a read adds to (or takes from) the even 50.
@@ -53,26 +56,22 @@ const when=iso=>{const time=Date.parse(iso||'');if(!Number.isFinite(time))return
 const dayOf=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toDateString():'';};
 const gameOf=row=>`${row.awayTeamAbbr||''}@${row.homeTeamAbbr||''}|${dayOf(row.startsAt)}`;
 const teamColor=(league,team)=>{const color=league?.teams?.[team]?.color;return color?`#${String(color).replace('#','')}`:null;};
-const hitOf=row=>{const window=row.windows?.l10;const games=windowGames(window);return games?{rate:windowRate(window),hits:window.hits,games}:null;};
+const rateOf=(row,key)=>{const window=row.windows?.[key];const games=windowGames(window);return games?{rate:windowRate(window),hits:window.hits,games}:null;};
+const hitOf=row=>rateOf(row,'l10');
+const rateTone=item=>item?(item.rate>=60?'good':item.rate<=40?'poor':undefined):undefined;
 
 function Bar({value,tone}){
  return <span className="nm-bar" data-tone={tone||undefined}><i style={{width:`${Math.max(4,Math.min(100,value))}%`}}/></span>;
 }
 
-// One of the row's numbers under its heading: the number, colored by
-// what it means, and for the matchup a bar under it.
-function Cell({kind,value,tone,bar,children}){
- return <span className={`nm-cell nm-${kind}`} data-tone={tone||undefined}><b>{value}</b>{Number.isFinite(bar)&&<Bar value={bar} tone={tone}/>}{children}</span>;
-}
-
-// His last 10 games in the stat as ten tiny bars against tonight's line
-// (over in green), the line drawn across.
+// His last 10 games in the stat, each a bar from his line: up and green by
+// as much as he went over, down and red by as much as he fell short.
 function Spark({row}){
  const games=(row.gameLog||[]).filter(game=>Number.isFinite(game?.value)).slice(-10),line=Number(row.line);
  if(games.length<3||!Number.isFinite(line))return null;
- const top=Math.max(1,line*1.6,...games.map(game=>game.value));
- return <span className="nm-spark" aria-hidden="true">{games.map((game,index)=><i key={index} data-over={game.value>line||undefined}
-  style={{height:`${Math.max(10,Math.min(100,game.value/top*100))}%`}}/>)}<s style={{bottom:`${Math.min(100,line/top*100)}%`}}/></span>;
+ const reach=Math.max(1,line*.6,...games.map(game=>Math.abs(game.value-line)));
+ return <span className="nm-spark" aria-hidden="true">{games.map((game,index)=>{const gap=game.value-line;
+  return <i key={index} data-over={gap>0||undefined} data-push={gap===0||undefined} style={{'--h':Math.max(.14,Math.min(1,Math.abs(gap)/reach))}}/>;})}</span>;
 }
 
 // A big spread tonight (props-grade.js): what it does to him, in a sentence.
@@ -80,16 +79,14 @@ const blowoutText=found=>`his team is a ${figure(Math.abs(found.spread))}-point 
  +(found.role==='starter'?`In games like that, starters sit late and come in about ${Math.round(-found.change*100)}% under their usual`
   :`In games like that, the bench plays the late minutes and comes in about ${Math.round(found.change*100)}% over its usual`);
 
-// One prop: who and when, the line, then Matchup and Last 10.
-// The first rows in view slide in one after another and count their scores
-// up; each row carries his team's color (a ring on his photo, a wash behind).
+// The first rows in view ease in one after another and count their scores up.
 const FIRST=14;
 // What made the scores (a row's Why, and the preview beside the list).
 function Reads({read,prop,role,hit,brief}){
  return <ul className="nm-reads">{!brief&&<li className="nm-read-note">{read.score} matchup, {read.label.toLowerCase()}{hit?`. Over his line in ${hit.hits} of his last ${hit.games}`:''}.</li>}
   {prop?.blowout&&<li className="nm-read-note">{prop.blowout.role==='starter'?'Blowout risk':'Blowout boost'}: {blowoutText(prop.blowout)}.</li>}
   {role&&<li className="nm-read-note">{role.label}: {role.sat?`he started ${role.starts} of his last ${role.games} and sat out his team’s last game`:`${role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and ${role.starts} of his last ${role.games}`}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
-  <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key}>
+  <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key} data-sign={item.points>0.5?'up':item.points<-0.5?'down':undefined}>
   <span className="nm-read-head"><b>{READS[item.kind]||READS[item.key]||'Their defense'}</b><em>{added(item.points)}</em></span>
   <span className="nm-read-text">{item.text}</span>
   <Bar value={item.score} tone={item.score>=60?'edge':item.score>=40?'neutral':'tough'}/>
@@ -99,14 +96,15 @@ function Reads({read,prop,role,hit,brief}){
 // On a big screen (`picking`) a click picks the prop shown beside the list
 // and a double-click opens his page (the owner, Oct 27: "when i double click
 // it opens the prop"); no Why arrow there: the preview says why.
-function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,color,picking,selected,onSelect}){
+function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,color,picking,selected,onSelect,saved}){
  const rank=index+1;
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const kind=tierOf(row),pic=PICS[kind];
  const stat=short[row.marketKey]||row.market;
  const waiting=row.historyStatus==='pending'||row.historyRefresh;
  const said=[read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
- return <li className="nm-row" data-open={open||undefined} data-selected={selected||undefined} style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
+ return <li className="nm-row" data-open={open||undefined} data-selected={selected||undefined} data-saved={saved.has(finderSlipId(row))||undefined}
+  style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
   <button type="button" className="nm-main" onClick={()=>picking?onSelect(row.id):onOpen(row)} onDoubleClick={picking?()=>onOpen(row):undefined} aria-pressed={picking?Boolean(selected):undefined}
    aria-label={`${row.player}, more ${figure(row.line)} ${stat}${pic?` ${pic[1]}`:''}${said?`: ${said}`:''}. ${picking?'Show his matchup beside the list, double-click to open his matchup page':'Open his matchup page'}`}>
    <span className="nm-rank" data-top={rank<=3||undefined}>{rank}</span>
@@ -115,23 +113,23 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,colo
    <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}
     {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&` · ${when(row.startsAt)}`}</small>
    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img className="nm-demon" src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span>
-   <Cell kind="score" value={read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'} tone={read?.tone} bar={read?read.score:null}/>
-   <Cell kind="hit" value={hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}><Spark row={row}/></Cell>
+   <span className="nm-grade" data-tone={read?.tone||undefined}><b>{read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'}</b></span>
+   <span className="nm-l10"><Spark row={row}/><b data-tone={rateTone(hit)}>{hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}</b></span>
+   {EXTRA.map(([key])=>{const item=rateOf(row,key);return <span className="nm-rate-cell" key={key} style={{gridArea:key}} data-tone={rateTone(item)}>{item?`${item.hits}/${item.games}`:'—'}</span>;})}
   </button>
-  {picking?null:read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span aria-hidden="true"/>}
+  {picking?null:read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span className="nm-why" aria-hidden="true"/>}
+  <SlipToggle row={row} saved={saved} stat={stat} className="nm-save"/>
   {!picking&&open&&read&&<Reads read={read} prop={prop} role={role} hit={hit}/>}
  </li>;
 }
 
-// The picked prop beside the list on a big screen (Oct 27, the owner: "make
-// a better layout design" for the computer; the list had been split into
-// two columns that read 1 left, 2 right, with gaps across each row). Who and
-// when, the line and the matchup, his last 10 games against the line, his
-// hit rates, what made the score, his other lines tonight and the way to
-// his full page. It stays in view while the list scrolls.
+// The picked prop beside the list on a big screen (Oct 27): who and when,
+// the line and the matchup, saving it or opening his page, his hit rates,
+// his last 10 games against the line, what made the score and his other
+// lines tonight (each its own + too). It stays in view while the list scrolls.
 const POS_NAMES={G:'Guard',F:'Forward',C:'Center'};
 const WINDOWS=[['l5','L5'],['l10','L10'],['l20','L20'],['season','Season']];
-function Preview({item,others,league,short,color,onOpen,onPick}){
+function Preview({item,others,league,short,color,onOpen,onPick,saved}){
  const {row,read,hit,prop,role}=item;
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const team=league?.teams?.[row.teamAbbr],opponent=league?.teams?.[row.opponent];
@@ -139,8 +137,7 @@ function Preview({item,others,league,short,color,onOpen,onPick}){
  const line=Number(row.line);
  const games=(row.gameLog||[]).filter(game=>Number.isFinite(game?.value)).slice(-10);
  const top=Math.max(1,Number.isFinite(line)?line*1.4:0,...games.map(game=>game.value));
- const rates=WINDOWS.map(([key,label])=>{const window=row.windows?.[key],count=windowGames(window);
-  return count?{key,label,hits:window.hits,games:count,rate:windowRate(window)}:null;}).filter(Boolean);
+ const rates=WINDOWS.map(([key,label])=>{const found=rateOf(row,key);return found?{key,label,...found}:null;}).filter(Boolean);
  return <aside className="nm-preview" aria-label={`${row.player}, ${stat}`} style={color?{'--team':color}:undefined}>
   <div className="nm-pv-card" key={row.id}>
    <header className="nm-pv-head"><Face row={row}/>
@@ -150,25 +147,28 @@ function Preview({item,others,league,short,color,onOpen,onPick}){
    </header>
    <div className="nm-pv-main">
     <div className="nm-pv-line"><small>More</small><span><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span></div>
-    <div className="nm-pv-score" data-tone={read?.tone||undefined}><small>Matchup</small>
-     {read?<><span><b><CountUp value={read.score}/></b><em>{read.label}</em></span><Bar value={read.score} tone={read.tone}/></>:<span><b>—</b></span>}</div>
+    <div className="nm-pv-score" data-tone={read?.tone||undefined}>
+     <b className="nm-pv-badge">{read?<CountUp value={read.score}/>:'—'}</b>
+     <span><small>Matchup</small><em>{read?read.label:'Loading'}</em></span></div>
    </div>
-   {games.length>0&&<section className="nm-pv-part"><h3>Last {games.length} games</h3>
+   <div className="nm-pv-actions"><SlipToggle row={row} saved={saved} stat={stat} full className="nm-pv-save"/>
+    <button type="button" className="nm-pv-open" onClick={()=>onOpen(row)}>Open his matchup page<ArrowRight size={15} aria-hidden="true"/></button></div>
+   {rates.length>0&&<div className="nm-pv-rates">{rates.map(item=><span key={item.key} data-tone={rateTone(item)}>
+    <small>{item.label}</small><b>{item.hits}/{item.games}</b><i style={{'--w':`${Math.round(item.rate)}%`}} aria-hidden="true"/></span>)}</div>}
+   {games.length>0&&<section className="nm-pv-part"><h3>Last {games.length} games<em>Line {figure(row.line)}</em></h3>
     <div className="nm-pv-chart" role="img" aria-label={`${stat}, last ${games.length}: ${games.map(game=>figure(game.value)).join(', ')}`}>
      <div className="nm-pv-bars">
       {Number.isFinite(line)&&<i className="nm-pv-at" style={{bottom:`${Math.min(100,line/top*100)}%`}}/>}
-      {games.map((game,index)=><span key={`${game.date}-${index}`} data-over={game.value>line||undefined} style={{'--k':index,height:`${Math.max(3,game.value/top*100)}%`}}>
+      {games.map((game,index)=><span key={`${game.date}-${index}`} data-over={game.value>line||undefined} style={{'--k':index,'--v':`${Math.max(3,game.value/top*100)}%`}}>
        <b>{figure(game.value)}</b></span>)}
      </div>
      <div className="nm-pv-opps" aria-hidden="true">{games.map((game,index)=><small key={index}>{game.opponent||''}</small>)}</div>
     </div></section>}
-   {rates.length>0&&<div className="nm-pv-rates">{rates.map(item=><span key={item.key} data-tone={item.rate>=60?'good':item.rate<=40?'poor':undefined}>
-    <small>{item.label}</small><b>{item.hits}/{item.games}</b></span>)}</div>}
    {read&&<section className="nm-pv-part nm-pv-why"><h3>What makes the {read.score}</h3><Reads read={read} prop={prop} role={role} hit={hit} brief/></section>}
-   {others.length>0&&<section className="nm-pv-part"><h3>His other lines tonight</h3><div className="nm-pv-others">{others.map(other=>
-    <button type="button" key={other.row.id} onClick={()=>onPick(other.row.id)}><small>{short[other.row.marketKey]||other.row.market}</small><b>{figure(other.row.line)}</b>
-     {other.read&&<em data-tone={other.read.tone}>{other.read.score}</em>}</button>)}</div></section>}
-   <button type="button" className="nm-pv-open" onClick={()=>onOpen(row)}>Open his matchup page<ArrowRight size={16} aria-hidden="true"/></button>
+   {others.length>0&&<section className="nm-pv-part"><h3>His other lines tonight</h3><ul className="nm-pv-others">{others.map(other=>
+    <li key={other.row.id}><button type="button" onClick={()=>onPick(other.row.id)}><small>{short[other.row.marketKey]||other.row.market}</small><b>{figure(other.row.line)}</b>
+     {other.read&&<em data-tone={other.read.tone}>{other.read.score}</em>}</button>
+     <SlipToggle row={other.row} saved={saved} stat={short[other.row.marketKey]||other.row.market}/></li>)}</ul></section>}
   </div>
  </aside>;
 }
@@ -215,52 +215,31 @@ function SoftSpots({spots,stat,facing,onPick,wide,league}){
  </div>;
 }
 
-// The game menu: each game once, with both teams' logos, its time and how
-// many props it has. Opens under the button; Escape, a tap outside or a pick
-// closes it, and the arrow keys move through it.
-function GamePicker({games,value,onChange}){
- const [open,setOpen]=useState(false);
- const box=useRef(null),button=useRef(null),list=useRef(null);
- const options=useMemo(()=>[{key:'all',label:'All games',count:games.reduce((sum,game)=>sum+game.count,0)},...games],[games]);
- const chosen=options.find(option=>option.key===value)||options[0];
- useEffect(()=>{
-  if(!open)return undefined;
-  const away=event=>{if(box.current&&!box.current.contains(event.target))setOpen(false);};
-  document.addEventListener('pointerdown',away);
-  requestAnimationFrame(()=>list.current?.querySelector('[aria-selected=true]')?.focus());
-  return()=>document.removeEventListener('pointerdown',away);
- },[open]);
- const pick=key=>{onChange(key);setOpen(false);button.current?.focus();};
- const keys=event=>{
-  const items=[...(list.current?.querySelectorAll('[role=option]')||[])],at=items.indexOf(document.activeElement);
-  if(event.key==='Escape'){event.preventDefault();setOpen(false);button.current?.focus();}
-  else if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();items[Math.max(0,Math.min(items.length-1,at+(event.key==='ArrowDown'?1:-1)))]?.focus();}
-  else if(event.key==='Home'||event.key==='End'){event.preventDefault();(event.key==='Home'?items[0]:items.at(-1))?.focus();}
- };
- return <div className="nm-game" ref={box} data-open={open||undefined}>
-  <button type="button" ref={button} className="nm-game-button" aria-haspopup="listbox" aria-expanded={open} onClick={()=>setOpen(value=>!value)}
-   onKeyDown={event=>{if(event.key==='ArrowDown'&&!open){event.preventDefault();setOpen(true);}}}>
-   <span className="nm-label">Game</span><span className="nm-game-now">{chosen.key==='all'?'All games':`${chosen.away} @ ${chosen.home}`}</span><ChevronDown size={14} aria-hidden="true"/></button>
-  {open&&<ul className="nm-game-menu" role="listbox" aria-label="Game" ref={list} onKeyDown={keys}>{options.map(option=>
-   <li key={option.key} role="option" aria-selected={option.key===chosen.key} tabIndex={-1} onClick={()=>pick(option.key)}
-    onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();pick(option.key);}}}>
-    {option.key==='all'?<span className="nm-game-teams"><b>All games</b></span>
-     :<span className="nm-game-teams"><Img src={option.awayLogo}/><b>{option.away}</b><i>@</i><Img src={option.homeLogo}/><b>{option.home}</b></span>}
-    <span className="nm-game-when">{option.key==='all'?`${option.count} props`:`${when(option.startsAt)} · ${option.count}`}</span>
-    {option.key===chosen.key&&<Check size={14} aria-hidden="true"/>}
-   </li>)}</ul>}
- </div>;
+// Every game as a stub: both logos, the time and how many props it has. A
+// row of them that scrolls sideways on a phone, wrapping on a computer.
+function GameStrip({games,value,onChange}){
+ const total=games.reduce((sum,game)=>sum+game.count,0);
+ const strip=useRef(null);
+ // The picked game stays in view on a phone.
+ useEffect(()=>{strip.current?.querySelector('[aria-pressed=true]')?.scrollIntoView?.({block:'nearest',inline:'nearest'});},[value]);
+ return <nav className="nm-strip" aria-label="Games" ref={strip}>
+  <button type="button" className="nm-strip-all" aria-pressed={value==='all'} onClick={()=>onChange('all')}><b>All games</b><em>{total}</em></button>
+  {games.map(game=><button type="button" key={game.key} aria-pressed={value===game.key} onClick={()=>onChange(game.key)} aria-label={`${game.away} at ${game.home}, ${when(game.startsAt)}, ${game.count} props`}>
+   <span className="nm-strip-teams"><Img src={game.awayLogo}/><b>{game.away}</b><i>@</i><Img src={game.homeLogo}/><b>{game.home}</b></span>
+   <span className="nm-strip-meta"><small>{when(game.startsAt)}</small><em>{game.count}</em></span></button>)}
+ </nav>;
 }
 
-// A computer's sidebar: every game listed with both logos, its time and props.
-function GameList({games,value,onChange}){
- const total=games.reduce((sum,game)=>sum+game.count,0);
- return <nav className="nm-games" aria-label="Games"><span className="nm-games-head">Games</span>
-  <button type="button" aria-pressed={value==='all'} onClick={()=>onChange('all')}><span className="nm-game-teams"><b>All games</b></span><em>{total}</em></button>
-  {games.map(game=><button type="button" key={game.key} aria-pressed={value===game.key} onClick={()=>onChange(game.key)}>
-   <span className="nm-game-teams"><Img src={game.awayLogo}/><b>{game.away}</b><i>@</i><Img src={game.homeLogo}/><b>{game.home}</b></span>
-   <small>{when(game.startsAt)}</small><em>{game.count}</em></button>)}
- </nav>;
+// Sort, lines and players: each a small row of buttons with its name.
+function Filters({id,sort,onSort,kind,onKind,roles,role,onRole}){
+ const group=(label,options,value,onChange)=><div className="nm-filter-row"><span>{label}</span><div className="nm-chips" role="group" aria-label={label}>
+  {options.map(([key,text])=><button type="button" key={key} aria-pressed={value===key} onClick={()=>onChange(key)}>
+   {label==='Lines'&&PICS[key]&&<img src={PICS[key][0]} alt="" width="14" height="14"/>}{text}</button>)}</div></div>;
+ return <div className="nm-filters" id={id}>
+  {group('Sort',SORTS,sort,onSort)}
+  {group('Lines',KINDS,kind,onKind)}
+  {roles&&group('Players',ROLES,role,onRole)}
+ </div>;
 }
 
 export function MatchupList({config}){
@@ -282,7 +261,7 @@ export function MatchupList({config}){
  const setKind=value=>{setKindNow(value);remember(`props-kind:${config.key}`,value);};
  const setRole=value=>{setRoleNow(value);remember(`props-role:${config.key}`,value);};
  const [filtersOpen,setFiltersOpen]=useState(false);
- // A computer: the controls sit in a sidebar, always open, with the games listed.
+ // A computer: the filters sit out in the open.
  const wide=useWide();
  // A big screen also shows the picked prop beside the list.
  const roomy=useWide('(min-width: 1500px)'),picking=wide&&roomy;
@@ -291,6 +270,8 @@ export function MatchupList({config}){
  const [openId,setOpenId]=useState(null);
  const [page,setPage]=useState(null);
  const listScroll=useRef(0);
+ // What's on the slip: every row's + shows it.
+ const saved=useSlipIds();
  useEffect(()=>{
   const stop=store.on(setData);
   store.warm();
@@ -388,7 +369,7 @@ export function MatchupList({config}){
   .filter((row,index,list)=>list.findIndex(other=>other.marketKey===row.marketKey)===index).map(itemOf):[],[chosen,ofKind,itemOf]);
  // The stat tabs' underline glides to the picked one.
  const statRow=useRef(null);
- const statInk=useInk(statRow,`${stat}|${Object.keys(counts).length}|${page?page.id:''}`);
+ const statInk=useInk(statRow,`${stat}|${Object.keys(counts).length}|${page?page.id:''}|${wide}`);
  // A player's page: its own history entry, so the phone's back gesture
  // closes it the same as the page's back button. Each entry carries a mark
  // made when this visit opened it (Oct 25, the owner: the back arrow went to
@@ -428,79 +409,67 @@ export function MatchupList({config}){
  },[page]);
  if(page)return <Page key={page.id} row={page} lines={rows.filter(item=>item.player===page.player&&item.teamAbbr===page.teamAbbr)} league={league} onBack={closePage}/>;
 
+ const filters=<Filters id={`${config.key}-filters`} sort={sort} onSort={setSort} kind={kind} onKind={setKind} roles={roles} role={roleShown} onRole={setRole}/>;
+ const folds=(spots.teams.length>0||recordSummary)&&<div className="nm-folds">
+  {spots.teams.length>0&&<button type="button" className="nm-fold" data-kind="spots" aria-expanded={fold==='spots'} onClick={()=>setFold(fold==='spots'?'':'spots')}>
+   <LayoutGrid size={16} aria-hidden="true"/><span><b>Soft spots</b><small>{spots.best?`${spots.best.team} ${SHORT[spots.best.key]} · ${Math.round(spots.best.value)}`:'By defense'}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
+  {recordSummary&&<button type="button" className="nm-fold" data-kind="record" aria-expanded={fold==='record'} onClick={()=>setFold(fold==='record'?'':'record')}>
+   <LineChart size={16} aria-hidden="true"/><span><b>Track record</b><small>{recordSummary.line}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
+ </div>;
  return <section className="nba-matchups" data-league={config.key} data-wide={wide||undefined} data-preview={picking||undefined} aria-labelledby={`${config.key}-matchups-title`}>
-  {/* Oct 25, the owner: "I see all buttons then I have to scroll down to
-     see props". One slim title row, then search, game and a Filters button;
-     sort, lines and players open under it, and what's picked shows as small
-     chips that clear with a tap. */}
-  <div className="nm-side">
   <header className="nm-head">
-   <h2 id={`${config.key}-matchups-title`}>{words.title}</h2>
-   <span className="nm-updated">{status==='loading'||status==='refreshing'?'Updating…':at?`Updated ${new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:''}{rows.length>0&&` · ${ofKind.length} props`}</span>
-   <button type="button" className="nm-refresh" onClick={load} disabled={status==='loading'||status==='refreshing'} aria-label="Refresh">
-    <RefreshCw size={15} className={status==='refreshing'?'nm-spin':undefined}/></button>
+   <div className="nm-title"><h2 id={`${config.key}-matchups-title`}>{words.title}</h2>
+    <span className="nm-updated">{status==='loading'||status==='refreshing'?'Updating…':at?`Updated ${new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:''}{rows.length>0&&` · ${ofKind.length} props`}</span></div>
+   <div className="nm-tools">
+    <label className="nm-search"><Search size={15} aria-hidden="true"/>
+     <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Find a player" enterKeyHint="search" aria-label="Find a player"/>
+     {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={14}/></button>}</label>
+    {!wide&&<button type="button" className="nm-filter-button" aria-expanded={filtersOpen} aria-controls={`${config.key}-filters`} onClick={()=>setFiltersOpen(value=>!value)}
+     aria-label={`Filters${changed.length?`, ${changed.length} on`:''}`}><SlidersHorizontal size={16} aria-hidden="true"/>{changed.length>0&&<i>{changed.length}</i>}</button>}
+    <button type="button" className="nm-slip" data-requires-tab="saved" onClick={pickBuilder.open} aria-label={`Open your slip, ${saved.size} ${saved.size===1?'pick':'picks'}`}>
+     <Ticket size={16} aria-hidden="true"/><span>Slip</span><b data-on={saved.size>0||undefined}>{saved.size}</b></button>
+    <button type="button" className="nm-refresh" onClick={load} disabled={status==='loading'||status==='refreshing'} aria-label="Refresh">
+     <RefreshCw size={15} className={status==='refreshing'?'nm-spin':undefined}/></button>
+   </div>
   </header>
 
-  <div className="nm-tools">
-   <label className="nm-search"><Search size={15} aria-hidden="true"/>
-    <input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Find a player" enterKeyHint="search" aria-label="Find a player"/>
-    {query&&<button type="button" onClick={()=>setQuery('')} aria-label="Clear search"><X size={14}/></button>}</label>
-   {!wide&&<GamePicker games={games} value={picked} onChange={setGame}/>}
-   {!wide&&<button type="button" className="nm-filter-button" aria-expanded={filtersOpen} aria-controls={`${config.key}-filters`} onClick={()=>setFiltersOpen(value=>!value)}
-    aria-label={`Filters${changed.length?`, ${changed.length} on`:''}`}><SlidersHorizontal size={16} aria-hidden="true"/>{changed.length>0&&<i>{changed.length}</i>}</button>}
-  </div>
-  {showFilters&&<div className="nm-filters" id={`${config.key}-filters`}>
-   <div className="nm-filter-row"><span>Sort</span><div className="nm-chips" role="group" aria-label="Sort by">
-    {SORTS.map(([key,text])=><button type="button" key={key} aria-pressed={sort===key} onClick={()=>setSort(key)}>{text}</button>)}</div></div>
-   <div className="nm-filter-row"><span>Lines</span><div className="nm-chips" role="group" aria-label="Lines">
-    {KINDS.map(([key,text])=><button type="button" key={key} aria-pressed={kind===key} onClick={()=>setKind(key)}>
-     {PICS[key]&&<img src={PICS[key][0]} alt="" width="14" height="14"/>}{text}</button>)}</div></div>
-   {roles&&<div className="nm-filter-row"><span>Players</span><div className="nm-chips" role="group" aria-label="Players">
-    {ROLES.map(([key,text])=><button type="button" key={key} aria-pressed={roleShown===key} onClick={()=>setRole(key)}>{text}</button>)}</div></div>}
-  </div>}
-  {!showFilters&&changed.length>0&&<div className="nm-active" aria-label="Filters on">{changed.map(item=>
-   <button type="button" key={item.key} onClick={item.clear} aria-label={`Clear ${item.label}`}>{item.pic&&<img src={item.pic} alt="" width="13" height="13"/>}{item.label}<X size={12} aria-hidden="true"/></button>)}</div>}
-  {wide&&<GameList games={games} value={picked} onChange={setGame}/>}
-  </div>
-  <div className="nm-maincol">
+  {games.length>0&&<GameStrip games={games} value={picked} onChange={setGame}/>}
   <div className="nm-stats" role="group" aria-label="Stat" ref={statRow}>
-   {STATS.filter(([key])=>key==='all'||counts[key]).map(([key,text])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{text}</button>)}
+   {STATS.filter(([key])=>key==='all'||counts[key]).map(([key,text])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{text}{key!=='all'&&<small>{counts[key]}</small>}</button>)}
    <i className="nm-ink" aria-hidden="true" style={inkStyle(statInk)}/>
   </div>
+  {wide?<div className="nm-controls">{filters}{folds}</div>:<>
+   {showFilters&&filters}
+   {!showFilters&&changed.length>0&&<div className="nm-active" aria-label="Filters on">{changed.map(item=>
+    <button type="button" key={item.key} onClick={item.clear} aria-label={`Clear ${item.label}`}>{item.pic&&<img src={item.pic} alt="" width="13" height="13"/>}{item.label}<X size={12} aria-hidden="true"/></button>)}</div>}
+   {folds}</>}
+  {fold==='spots'&&spots.teams.length>0&&<section className="nm-spots" aria-label="Soft spots by defense"><SoftSpots spots={spots} stat={stat} facing={facing} onPick={pickSpot} wide={wide} league={league}/></section>}
+  {fold==='record'&&recordSummary&&<section className="nm-record" aria-label="Track record"><RecordTable record={record} summary={recordSummary}/></section>}
+  {facing&&<div className="nm-active nm-facing"><button type="button" onClick={()=>setFacing('')} aria-label={`Clear: against ${facing}'s defense`}>
+   {league?.teams?.[facing]?.logo&&<img src={league.teams[facing].logo} alt="" width="13" height="13"/>}Against {facing}’s defense<X size={12} aria-hidden="true"/></button></div>}
 
   {status==='loading'&&<div className="nm-empty"><RefreshCw size={18} className="nm-spin"/><b>{words.loading}</b>
    {progress?.total>0&&<span>Hit rates {progress.done} of {progress.total}</span>}</div>}
   {status==='error'&&<div className="nm-empty"><b>{words.failed}</b><button type="button" onClick={load}>Try again</button></div>}
   {(status==='ready'||status==='refreshing')&&!rows.length&&<div className="nm-empty"><b>{words.none}</b>
    <span>{words.noneText}</span></div>}
-  {(spots.teams.length>0||recordSummary)&&<div className="nm-folds" data-two={spots.teams.length>0&&recordSummary?true:undefined}>
-   {spots.teams.length>0&&<button type="button" className="nm-fold" data-kind="spots" aria-expanded={fold==='spots'} onClick={()=>setFold(fold==='spots'?'':'spots')}>
-    <LayoutGrid size={16} aria-hidden="true"/><span><b>Soft spots</b><small>{spots.best?`${spots.best.team} ${SHORT[spots.best.key]} · ${Math.round(spots.best.value)}`:'By defense'}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
-   {recordSummary&&<button type="button" className="nm-fold" data-kind="record" aria-expanded={fold==='record'} onClick={()=>setFold(fold==='record'?'':'record')}>
-    <LineChart size={16} aria-hidden="true"/><span><b>Track record</b><small>{recordSummary.line}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
-  </div>}
-  {fold==='spots'&&spots.teams.length>0&&<section className="nm-spots" aria-label="Soft spots by defense"><SoftSpots spots={spots} stat={stat} facing={facing} onPick={pickSpot} wide={wide} league={league}/></section>}
-  {fold==='record'&&recordSummary&&<section className="nm-record" aria-label="Track record"><RecordTable record={record} summary={recordSummary}/></section>}
-  {facing&&<div className="nm-active nm-facing"><button type="button" onClick={()=>setFacing('')} aria-label={`Clear: against ${facing}'s defense`}>
-   {league?.teams?.[facing]?.logo&&<img src={league.teams[facing].logo} alt="" width="13" height="13"/>}Against {facing}’s defense<X size={12} aria-hidden="true"/></button></div>}
   {(status==='ready'||status==='refreshing')&&rows.length>0&&!league&&<p className="nm-note">Matchup scores are still loading the league’s numbers. Hit rates are below.</p>}
 
   <div className="nm-work">
-  <div className="nm-workmain">
-  {shown.length>0&&<div className="nm-table" ref={tableRef}>
-   <div className="nm-thead"><span className="nm-th-rank">#</span><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
-    {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
-     aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={13} aria-hidden="true"/>}</button>)}</div>
-   <ul className="nm-list">{shown.map(({row,read,hit,prop,role},index)=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} index={index} color={teamColor(league,row.teamAbbr)} short={SHORT}
-    open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}
-    picking={picking} selected={chosen?.row.id===row.id} onSelect={setSelectedId}/>)}</ul></div>}
-  {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
-   <span>Try another stat, game or filter, or clear the search.</span></div>}
-
-  {at>0&&rows.length>0&&<p className="nm-meta">{shown.length} {shown.length===1?'prop':'props'} · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
-  </div>
-  {chosen&&<Preview item={chosen} others={others} league={league} short={SHORT} color={teamColor(league,chosen.row.teamAbbr)} onOpen={openPage} onPick={setSelectedId}/>}
-  </div>
+   <div className="nm-workmain">
+    {shown.length>0&&<div className="nm-table" ref={tableRef} data-picking={picking||undefined}>
+     <div className="nm-thead"><span className="nm-th-rank">#</span><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
+      {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
+       aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={12} aria-hidden="true"/>}</button>)}
+      {EXTRA.map(([key,label])=><span className="nm-th-rate" key={key}>{label}</span>)}</div>
+     <ul className="nm-list">{shown.map(({row,read,hit,prop,role},index)=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} index={index} color={teamColor(league,row.teamAbbr)} short={SHORT}
+      open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}
+      picking={picking} selected={chosen?.row.id===row.id} onSelect={setSelectedId} saved={saved}/>)}</ul></div>}
+    {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>
+     <span>Try another stat, game or filter, or clear the search.</span></div>}
+    {at>0&&rows.length>0&&<p className="nm-meta">{shown.length} {shown.length===1?'prop':'props'} · updated {new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</p>}
+   </div>
+   {chosen&&<Preview item={chosen} others={others} league={league} short={SHORT} color={teamColor(league,chosen.row.teamAbbr)} onOpen={openPage} onPick={setSelectedId} saved={saved}/>}
   </div>
  </section>;
 }

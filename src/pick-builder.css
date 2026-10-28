@@ -25,54 +25,80 @@
 @keyframes pick-side-in{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.pick-side-menu{animation:none}}
 
-/* ---- Side panel section ---- */
-.side-panel .pick-builder{margin:0 0 22px;padding:14px;border:1px solid #232323;border-radius:18px;background:linear-gradient(180deg,#101010 0%,#0a0a0a 100%);color:#ededed;font-family:Inter,Arial,sans-serif;letter-spacing:0}
+/* ---- The Pick Builder (PickBuilder.jsx) ----
+   Oct 28, the owner: "redesign the Pick Builder and make it easier to
+   navigate". The stat-sheet look of the Props tab: the title and how many
+   of the 6 places are taken, the picks as numbered rows on thin rules (the
+   line big, the side beside it), the export, link and clear held at the
+   bottom while the list scrolls. */
+.pick-builder{--pb-panel:#0e1217;--pb-line:#1b222b;--pb-line-2:#262e39;--pb-text:#eef2f6;--pb-muted:#9aa4b1;--pb-faint:#69737f;--pb-pill:#eef2f6;
+ --pb-num:'Barlow Condensed',var(--font-sans,'Inter'),system-ui,sans-serif;
+ position:relative;display:flex;flex-direction:column;color:var(--pb-text);font-family:var(--font-sans,'Inter'),Arial,sans-serif;letter-spacing:0;white-space:normal}
 .pick-builder *{box-sizing:border-box}
-.pick-builder-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 2px 12px}
-.pick-builder-head h2{margin:0;font:650 17px/1.2 "Space Grotesk",Inter,Arial,sans-serif;letter-spacing:-.2px;color:#f2f2f2}
-.pick-builder-head>span{color:#858585;font-size:12px;font-variant-numeric:tabular-nums}
-.pick-builder-empty{display:flex;align-items:center;gap:12px;padding:14px 12px;border:1px dashed #2b2b2b;border-radius:14px;color:#888888}
-.pick-builder-empty strong{display:block;margin-bottom:2px;color:#dadada;font-size:13px}
-.pick-builder-empty span{font-size:12px;line-height:1.45}
-.pick-builder-empty svg{flex:0 0 auto}
-.pick-builder-list{display:grid;gap:8px}
-.pick-builder-leg{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);gap:4px 11px;padding:11px 11px 10px;border:1px solid #212121;border-radius:14px;background:#121212}
-.pick-builder-leg[data-side]{border-left:3px solid var(--theme-accent)}
-.pick-builder-photo{position:relative;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:#1d1d1d;border:1px solid #2f2f2f;color:#a6a6a6;font-size:13px;font-weight:700}
-.pick-builder-headshot{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top}
-.pick-builder-team{position:absolute;right:-5px;bottom:-4px;width:22px;height:22px;padding:2px;border-radius:50%;background:#0a0a0a;border:1px solid #2f2f2f;object-fit:contain}
-.pick-builder-copy{display:grid;gap:2px;min-width:0;padding-right:26px}
-.pick-builder-copy strong{overflow:hidden;color:#f2f2f2;font-size:14px;font-weight:700;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
-.pick-builder-stat{display:flex;align-items:center;gap:5px;min-width:0;color:#c4c4c4;font-size:12px}
-.pick-builder-stat b{color:#fff;font-weight:800;font-variant-numeric:tabular-nums}
-.pick-builder-stat img{flex:0 0 auto;object-fit:contain}
-.pick-builder-meta{display:flex;align-items:center;gap:5px;color:#858585;font-size:11px}
-.pick-builder-odds{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
-.pick-builder-book{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 7px 0 3px;border:1px solid #272727;border-radius:999px;background:#0d0d0d;color:#dadada;font-size:11px;font-weight:650;font-variant-numeric:tabular-nums}
-.pick-builder-book>img{width:18px;height:18px;border-radius:5px;object-fit:contain}
-.pick-builder-book small{color:#858585;font-size:10px;font-weight:600}
-.pick-builder-side{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px;padding:3px;border:1px solid #232323;border-radius:12px;background:#0b0b0b}
+.side-panel .pick-builder{margin:0 0 22px;border:1px solid var(--pb-line);border-radius:14px;background:var(--pb-panel)}
 .pick-builder button{margin:0;font-family:inherit;letter-spacing:0;cursor:pointer;box-shadow:none}
 .pick-builder button:disabled{cursor:not-allowed}
-.pick-builder-side button{min-height:36px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:#959595;font-size:13px;font-weight:650;transition:background-color .15s,color .15s}
-.pick-builder-side button:not(:disabled):hover{color:#fff;background:#191919}
-.pick-builder-side button[aria-pressed=true]{background:color-mix(in srgb,var(--theme-accent) 28%,#0b0b0b);color:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--theme-accent) 60%,transparent)}
-.pick-builder-side button:disabled:not([aria-pressed=true]){opacity:.38}
-.pick-builder-remove{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:#858585}
-.pick-builder-remove:hover{background:#1f1f1f;color:#fff}
-/* Keep the tap area 44px on touch screens without enlarging the glyph. */
-@media(pointer:coarse){.pick-builder-remove::after{content:'';position:absolute;inset:-7px;border-radius:50%}}
-.pick-builder-footer{margin-top:12px}
-.pick-builder-footer p{margin:0 2px 10px;color:#959595;font-size:12px;line-height:1.4}
-.pick-builder-footer>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.pick-builder-clear,.pick-builder-link,.pick-builder-export{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:0 14px;border-radius:12px;font-size:13px;font-weight:700;text-decoration:none}
-.pick-builder-clear,.pick-builder-link{border:1px solid #2f2f2f;background:#101010;color:#dadada}
-.pick-builder-clear:not(:disabled):hover,.pick-builder-link:not(:disabled):hover{border-color:#525252;color:#fff}
-.pick-builder-export{grid-column:1/-1;border:1px solid var(--theme-accent);background:var(--theme-accent);color:var(--theme-on-accent,#fff);box-shadow:none}
+.pick-builder-head{display:flex;align-items:center;gap:10px;padding:12px 14px 10px}
+.pick-builder-head h2{flex:1;min-width:0;margin:0;color:var(--pb-text);font:700 21px/1 var(--pb-num);letter-spacing:.04em;text-transform:uppercase}
+.pick-builder-count{flex:none;color:var(--pb-faint);font:700 16px/1 var(--pb-num);font-variant-numeric:tabular-nums}
+.pick-builder-count b{color:var(--pb-text);font-size:21px}
+.pick-builder-back{display:inline-flex;align-items:center;gap:5px;flex:none;height:32px;padding:0 10px 0 7px;border:1px solid var(--pb-line-2);border-radius:8px;background:transparent;
+ color:var(--pb-text);font:700 14px/1 var(--pb-num)!important;letter-spacing:.06em!important;text-transform:uppercase;transition:background-color .15s,border-color .15s}
+.pick-builder-back:hover{border-color:#3c4654;background:#141a21}
+/* Six places, the taken ones lit. */
+.pick-builder-slots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:0 14px 12px;border-bottom:1px solid var(--pb-line)}
+.pick-builder-slots i{height:4px;border-radius:2px;background:#1f262f;transition:background-color .3s ease}
+.pick-builder-slots i[data-on]{background:var(--theme-accent,var(--pb-pill))}
+.pick-builder-empty{display:flex;align-items:center;gap:12px;margin:12px 14px;padding:14px 12px;border:1px dashed var(--pb-line-2);border-radius:10px;color:var(--pb-muted)}
+.pick-builder-empty strong{display:block;margin-bottom:2px;color:var(--pb-text);font:700 16px/1.1 var(--pb-num);letter-spacing:.04em;text-transform:uppercase}
+.pick-builder-empty span{font-size:12.5px;line-height:1.45}
+.pick-builder-empty svg{flex:0 0 auto}
+/* A pick: its number, photo, name and game, the x; under them the line and the side; the books' prices. */
+.pick-builder-list{margin:0;padding:0;list-style:none}
+.pick-builder-leg{position:relative;display:grid;grid-template-columns:16px 40px minmax(0,1fr) 30px;grid-template-areas:'num photo copy remove' 'num bet bet bet' 'num odds odds odds';
+ align-items:center;gap:6px 10px;padding:11px 10px 11px 12px;border-top:1px solid var(--pb-line);animation:pick-leg-in .3s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--n,0) * 40ms)}
+.pick-builder-leg:first-child{border-top:0}
+@keyframes pick-leg-in{from{opacity:0;transform:translateX(-6px)}}
+.pick-builder-num{grid-area:num;align-self:start;margin-top:12px;color:var(--pb-faint);font:700 15px/1 var(--pb-num)}
+.pick-builder-photo{grid-area:photo;position:relative;display:grid;place-items:center;width:40px;height:40px;border-radius:9px;background:#1a2028;color:#a6a6a6;font-size:12px;font-weight:700}
+.pick-builder-photo:has(>.pick-builder-headshot:not([hidden]))>span{visibility:hidden}
+.pick-builder-headshot{position:absolute;inset:0;width:100%;height:100%;border-radius:9px;object-fit:cover;object-position:top}
+.pick-builder-team{position:absolute;right:-5px;bottom:-4px;width:19px;height:19px;padding:2px;border-radius:6px;background:var(--pb-panel);border:1px solid var(--pb-line-2);object-fit:contain}
+.pick-builder-copy{grid-area:copy;display:grid;gap:3px;min-width:0}
+.pick-builder-copy strong{overflow:hidden;color:var(--pb-text);font-size:14px;font-weight:650;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+.pick-builder-meta{display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;color:var(--pb-faint);font-size:11.5px;white-space:nowrap}
+.pick-builder-meta img{flex:0 0 auto;object-fit:contain}
+.pick-builder-remove{grid-area:remove;position:relative;align-self:start;display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:7px;background:transparent;color:var(--pb-faint)}
+.pick-builder-remove:not(:disabled):hover{background:#1d242d;color:#fff}
+@media(pointer:coarse){.pick-builder-remove::after{content:'';position:absolute;inset:-8px;border-radius:9px}}
+.pick-builder-bet{grid-area:bet;display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.pick-builder-stat{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;color:var(--pb-muted);font:700 14px/1.1 var(--pb-num);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis}
+.pick-builder-stat b{color:var(--pb-text);font:700 24px/1 var(--pb-num);letter-spacing:0;font-variant-numeric:tabular-nums}
+.pick-builder-side{flex:none;display:inline-flex;gap:2px;padding:2px;border:1px solid var(--pb-line-2);border-radius:8px;background:#0b0f13}
+.pick-builder-side button{height:28px;min-width:58px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--pb-muted);font:700 14px/1 var(--pb-num)!important;letter-spacing:.06em!important;
+ text-transform:uppercase;transition:background-color .18s,color .18s}
+.pick-builder-side button:not(:disabled):not([aria-pressed=true]):hover{color:#fff}
+.pick-builder-side button[aria-pressed=true]{background:var(--pb-pill);color:#0a0d11}
+.pick-builder-side button:disabled:not([aria-pressed=true]){opacity:.35}
+.pick-builder-odds{grid-area:odds;display:flex;flex-wrap:wrap;gap:4px}
+.pick-builder-odds:empty{display:none}
+.pick-builder-book{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 6px 0 3px;border:1px solid var(--pb-line-2);border-radius:6px;background:transparent;color:#d6dbe2;font-size:11px;font-weight:650;font-variant-numeric:tabular-nums}
+.pick-builder-book>img{width:16px;height:16px;border-radius:4px;object-fit:contain}
+.pick-builder-book small{color:var(--pb-faint);font-size:10px;font-weight:600}
+/* Export, the link and clear: held at the bottom while the picks scroll. */
+.pick-builder-footer{position:sticky;bottom:0;z-index:2;display:grid;gap:8px;margin-top:auto;padding:10px 14px 14px;border-top:1px solid var(--pb-line);background:var(--pb-panel);border-radius:0 0 14px 14px}
+.pick-builder-footer p{margin:0;color:var(--pb-muted);font-size:12px;line-height:1.4}
+.pick-builder-footer p:empty{display:none}
+.pick-builder-more{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pick-builder-clear,.pick-builder-link,.pick-builder-export{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:0 12px;border-radius:9px;
+ font:700 15px/1 var(--pb-num)!important;letter-spacing:.06em!important;text-transform:uppercase;text-decoration:none;transition:border-color .15s,background-color .15s,filter .15s}
+.pick-builder-clear,.pick-builder-link{border:1px solid var(--pb-line-2);background:transparent;color:var(--pb-text)}
+.pick-builder-clear:not(:disabled):hover,.pick-builder-link:not(:disabled):hover{border-color:#3c4654;background:#141a21}
+.pick-builder-export{min-height:44px;border:1px solid var(--theme-accent);background:var(--theme-accent);color:var(--theme-on-accent,#fff);font-size:16px!important}
 .pick-builder-export:not(:disabled):hover{filter:brightness(1.08)}
-.pick-builder-clear:disabled,.pick-builder-link:disabled,.pick-builder-export:disabled{opacity:.45;box-shadow:none}
-.pick-builder a.pick-builder-export:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:2px}
-.pick-builder button:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:2px}
+.pick-builder-clear:disabled,.pick-builder-link:disabled,.pick-builder-export:disabled{opacity:.42}
+.pick-builder a.pick-builder-export:focus-visible,.pick-builder button:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.pick-builder-leg{animation:none}.pick-builder-slots i{transition:none}}
 
 /* Desktop: the panel opens beside the rail (VortexSidebar), which is the
    menu there, so it holds just the Pick Builder (side-menu.css hides the
@@ -81,9 +107,7 @@
  .side-panel{left:64px!important}
 }
 
-/* Close, when the builder sits in the desktop rail (VortexSidebar). */
-.pick-builder-close { display: grid; place-items: center; width: 30px; height: 30px; margin-left: 6px; border: 1px solid var(--theme-border, #3a3a3a); border-radius: 8px; background: transparent; color: var(--theme-dim, #adadad); cursor: pointer; }
-.pick-builder-close:hover { color: var(--theme-text, #f3f5f8); background: var(--theme-panel-2, #232323); }
-.vortex-sidebar-builder .pick-builder{padding:12px;border:1px solid var(--theme-border,#3a3a3a);border-radius:14px;background:linear-gradient(180deg,#101010 0%,#0a0a0a 100%);color:#ededed;font-family:Inter,Arial,sans-serif;letter-spacing:0;white-space:normal}
-.vortex-sidebar-builder .pick-builder-head{align-items:center}
-.vortex-sidebar-builder .pick-builder-head>span{margin-left:auto}
+/* In the desktop rail (VortexSidebar) the builder has the rail to itself:
+   the links step aside while it's open and its Menu button brings them back. */
+.vortex-sidebar-body.has-builder .vortex-sidebar-links{display:none!important}
+.vortex-sidebar-builder .pick-builder{min-height:100%;border:1px solid var(--pb-line);border-radius:14px;background:var(--pb-panel)}

@@ -9,31 +9,6 @@
 .nba-mp button{font-family:inherit}
 .nba-mp button:focus-visible{outline:2px solid var(--mp-accent);outline-offset:2px}
 
-/* The banner: his team's colours edge to edge, his photo on the right
-   over a faint team logo, his name on two lines, tonight's game. On phones
-   it runs the full width of the screen from the very top. */
-.nba-mp .mp-hero{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;min-height:300px;margin-bottom:0;
- padding:16px 18px 18px;border-radius:21px 21px 0 0;
- background:radial-gradient(85% 75% at 82% 30%,color-mix(in srgb,var(--team,#2f5b9a) 50%,transparent),transparent 72%),
-  linear-gradient(160deg,color-mix(in srgb,var(--team,#2f5b9a) 42%,#0b0d12) 0%,#0b0d12 80%)}
-.nba-mp .mp-hero-mark{position:absolute;z-index:-2;top:46%;right:4%;width:min(64%,320px);aspect-ratio:1;object-fit:contain;transform:translateY(-50%);
- opacity:.12;filter:grayscale(1) brightness(1.8);pointer-events:none}
-.nba-mp .mp-hero-photo{position:absolute;z-index:-1;right:-6px;bottom:0;width:auto;max-width:none;height:min(80%,260px);object-fit:contain;object-position:bottom right;
- filter:drop-shadow(0 12px 28px #0009);pointer-events:none}
-.nba-mp .mp-back{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:1px solid #ffffff30;border-radius:50%;background:#00000052;color:#fff;cursor:pointer}
-.nba-mp .mp-hero-text{display:flex;flex-direction:column;align-items:flex-start;margin-top:auto;padding-top:26px;max-width:62%}
-.nba-mp .mp-hero h1{margin:0;font:800 36px/1.02 'Sora',var(--font-sans);letter-spacing:-.025em;white-space:nowrap;text-shadow:0 2px 18px #000a}
-.nba-mp .mp-hero[data-long=l] h1{font-size:30px}
-.nba-mp .mp-hero[data-long=xl] h1{font-size:24px}
-.nba-mp .mp-hero p{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 14px;color:#d3d8e0;font-size:14px;font-weight:700;text-shadow:0 1px 10px #000a}
-.nba-mp .mp-hero p i{width:4px;height:4px;border-radius:50%;background:#8d95a3}
-.nba-mp .mp-next{display:inline-flex;align-items:center;gap:10px;padding:2px 0 2px 12px;border-left:3px solid color-mix(in srgb,var(--team,#2f5b9a) 70%,#fff)}
-.nba-mp .mp-next img{width:34px;height:34px;object-fit:contain}
-.nba-mp .mp-next span{display:grid;gap:1px}
-.nba-mp .mp-next small{color:#9aa0aa;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-.nba-mp .mp-next b{font-size:16px}
-.nba-mp .mp-next em{color:#c9ccd3;font-size:12px;font-style:normal;white-space:nowrap}
-
 /* Sections, pinned under a slim bar (photo, name, tonight's game) once the banner scrolls away. */
 .nba-mp{--mp-mini-h:58px;--mp-bg:var(--theme-bg,#0a0a0a)}
 .nba-mp .mp-stick-slot{margin-bottom:0}
@@ -75,14 +50,6 @@
  #panel-v2:has(#props-league-root[data-page=player]){width:calc(100% - 64px)!important;max-width:2200px!important}
  #props-league-root[data-page=player]{max-width:none}
  .nba-mp{max-width:100%}
- .nba-mp .mp-hero{min-height:360px;padding:22px 40px 30px}
- .nba-mp .mp-hero-text{max-width:55%}
- .nba-mp .mp-hero h1{font-size:56px}
- .nba-mp .mp-hero[data-long=l] h1{font-size:48px}
- .nba-mp .mp-hero[data-long=xl] h1{font-size:40px}
- .nba-mp .mp-hero p{font-size:16px}
- .nba-mp .mp-hero-photo{right:5%;height:min(94%,350px)}
- .nba-mp .mp-hero-mark{right:6%;width:min(40%,380px)}
  .nba-mp .mp-tabs{grid-template-columns:repeat(var(--mp-tab-count,3),minmax(0,200px));padding:0 40px}
  .nba-mp .mp-body{padding:0 40px 8px}
  .nba-mp .mp-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
@@ -102,7 +69,6 @@
  :root[data-theme] body:has(#panel-v2:not([hidden]) #props-league-root[data-page=player]) .hero{display:none!important}
  :root[data-theme] body #app-shell #panel-v2:has(#props-league-root[data-page=player]){padding-top:0!important}
  .nba-mp{--mp-mini-h:calc(58px + env(safe-area-inset-top,0px))}
- .nba-mp .mp-hero{margin:0 calc(50% - 50vw);min-height:calc(312px + env(safe-area-inset-top,0px));padding:calc(12px + env(safe-area-inset-top,0px)) 16px 18px;border-radius:0}
  .nba-mp .mp-stick-slot{margin-inline:calc(50% - 50vw)}
  .nba-mp .mp-mini{padding:env(safe-area-inset-top,0px) 12px 0}
 }
@@ -483,7 +449,6 @@
 .nba-mp .nf-dnp{text-align:center!important;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
 
 @media (max-width:520px){
- .nba-mp .mp-hero-photo{height:min(70%,230px)}
  .nba-mp .ng-score b{font-size:46px}
  .nba-mp .ng-tiles{gap:5px}
  .nba-mp .ng-tiles b{font-size:17px}
@@ -589,9 +554,6 @@
    and tiles and the defense's bars are washed in their tone. Off with
    reduced motion. */
 .nba-mp{--mp-accent:color-mix(in srgb,var(--team,var(--theme-accent,#4cc9f0)) 62%,#fff)}
-.nba-mp .mp-hero-photo{animation:mp-photo .7s cubic-bezier(.2,.8,.2,1) backwards}
-.nba-mp .mp-hero-mark{animation:mp-mark 1s cubic-bezier(.2,.8,.2,1) backwards}
-.nba-mp .mp-hero-text{animation:mp-up .55s .12s cubic-bezier(.2,.8,.2,1) backwards}
 @keyframes mp-photo{from{opacity:0;transform:translateY(22px) scale(.96)}}
 @keyframes mp-mark{from{opacity:0;transform:translateY(-50%) rotate(-14deg) scale(.86)}}
 @keyframes mp-up{from{opacity:0;transform:translateY(12px)}}
@@ -641,8 +603,6 @@
 /* The page's own background (nba-matchups.css, Background): the banner
    fades into it, and the tab bar is see-through, frosted once it pins. */
 .nba-mp{--mp-bg:color-mix(in srgb,var(--team,#16181d) 12%,rgba(10,11,14,.86))}
-.nba-mp .mp-hero{background:radial-gradient(85% 75% at 82% 30%,color-mix(in srgb,var(--team,#2f5b9a) 50%,transparent),transparent 72%),
- linear-gradient(160deg,color-mix(in srgb,var(--team,#2f5b9a) 36%,transparent) 0%,transparent 85%)}
 .nba-mp .mp-stick{background:transparent}
 .nba-mp .mp-stick[data-mini],.nba-mp .mp-stick[data-mini] .mp-mini{background:var(--mp-bg);-webkit-backdrop-filter:blur(16px) saturate(1.3);backdrop-filter:blur(16px) saturate(1.3)}
 
@@ -662,16 +622,6 @@
  .nba-mp[data-wide]{--frame:min(2200px,calc(100vw - 80px));width:var(--frame);max-width:none;margin:0 0 24px calc(50% - var(--frame) / 2);
   border:1px solid #ffffff14;border-radius:26px;overflow:clip;
   background:linear-gradient(180deg,rgba(18,21,28,.94),rgba(12,14,19,.96));box-shadow:0 40px 80px -50px #000,0 0 0 1px #00000060}
- .nba-mp[data-wide] .mp-hero{min-height:330px;padding:26px 48px 34px;border-radius:0}
- .nba-mp[data-wide] .mp-hero-text{max-width:50%}
- .nba-mp[data-wide] .mp-hero h1{font-size:66px}
- .nba-mp[data-wide] .mp-hero[data-long=l] h1{font-size:56px}
- .nba-mp[data-wide] .mp-hero[data-long=xl] h1{font-size:46px}
- .nba-mp[data-wide] .mp-hero p{font-size:17px}
- .nba-mp[data-wide] .mp-next img{width:42px;height:42px}
- .nba-mp[data-wide] .mp-next b{font-size:19px}
- .nba-mp[data-wide] .mp-hero-photo{right:7%;height:min(100%,370px)}
- .nba-mp[data-wide] .mp-hero-mark{right:8%;width:min(30%,420px);opacity:.14}
  .nba-mp[data-wide] .mp-stick-slot{border-top:1px solid #ffffff10;border-bottom:1px solid #ffffff10;background:#0d0f14}
  .nba-mp[data-wide] .mp-tabs{display:flex;gap:6px;padding:10px 40px;border-bottom:0}
  .nba-mp[data-wide] .mp-tabs button{min-height:38px;padding:0 20px;border-radius:999px;font-size:12px;box-shadow:none}
@@ -699,11 +649,6 @@
  .nba-mp .mp-part .ns-shotlink:hover{background:linear-gradient(90deg,transparent,#ffffff08 15%,#ffffff08 85%,transparent)}
 }
 @media (min-width:1500px){
- .nba-mp[data-wide] .mp-hero{min-height:370px;padding:30px 64px 40px}
- .nba-mp[data-wide] .mp-hero h1{font-size:78px}
- .nba-mp[data-wide] .mp-hero[data-long=l] h1{font-size:66px}
- .nba-mp[data-wide] .mp-hero[data-long=xl] h1{font-size:54px}
- .nba-mp[data-wide] .mp-hero-photo{height:min(100%,410px)}
  .nba-mp[data-wide] .mp-tabs{padding:10px 64px}
 }
 @media (min-width:1100px) and (prefers-reduced-motion:reduce){.nba-mp .mp-dcol{animation:none}}
@@ -1038,3 +983,302 @@
 .nba-mp .nf-chip[data-page]{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mp-accent) 55%,transparent)}
 @media (max-width:380px){.nba-mp .nf-mv-list button{grid-template-columns:30px minmax(0,1fr) auto auto;gap:8px}.nba-mp .nf-mv-more{display:none}}
 @media (prefers-reduced-motion:reduce){.nba-mp :is(.nf-mv-list>li,.nf-steps path,.nf-mv-times){animation:none}}
+
+/* ---------------------------------------------------------------- Oct 28
+   The owner: "redesign this whole thing ... nicer and easier to research
+   ... nothing should look alike", every number kept. The page is a stat
+   sheet now, like the Props list: scoreboard numbers (Barlow Condensed),
+   a player card for a banner (his photo on his team's color, his facts,
+   tonight's game, his lines with the slip's +), switches whose picked
+   button is a light pill, every section its own panel on a 12px grid,
+   numbers in cells split by hairlines instead of grey boxes, the score a
+   solid badge in its band's color. Still no glows or gradient text. */
+.nba-mp{--mp-card:#0e1217;--mp-raised:#141a21;--mp-line:#1b222b;--mp-line-2:#262e39;--mp-text:#eef2f6;--mp-muted:#9aa4b1;--mp-faint:#69737f;
+ --mp-good:#5fd08b;--mp-edge:#4dc48c;--mp-fair:#e8b84b;--mp-poor:#f1675b;--mp-strong:#a5e063;--mp-bg:#090c10;
+ --mp-num:'Barlow Condensed',var(--font-sans,'Inter'),system-ui,sans-serif;--mp-pill:#eef2f6;--mp-on-pill:#0a0d11}
+:root #app-shell:has(#props-league-root[data-page=player]){background:#090c10!important}
+@media (min-width:761px){.nba-mp{border:0;border-radius:0;background:transparent}}
+.nba-mp[data-wide]{border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+@keyframes mp-card-in{from{opacity:0;transform:translateY(8px)}}
+
+/* The banner: a player card. */
+.nba-mp .mp-hero{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:'top top' 'card text' 'lines lines';align-items:center;gap:14px 16px;
+ padding:12px 16px 16px;border-bottom:1px solid var(--mp-line);background:var(--mp-card)}
+.nba-mp .mp-hero-top{grid-area:top;display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.nba-mp .mp-back{display:inline-flex;align-items:center;gap:6px;width:auto;height:34px;padding:0 12px 0 8px;border:1px solid var(--mp-line-2);border-radius:8px;background:transparent;
+ color:var(--mp-text);font:700 15px/1 var(--mp-num);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:background-color .15s,border-color .15s}
+.nba-mp .mp-back:hover{border-color:#3c4654;background:var(--mp-raised)}
+.nba-mp .mp-writeup{position:static;height:34px;padding:0 13px;border:1px solid var(--mp-line-2);border-radius:8px;background:transparent;font:700 15px/1 var(--mp-num);letter-spacing:.05em;text-transform:uppercase;
+ -webkit-backdrop-filter:none;backdrop-filter:none}
+.nba-mp .mp-hero-card{grid-area:card;position:relative;width:92px;height:92px;overflow:hidden;border-radius:14px;
+ background:linear-gradient(180deg,color-mix(in srgb,var(--team,#2f5b9a) 92%,#fff 8%),color-mix(in srgb,var(--team,#2f5b9a) 70%,#000))}
+.nba-mp .mp-hero-mark{position:absolute;top:-14%;right:-22%;width:78%;aspect-ratio:1;object-fit:contain;opacity:.22;filter:grayscale(1) brightness(2.6);pointer-events:none}
+.nba-mp .mp-hero-photo{position:absolute;bottom:0;left:50%;width:auto;max-width:none;height:96%;object-fit:contain;object-position:bottom;transform:translateX(-50%);pointer-events:none;
+ animation:mp-hero-photo .5s cubic-bezier(.2,.8,.2,1) backwards}
+@keyframes mp-hero-photo{from{opacity:0;transform:translate(-50%,12px)}}
+.nba-mp .mp-hero-text{grid-area:text;display:grid;gap:8px;min-width:0;animation:mp-up .45s .06s cubic-bezier(.2,.8,.2,1) backwards}
+.nba-mp .mp-hero h1{margin:0;font:700 30px/.92 var(--mp-num);letter-spacing:.01em;text-transform:uppercase;overflow-wrap:anywhere}
+.nba-mp .mp-hero p{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin:0;color:var(--mp-muted);font-size:13px;font-weight:600}
+.nba-mp .mp-hero p i{width:3px;height:3px;border-radius:50%;background:#59626f}
+.nba-mp .mp-next{display:inline-flex;align-items:center;gap:9px}
+.nba-mp .mp-next img{width:30px;height:30px;object-fit:contain}
+.nba-mp .mp-next span{display:grid;grid-template-columns:auto auto;align-items:baseline;gap:0 8px}
+.nba-mp .mp-next small{grid-column:1 / -1;color:var(--mp-faint);font:700 11px/1.2 var(--mp-num);letter-spacing:.1em;text-transform:uppercase}
+.nba-mp .mp-next b{font:700 19px/1.1 var(--mp-num);letter-spacing:.03em}
+.nba-mp .mp-next em{color:var(--mp-muted);font-size:12.5px;font-style:normal;font-weight:600;white-space:nowrap}
+/* His lines tonight: a stub each, the slip's + on it. */
+.nba-mp .mp-hero-lines{grid-area:lines;min-width:0}
+.nba-mp .mp-hero-lines h2{margin:0 0 7px;color:var(--mp-faint);font:700 12.5px/1 var(--mp-num);letter-spacing:.1em;text-transform:uppercase}
+.nba-mp .mp-hero-lines ul{display:flex;gap:6px;margin:0;padding:0 0 2px;overflow-x:auto;list-style:none;scrollbar-width:none}
+.nba-mp .mp-hero-lines ul::-webkit-scrollbar{display:none}
+.nba-mp .mp-hero-lines li{flex:none;display:grid;grid-template-columns:auto auto;grid-template-areas:'stat add' 'line add';align-items:center;gap:3px 12px;padding:7px 7px 7px 11px;
+ border:1px solid var(--mp-line-2);border-radius:9px;background:#0b0f13;animation:mp-card-in .35s cubic-bezier(.2,.8,.2,1) backwards}
+.nba-mp .mp-hero-lines li[data-page]{border-color:var(--mp-pill)}
+.nba-mp .mp-hero-lines li>small{grid-area:stat;color:var(--mp-muted);font:700 13px/1 var(--mp-num);letter-spacing:.07em;text-transform:uppercase}
+.nba-mp .mp-hero-lines li>span{grid-area:line;display:flex;align-items:baseline;gap:4px}
+.nba-mp .mp-hero-lines li>span em{color:var(--mp-faint);font:700 11px/1 var(--mp-num);letter-spacing:.1em;font-style:normal;text-transform:uppercase}
+.nba-mp .mp-hero-lines li>span b{font:700 21px/1 var(--mp-num);font-variant-numeric:tabular-nums}
+.nba-mp .mp-hero-lines li>span img{align-self:center;width:15px;height:15px;object-fit:contain}
+.nba-mp .mp-hero-lines .slip-toggle{grid-area:add}
+@media (max-width:760px){
+ .nba-mp .mp-hero{margin:0 calc(50% - 50vw);padding:calc(10px + env(safe-area-inset-top,0px)) 16px 14px}
+}
+@media (min-width:1100px){
+ .nba-mp[data-wide] .mp-hero{grid-template-columns:auto minmax(0,1fr) minmax(0,auto);grid-template-areas:'top top top' 'card text lines';gap:14px 28px;padding:14px 26px 24px;
+  border:1px solid var(--mp-line);border-radius:14px}
+ .nba-mp[data-wide] .mp-hero-card{width:148px;height:148px;border-radius:18px}
+ .nba-mp[data-wide] .mp-hero h1{font-size:58px}
+ .nba-mp[data-wide] .mp-hero p{font-size:14.5px}
+ .nba-mp[data-wide] .mp-hero-lines{align-self:end}
+ .nba-mp[data-wide] .mp-hero-lines ul{flex-wrap:wrap;justify-content:flex-end;max-width:640px;overflow:visible}
+ .nba-mp[data-wide] .mp-hero-lines h2{text-align:right}
+}
+
+/* The section bar and the slim bar pinned over it. */
+.nba-mp .mp-stick,.nba-mp .mp-stick[data-mini]{background:var(--mp-bg)}
+.nba-mp .mp-stick[data-mini],.nba-mp .mp-stick[data-mini] .mp-mini{-webkit-backdrop-filter:none;backdrop-filter:none}
+.nba-mp .mp-mini{gap:10px;border-bottom:1px solid var(--mp-line);background:var(--mp-bg)}
+.nba-mp .mp-stick[data-mini] .mp-mini{background:#0b0f13}
+.nba-mp .mp-mini .mp-back{width:34px;padding:0;justify-content:center}
+.nba-mp .mp-mini .ns-photo{border-radius:8px;background:color-mix(in srgb,var(--team,#2a313b) 60%,#151a20)}
+.nba-mp .mp-mini>b{font:700 18px/1 var(--mp-num);letter-spacing:.03em;text-transform:uppercase}
+.nba-mp .mp-mini-game{border-radius:7px;font:700 14px/1 var(--mp-num);letter-spacing:.04em;background:transparent;border-color:var(--mp-line-2)}
+.nba-mp .mp-mini-game small{font:600 11.5px var(--font-sans)}
+.nba-mp .mp-mini-line{display:none;align-items:baseline;gap:4px;flex:none}
+.nba-mp .mp-mini-line em{color:var(--mp-faint);font:700 11px var(--mp-num);letter-spacing:.1em;font-style:normal;text-transform:uppercase}
+.nba-mp .mp-mini-line b{font:700 19px/1 var(--mp-num)}
+.nba-mp .mp-mini-line small{color:var(--mp-muted);font:700 13px var(--mp-num);letter-spacing:.06em}
+@media (min-width:761px){.nba-mp .mp-mini-line{display:inline-flex}}
+.nba-mp .mp-stick-slot{border:0;background:transparent}
+.nba-mp .mp-tabs,.nba-mp[data-wide] .mp-tabs{display:flex;gap:2px;width:max-content;max-width:100%;box-sizing:border-box;margin:12px 0 0;padding:3px;border:1px solid #232a34;border-radius:10px;background:var(--mp-card);
+ overflow-x:auto;scrollbar-width:none}
+.nba-mp .mp-tabs::-webkit-scrollbar{display:none}
+.nba-mp .mp-tabs button,.nba-mp[data-wide] .mp-tabs button{flex:none;min-height:0;height:34px;padding:0 16px;border:0;border-radius:7px;background:transparent;box-shadow:none;color:#97a1ae;
+ font:700 16px/1 var(--mp-num);letter-spacing:.06em;text-transform:uppercase;transition:background-color .2s,color .2s}
+.nba-mp .mp-tabs button:hover,.nba-mp[data-wide] .mp-tabs button:hover{background:transparent;color:var(--mp-text)}
+.nba-mp .mp-tabs button[aria-selected=true],.nba-mp[data-wide] .mp-tabs button[aria-selected=true]{background:var(--mp-pill);color:var(--mp-on-pill);box-shadow:none}
+.nba-mp .mp-stick[data-mini] .mp-tabs{margin:8px 0}
+@media (max-width:760px){
+ .nba-mp .mp-tabs{width:100%}
+ .nba-mp .mp-tabs button,.nba-mp .mp-tabs[data-count="5"] button{flex:1 0 auto;padding:0 10px;font-size:15px;letter-spacing:.04em}
+ .nba-mp .mp-stick[data-mini] .mp-tabs{margin:8px 0}
+}
+
+/* Sections: each its own panel, a 12px grid between (10px on a phone). */
+.nba-mp .mp-body{padding:0}
+.nba-mp .mp-body>*+*,.nba-mp .mp-col>*+*,.nba-mp .mp-col+.mp-col>:first-child,.nba-mp .mp-part+.mp-part,.nba-mp .mp-part>*+*{border-top:0}
+.nba-mp .mp-cols{display:grid;gap:10px;padding-top:10px}
+.nba-mp .mp-col{display:grid;align-content:start;gap:10px;min-width:0}
+.nba-mp .mp-col:first-child,.nba-mp .mp-col+.mp-col{padding:0;border-left:0}
+.nba-mp .mp-card{border:1px solid var(--mp-line);border-radius:12px;background:var(--mp-card);overflow:hidden}
+.nba-mp .mp-card>header,.nba-mp .nba-grade>header{gap:10px;padding:12px 14px 11px;border-bottom:1px solid var(--mp-line)}
+.nba-mp .mp-card>header h2,.nba-mp .mp-part .mp-card>header h2,.nba-mp .nba-grade>header h2{gap:8px;color:var(--mp-text);font:700 17px/1 var(--mp-num);letter-spacing:.06em;text-transform:uppercase}
+.nba-mp .mp-card>header h2 svg{width:15px;height:15px;color:var(--mp-muted)}
+.nba-mp .mp-card>header small{color:var(--mp-faint);font:700 12.5px/1 var(--mp-num);letter-spacing:.06em;text-transform:uppercase}
+.nba-mp .mp-card-body{padding:12px 14px 14px}
+.nba-mp .mp-section{padding:6px 2px 0;color:var(--mp-faint);font:700 13px/1 var(--mp-num);letter-spacing:.12em}
+.nba-mp .ns-shotlink{padding:12px 14px;border:1px solid var(--mp-line);border-radius:12px;background:var(--mp-card);transition:border-color .15s,background-color .15s}
+.nba-mp .ns-shotlink:hover,.nba-mp .mp-part .ns-shotlink:hover{border-color:#3c4654;background:var(--mp-raised)}
+.nba-mp .ns-shotlink small{color:var(--mp-muted);font:700 12px/1 var(--mp-num);letter-spacing:.1em}
+.nba-mp .ns-shotlink b{font:700 18px/1.1 var(--mp-num);letter-spacing:.03em;text-transform:uppercase}
+.nba-mp .ns-court rect:first-child{fill:#141a21}
+.nba-mp .ns-court :is(rect,path){stroke:#3a4350}
+@media (min-width:1100px){
+ .nba-mp .mp-cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding-top:12px}
+ .nba-mp .mp-cols:has(>.mp-col:last-child:empty){grid-template-columns:minmax(0,1fr)}
+ .nba-mp .mp-col{gap:12px}
+ .nba-mp .mp-dash{gap:12px;padding-top:12px;align-items:start}
+ .nba-mp .mp-dcol,.nba-mp .mp-dcol+.mp-dcol,.nba-mp .mp-dcol:nth-child(2){display:grid;align-content:start;gap:12px;padding:0;border-left:0;background:none}
+ .nba-mp .mp-part{display:grid;gap:12px;align-content:start;scroll-margin-top:120px}
+}
+
+/* Shared switches: a dark well, the picked button a light pill. */
+.nba-mp :is(.mp-seg,.ns-seg),.nba-mp .nv-tabs,.nba-mp .ws-views{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--mp-line-2);border-radius:8px;background:#0b0f13}
+.nba-mp :is(.mp-seg,.ns-seg) button,.nba-mp :is(.nv-tabs,.ws-views) button{min-width:0;min-height:0;height:28px;padding:0 11px;border:0;border-radius:6px;background:transparent;box-shadow:none;
+ color:var(--mp-muted);font:700 14px/1 var(--mp-num);letter-spacing:.06em;text-transform:uppercase;transition:background-color .18s,color .18s}
+.nba-mp :is(.mp-seg,.ns-seg) button[aria-pressed=true],.nba-mp :is(.nv-tabs,.ws-views) button[aria-selected=true]{background:var(--mp-pill);color:var(--mp-on-pill);box-shadow:none;border:0}
+.nba-mp :is(.nv-tabs,.ws-views){display:flex;width:100%;box-sizing:border-box}
+.nba-mp :is(.nv-tabs,.ws-views) button{flex:1}
+.nba-mp .mp-chips{gap:4px}
+.nba-mp .mp-chips button,.nba-mp .nv-filters button{min-height:0;height:30px;padding:0 11px;border:1px solid var(--mp-line-2);border-radius:7px;background:transparent;color:var(--mp-muted);
+ font:700 14px/1 var(--mp-num);letter-spacing:.06em;text-transform:uppercase}
+.nba-mp .mp-chips button[aria-pressed=true],.nba-mp .nv-filters button[aria-pressed=true]{border-color:var(--mp-pill);background:var(--mp-pill);color:var(--mp-on-pill)}
+.nba-mp .ns-more,.nba-mp .nf-more{border-radius:8px;background:transparent;border-color:var(--mp-line-2);color:var(--mp-text);font:700 14px/1 var(--mp-num);letter-spacing:.06em;text-transform:uppercase}
+.nba-mp .ns-photo{border-radius:9px}
+
+/* Numbers in cells split by hairlines (no grey boxes). */
+.nba-mp :is(.mp-avg-grid,.ns-base,.nr-grid,.nv-tiles,.nf-tiles,.mp-gp-box,.nc-tiles,.nf-sides,.nc-head){gap:1px;overflow:hidden;border-radius:9px;background:var(--mp-line);box-shadow:0 0 0 1px var(--mp-line)}
+.nba-mp :is(.mp-avg-grid,.ns-base,.nr-grid,.nv-tiles,.nf-tiles,.mp-gp-box,.nc-tiles,.nf-sides,.nc-head)>*{border:0!important;border-radius:0!important;background:var(--mp-card)!important;box-shadow:none}
+.nba-mp .mp-gp .mp-gp-box>*{background:#0b0f13!important}
+.nba-mp .mp-avg-grid>div::before{display:none}
+.nba-mp .mp-gp-box [data-focus]{background:var(--mp-pill)!important;box-shadow:none}
+.nba-mp .mp-gp-box [data-focus] :is(small,b){color:var(--mp-on-pill)}
+.nba-mp .nf-sides>div[data-tonight]{box-shadow:inset 0 3px 0 var(--mp-pill)}
+.nba-mp :is(.mp-avg-grid,.ns-base,.nr-grid,.nv-tiles,.nf-tiles,.mp-gp-box,.nc-tiles,.nf-sides,.nc-head,.nf-wins-grid,.nf-faced-chips,.nd-five) small,
+.nba-mp :is(.ng-gauge-ends,.nd-head,.mp-inj-team h3,.nf-steady-label,.nf-side-head small,.nc-h,.mp-trend-head small){font-family:var(--mp-num);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+/* Every big number in the scoreboard face. */
+.nba-mp :is(.mp-avg-grid b,.mp-trend-head b,.ng-score b,.ng-tiles b,.ns-base b,.nr-grid b,.nv-tiles b,.nc-head b,.nc-tiles b,.mp-gp-value,.mp-gp-box b,.nf-sides b,.nf-tiles b,.nf-wins-grid b,
+ .nf-mv-now b,.mp-inj-split b,.nf-vs-list li>b,.nf-faced-chips b,.mp-stepper b,.nd-min,.wu-lines b,.wu-step b,.mp-bars>:is(span,button) b,.nv-row>span b,.np-table td,.ws-zone-num b,.nf-table tbody td){
+ font-family:var(--mp-num);font-weight:700;letter-spacing:.01em}
+.nba-mp .mp-avg-grid b{font-size:30px}
+.nba-mp .mp-part .mp-avg-grid b{font-size:34px}
+.nba-mp :is(.ns-base,.nr-grid,.nf-tiles,.nc-tiles) b{font-size:24px}
+.nba-mp :is(.nv-tiles,.mp-gp-box) b{font-size:20px}
+.nba-mp .nf-sides b{font-size:30px}
+.nba-mp .nc-head b{font-size:28px}
+.nba-mp .mp-sheet-head b{font:700 22px/1.05 var(--mp-num);letter-spacing:.03em;text-transform:uppercase}
+.nba-mp .mp-sheet-head small{color:var(--mp-muted);font:700 12px var(--mp-num);letter-spacing:.12em}
+
+/* The grade: the verdict, the score as a badge, a ticked scale, the stats in cells. */
+.nba-mp .ng-head{align-items:center;margin:2px 0 14px}
+.nba-mp .ng-verdict b{font:700 30px/1 var(--mp-num);letter-spacing:.02em;text-transform:uppercase}
+.nba-mp .ng-verdict b[data-tone=strong]{color:var(--mp-strong)}
+.nba-mp .ng-verdict b[data-tone=edge]{color:var(--mp-edge)}
+.nba-mp .ng-verdict b[data-tone=neutral]{color:var(--mp-fair)}
+.nba-mp .ng-score{align-items:baseline;gap:4px;padding:6px 12px 5px;border-radius:10px;background:#2b323d;color:var(--mp-text)}
+.nba-mp .ng-score b{font-size:54px;line-height:.9}
+.nba-mp .ng-score small{color:inherit;opacity:.65;font:700 14px var(--mp-num)}
+.nba-mp .ng-score[data-tone=strong]{background:var(--mp-strong);color:#122108}
+.nba-mp .ng-score[data-tone=edge]{background:var(--mp-edge);color:#03170d}
+.nba-mp .ng-score[data-tone=tough]{background:var(--mp-poor);color:#2a0805}
+.nba-mp .ng-gauge{height:12px;margin:0;border-radius:3px;
+ background:repeating-linear-gradient(90deg,transparent 0 calc(5% - 2px),var(--mp-card) calc(5% - 2px) 5%),linear-gradient(90deg,#f1675b,#e8b84b 50%,#a5e063)}
+.nba-mp .ng-gauge i{width:4px;height:22px;border:0;border-radius:2px;background:var(--mp-pill);box-shadow:0 0 0 2px var(--mp-card)}
+.nba-mp .ng-gauge-ends{margin:8px 0 14px;color:var(--mp-faint)}
+.nba-mp .ng-tiles,.nba-mp .nf-grade .ng-tiles{gap:1px;padding:0;border:0;border-radius:9px;overflow:hidden;background:var(--mp-line);box-shadow:0 0 0 1px var(--mp-line)}
+.nba-mp .ng-tiles button{padding:9px 2px 8px;border:0;border-radius:0;background:var(--mp-card)!important;box-shadow:none!important;animation:none}
+.nba-mp .ng-tiles span{color:var(--mp-faint);font:700 12px/1 var(--mp-num);letter-spacing:.1em}
+.nba-mp .ng-tiles b{font-size:24px}
+.nba-mp .ng-tiles [data-tone=strong] b{color:var(--mp-strong)}
+.nba-mp .ng-tiles button[aria-pressed=true]{background:var(--mp-pill)!important}
+.nba-mp .ng-tiles button[aria-pressed=true] :is(span,b){color:var(--mp-on-pill)}
+.nba-mp .ng-tonight li{border-top-color:var(--mp-line)}
+.nba-mp .ng-tonight b{font:700 15px/1.1 var(--mp-num);letter-spacing:.05em;text-transform:uppercase}
+.nba-mp .ng-tonight em{font:700 14px var(--mp-num)}
+.nba-mp .ng-tonight em[data-sign=up]{color:var(--mp-good)}
+.nba-mp .ng-tonight em[data-sign=down]{color:var(--mp-poor)}
+
+/* Their defense's bars: from the middle, square ends. */
+.nba-mp .ns-diverge-row{border-top-color:var(--mp-line)}
+.nba-mp .ns-diverge-name b{font:700 15px/1.1 var(--mp-num);letter-spacing:.04em;text-transform:uppercase}
+.nba-mp .ns-diverge-bar{height:8px;border-radius:2px;background:#161c24}
+.nba-mp .ns-diverge-bar i{border-radius:2px}
+.nba-mp .ns-diverge-row em{font:700 14px var(--mp-num);letter-spacing:.02em}
+.nba-mp .ns-diverge-row[data-picked]{border-radius:8px;background:#151c25;box-shadow:inset 3px 0 0 var(--mp-pill)}
+.nba-mp .ns-fit{border-left-width:3px;border-radius:0 8px 8px 0;background:#0b0f13}
+
+/* His games: bars on a light track, his number on top, the line solid across. */
+.nba-mp .mp-trend-head b{font-size:46px;line-height:.95}
+.nba-mp .mp-stepper{border-radius:9px;border-color:var(--mp-line-2);background:#0b0f13}
+.nba-mp .mp-stepper button{border-radius:7px;background:#18202a}
+.nba-mp .mp-stepper b{font-size:22px;color:var(--mp-text)}
+.nba-mp .mp-bars>:is(span,button) i{max-width:32px;border-radius:4px 4px 1px 1px}
+.nba-mp .mp-bars>[data-tone=good] i{background:var(--mp-good)}
+.nba-mp .mp-bars>[data-tone=poor] i{background:color-mix(in srgb,var(--mp-poor) 75%,#0e1217)}
+.nba-mp .mp-bars>:is(span,button) b{font-size:15px}
+.nba-mp .mp-bars>:is(span,button) small{font:700 12px/1 var(--mp-num);letter-spacing:.04em}
+.nba-mp .mp-bars>:is(span,button) small em{font:600 10px var(--font-sans);letter-spacing:0}
+.nba-mp .mp-bars-line{border-top:1.5px solid rgba(238,242,246,.8)}
+.nba-mp .mp-bars>button[aria-pressed=true] i{box-shadow:0 0 0 2px var(--mp-card),0 0 0 3.5px var(--mp-pill)}
+.nba-mp .mp-gp{border-color:var(--mp-line);border-radius:10px;background:#0b0f13}
+.nba-mp .mp-gp-head>span:first-of-type b{font:700 18px/1 var(--mp-num);letter-spacing:.04em;text-transform:uppercase}
+.nba-mp .mp-gp-value{font-size:28px}
+.nba-mp .mp-gp-result{border-radius:6px;font:700 14px/1 var(--mp-num);letter-spacing:.04em}
+.nba-mp .mp-gp-role span{border-radius:6px;border-color:var(--mp-line-2);background:transparent}
+.nba-mp .mp-gp-out{border-top-color:var(--mp-line)}
+.nba-mp .mp-gp-out li em{border-radius:5px}
+
+/* Lists: rows on hairlines, not grey boxes. */
+.nba-mp .mp-inj{margin:0;padding:9px 0;border-radius:0;background:transparent;border-top:1px solid var(--mp-line)}
+.nba-mp .mp-inj-team h3+.mp-inj{border-top:0}
+.nba-mp .mp-inj-team h3{color:var(--mp-muted)}
+.nba-mp .mp-inj-split b{font-size:22px}
+.nba-mp .mp-pill{border-radius:5px;font:700 13px/1 var(--mp-num);letter-spacing:.06em;padding:4px 7px}
+.nba-mp .nf-rest-row{padding:9px 0;border-radius:0;background:transparent;border-top:1px solid var(--mp-line)}
+.nba-mp .nf-rest-row:first-child{border-top:0}
+.nba-mp .nf-rest-row+.nf-rest-row{margin-top:0}
+.nba-mp .nf-rest-row em,.nba-mp .nd-chart em,.nba-mp .nf-side-head em{border-radius:5px}
+.nba-mp .nf-mv-list,.nba-mp .nf-mv-none{border-radius:10px;background:#0b0f13;box-shadow:inset 0 0 0 1px var(--mp-line)}
+.nba-mp .nf-mv-mark{border-radius:7px}
+.nba-mp .nf-mv-what b{font:700 16px/1.1 var(--mp-num);letter-spacing:.04em;text-transform:uppercase}
+.nba-mp .nf-mv-now b{font-size:22px}
+.nba-mp .nf-chip{border-radius:7px;background:transparent;box-shadow:inset 0 0 0 1px var(--mp-line-2)}
+.nba-mp .nf-min-bars>span>i{border-radius:3px 3px 1px 1px}
+.nba-mp .nf-table tbody tr{border-top-color:var(--mp-line)}
+.nba-mp .nf-table tbody td{font-size:17px}
+.nba-mp .np-table :is(th,td){border-bottom-color:var(--mp-line)}
+.nba-mp .np-table td{font-size:16px}
+.nba-mp .np-table thead th,.nba-mp .mp-log th,.nba-mp .nf-table thead th,.nba-mp .nf-dvp thead th,.nba-mp .nf-look thead th,.nba-mp .nf-faced-table thead th{font-family:var(--mp-num);font-size:12px;letter-spacing:.1em}
+.nba-mp .np-dot{border-radius:2px}
+.nba-mp .ng2-grid figure{border-radius:9px;border-color:var(--mp-line-2);background:#0b0f13}
+.nba-mp .ng2-grid figure[data-likely]{border-color:var(--mp-pill)}
+.nba-mp .ng2-grid figcaption{font:700 15px/1 var(--mp-num);letter-spacing:.03em;text-transform:uppercase}
+.nba-mp .ng2-grid>span{font:700 16px/1 var(--mp-num);border-top-color:var(--mp-line)}
+.nba-mp .ng2-grid>span[data-tough]{border-radius:5px}
+.nba-mp .ng2-grid>.ng2-label{font-family:var(--mp-num);font-size:12px;letter-spacing:.08em;border-top-color:var(--mp-line)}
+.nba-mp .nv-row{border-top-color:var(--mp-line)}
+.nba-mp .nv-row>span b{font-size:17px}
+.nba-mp .nv-who b{font-weight:700}
+.nba-mp .nc-ends li,.nba-mp .nc-rows li,.nba-mp .nc-out li,.nba-mp .ws-zone{border-top-color:var(--mp-line)}
+.nba-mp .ws-zone[aria-pressed=true]{border-radius:8px;background:#151c25;box-shadow:inset 3px 0 0 var(--mp-pill)}
+.nba-mp .ws-zone-num b{font-size:17px}
+.nba-mp .nsz-court{border-color:var(--mp-line-2);border-radius:12px;box-shadow:none}
+.nba-mp .mp-month{border-top-color:var(--mp-line)}
+.nba-mp .mp-month-head b{font:700 16px/1 var(--mp-num);letter-spacing:.08em}
+.nba-mp .mp-log td{border-bottom-color:var(--mp-line)}
+.nba-mp .mp-log td b{font:700 17px/1 var(--mp-num)}
+.nba-mp .nf-dvp :is(th,td),.nba-mp .nf-look :is(th,td),.nba-mp .nf-faced-table :is(th,td),.nba-mp .nf-bars li,.nba-mp .nf-vs-list li,.nba-mp .nf-reads li{border-color:var(--mp-line)}
+.nba-mp :is(.nf-wins-grid>div,.nf-faced-chips span){border-radius:9px;background:#0b0f13;box-shadow:inset 0 0 0 1px var(--mp-line)}
+.nba-mp .nf-wins-grid>div[data-best]{box-shadow:inset 0 0 0 1px var(--mp-pill);background:#0b0f13}
+
+/* Depth: the starting five as cells, the bench and the report as rows. */
+.nba-mp .nd-five{gap:0}
+.nba-mp .nd-five li{border:0;border-radius:0;background:transparent;box-shadow:none}
+.nba-mp .nd-five li[data-self] .ns-photo{box-shadow:0 0 0 2px var(--mp-pill)}
+.nba-mp .nd-five b{font:700 16px/1.05 var(--mp-num);letter-spacing:.03em;text-transform:uppercase}
+.nba-mp .nd-list li{border-radius:0}
+.nba-mp .nd-list li+li{box-shadow:0 -1px 0 var(--mp-line)}
+.nba-mp .nd-list li[data-self]{border-radius:8px;background:#151c25;box-shadow:inset 3px 0 0 var(--mp-pill)}
+.nba-mp .nd-bar{border-radius:2px;background:#161c24}
+.nba-mp .nd-bar i{border-radius:2px;background:#6d8fb8}
+.nba-mp .nd-list li[data-self] .nd-bar i{background:var(--mp-pill)}
+.nba-mp .nd-min{font-size:17px}
+.nba-mp :is(.nd-who,.nd-five) small>span{border-radius:4px;font-family:var(--mp-num);font-size:11.5px}
+
+/* Pop-ups: the same panel look. */
+.nba-mp .mp-sheet-panel{border-color:var(--mp-line-2);background:var(--mp-card)}
+.nba-mp .mp-sheet-head{background:var(--mp-card)}
+@media (min-width:761px){
+ .nba-mp .mp-sheet-panel{border-radius:16px;background:var(--mp-card);box-shadow:0 30px 80px -20px #000}
+ .nba-mp .mp-sheet-head{background:var(--mp-card);border-bottom-color:var(--mp-line)}
+}
+.nba-mp .mp-sheet-head button{border-radius:9px;border-color:var(--mp-line-2);background:transparent}
+
+/* Sections ease in as panels. */
+.nba-mp .mp-card,.nba-mp .ns-shotlink{animation:mp-card-in .4s cubic-bezier(.2,.8,.2,1) backwards}
+.nba-mp .mp-col>:nth-child(2),.nba-mp .mp-part>:nth-child(2){animation-delay:.05s}
+.nba-mp .mp-col>:nth-child(n+3),.nba-mp .mp-part>:nth-child(n+3){animation-delay:.1s}
+@media (prefers-reduced-motion:reduce){
+ .nba-mp .mp-card,.nba-mp .ns-shotlink,.nba-mp .mp-hero-lines li,.nba-mp .mp-hero-text{animation:none}
+ .nba-mp :is(.mp-tabs button,.mp-seg button,.ns-seg button){transition:none}
+}

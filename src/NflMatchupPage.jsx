@@ -85,7 +85,7 @@ function Grade({row,league,group,picked,onPick}){
   <div className="mp-card-body">
    <div className="ng-head">
     <div className="ng-verdict"><b data-tone={chosen.tone}>{chosen.label}</b><span>Against {row.opponent}’s defense, as a {POSITION_NAMES[group].toLowerCase()}</span></div>
-    <div className="ng-score"><b>{chosen.score}</b><small>/100</small></div>
+    <div className="ng-score" data-tone={chosen.tone}><b>{chosen.score}</b><small>/100</small></div>
    </div>
    <div className="ng-gauge" role="img" aria-label={`${chosen.score} out of 100, ${chosen.label}`}><i style={{left:`${clampTo(chosen.score)}%`}}/></div>
    <div className="ng-gauge-ends" aria-hidden="true"><span>Tough</span><span>Soft</span></div>
@@ -199,7 +199,7 @@ export function NflMatchupPage({row,lines,league,onBack}){
  const nickname=String(team?.name||'').split(' ').slice(-1)[0]||row.teamAbbr;
  const facts=[nickname,POSITION_NAMES[group]].filter(Boolean);
  return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={teamColor(row.teamAbbr,null)} today="Today"
-  onBack={onBack} tabs={TABS} tab={tab} onTab={setTab}>
+  onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} lines={lines} stats={CHIPS}>
   {tab==='overview'&&<div className="mp-cols">
    <div className="mp-col">{log.loading&&!logs.length?<Card title="His games" icon={LineChart}><Loading/></Card>:<><Averages logs={logs} group={group}/>
     <Trend row={row} lines={lines} logs={played(logs)} chips={CHIPS}/></>}</div>

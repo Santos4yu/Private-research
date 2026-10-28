@@ -1,5 +1,11 @@
-/* The Props tab's league switch (PropsLeague.jsx) and its NBA side
-   (NbaMatchups.jsx). Photos come from PickParts (slip-analyzer.css). */
+/* The Props tab's league switch (PropsLeague.jsx) and its NBA / NFL list
+   (MatchupList.jsx). Photos come from PickParts (slip-analyzer.css).
+   Oct 28, the owner: "redesign this whole thing ... nicer and easier to
+   research ... nothing should look alike". A stat sheet: scoreboard
+   numbers (Barlow Condensed), solid score badges, switches whose picked
+   button is a light pill gliding between them, the games as stubs, rows
+   on thin rules. Still no glows, no gradient text, nothing that loops
+   (Oct 27). */
 #panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root),:root[data-theme] #app-shell #panel-v2:is([data-league=nba],[data-league=nfl])>:not(#props-league-root){display:none!important}
 #props-league-root{max-width:1120px;margin:0 auto}
 /* Oct 28, the owner: "i hate this desktop layout design its like low down
@@ -14,568 +20,423 @@
 #props-league-root:empty{display:none}
 /* A player's matchup page has its own back button: the league switch steps aside. */
 #props-league-root[data-page=player] .nm-league{display:none}
-/* One page, like the player's matchup page: the league and stat as
-   underlined tabs, one row of controls the same height, and the props
-   down the page split by thin lines -- no floating boxes. */
-.nm-league{display:flex;gap:0;margin:0 0 18px;padding:0;border-bottom:1px solid #262626}
-.nm-league button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-width:120px;min-height:46px;padding:0 22px;border:0;border-radius:0;
- background:transparent;color:#9a9a9a;font:800 13px var(--font-sans,'Inter',system-ui,sans-serif);letter-spacing:.04em;box-shadow:inset 0 -3px 0 transparent;cursor:pointer}
-.nm-league button[aria-pressed=true]{color:#f3f5f8;box-shadow:inset 0 -3px 0 var(--theme-accent,#f3f5f8)}
-.nm-league img{width:18px;height:18px;object-fit:contain}
-.nm-league button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 
-.nba-matchups{--m-card:#141414;--m-raised:#1b1b1b;--m-line:#262626;--m-text:#f3f5f8;--m-muted:#a0a0a0;--m-faint:#767676;--m-field:#121212;
- --m-strong:#46e39a;--m-edge:#3cc9b9;--m-neutral:#f6c35b;--m-tough:#ff7b7b;--m-accent:var(--theme-accent,#f3f5f8);
+/* The page behind the Props tab: one flat ink, edge to edge (the old
+   slate gradient, grain and team glows are gone). */
+:root #app-shell:has(#panel-v2[data-league]:not([hidden])){background:#090c10!important}
+:root #app-shell #panel-v2[data-league]:not([hidden]){background:transparent!important;background-color:transparent!important}
+
+/* ---------------------------------------------------------------- Switches
+   Leagues, stats, sort, lines, players: a row of buttons in a dark well,
+   the picked one a light pill. For the leagues and stats the pill glides
+   from button to button (use-ink.js); until it's placed, the picked button
+   carries its own. */
+.nm-league,.nm-stats{position:relative;display:flex;gap:2px;width:max-content;max-width:100%;box-sizing:border-box;padding:3px;border:1px solid #232a34;border-radius:10px;background:#0e1217}
+.nm-league{margin:0 0 18px}
+.nm-league button,.nm-stats button{position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;height:34px;padding:0 16px;border:0;border-radius:7px;
+ background:transparent;color:#97a1ae;font:700 16px/1 'Barlow Condensed',var(--font-sans,'Inter'),sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .2s ease}
+.nm-league button:hover,.nm-stats button:hover{color:#eef2f6}
+.nm-league button[aria-pressed=true],.nm-stats button[aria-pressed=true]{color:#0a0d11}
+.nm-league img{width:18px;height:18px;object-fit:contain}
+.nm-ink{position:absolute;top:3px;bottom:3px;left:0;z-index:0;border-radius:7px;background:#eef2f6;pointer-events:none;
+ transition:transform .34s cubic-bezier(.22,.8,.24,1),width .34s cubic-bezier(.22,.8,.24,1),opacity .2s}
+:is(.nm-league,.nm-stats):has(>.nm-ink[style*=opacity]) button[aria-pressed=true]{background:#eef2f6}
+.nm-league button:focus-visible,.nm-stats button:focus-visible{outline:2px solid var(--theme-accent,#4c8dff);outline-offset:1px}
+
+.nba-matchups{--m-panel:#0e1217;--m-raised:#141a21;--m-line:#1b222b;--m-line-2:#262e39;--m-text:#eef2f6;--m-muted:#9aa4b1;--m-faint:#69737f;
+ --m-strong:#a5e063;--m-edge:#4dc48c;--m-neutral:#e8b84b;--m-tough:#f1675b;--m-good:#5fd08b;--m-poor:#f1675b;--m-accent:var(--theme-accent,#4c8dff);
+ --m-num:'Barlow Condensed',var(--font-sans,'Inter'),system-ui,sans-serif;
  color:var(--m-text);font-family:var(--font-sans,'Inter',system-ui,sans-serif);padding-bottom:24px}
-.nm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 16px}
-.nm-head h2{margin:0;font:800 24px/1.1 'Sora',var(--font-sans);letter-spacing:-.02em}
-.nm-head p{margin:6px 0 0;color:var(--m-muted);font-size:13.5px;line-height:1.5}
-.nm-refresh{display:grid;place-items:center;flex:none;width:44px;height:44px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field);color:var(--m-muted);cursor:pointer}
-.nm-refresh:hover{color:var(--m-text)}
-.nm-refresh:disabled{opacity:.6;cursor:wait}
 .nm-spin{animation:nm-spin 1s linear infinite}
 @keyframes nm-spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.nm-spin{animation-duration:3s}}
+@keyframes nm-in{from{opacity:0;transform:translateY(5px)}}
+@keyframes nm-fade{from{opacity:0;transform:translateY(-4px)}}
+@keyframes nm-grow{from{transform:scaleY(0)}}
+@keyframes nm-fill{from{transform:scaleX(0)}}
 
-/* Search, game and sort: one row, all 44px tall, the same edge and corners. */
-.nm-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,240px) auto;grid-template-areas:'search game sort';gap:8px}
-.nm-search,.nm-game,.nm-sort{box-sizing:border-box;height:44px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field)}
-.nm-search{grid-area:search;display:flex;align-items:center;gap:9px;padding:0 8px 0 13px}
+/* ---------------------------------------------------------------- The top
+   The title with when the board updated, then search, the slip and refresh. */
+.nm-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px 16px;margin:0 0 14px}
+.nm-title{min-width:0}
+.nm-title h2{margin:0;font:700 32px/.95 var(--m-num);letter-spacing:.01em;text-transform:uppercase}
+.nm-updated{display:block;margin-top:6px;color:var(--m-faint);font-size:12px;font-weight:600}
+.nm-tools{display:flex;align-items:center;gap:6px}
+.nm-search,.nm-filter-button,.nm-slip,.nm-refresh{box-sizing:border-box;height:38px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);color:var(--m-muted);
+ transition:border-color .15s,background-color .15s,color .15s}
+.nm-search{display:flex;align-items:center;gap:8px;width:280px;padding:0 6px 0 12px}
 .nm-search svg{flex:none;color:var(--m-faint)}
 .nm-search input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:var(--m-text);font:500 14px var(--font-sans);outline:none}
 .nm-search input::placeholder{color:var(--m-faint)}
 .nm-search input::-webkit-search-cancel-button{display:none}
-.nm-search button{display:grid;place-items:center;flex:none;width:28px;height:28px;border:0;border-radius:8px;background:#232323;color:var(--m-muted);cursor:pointer}
-.nm-game{grid-area:game;position:relative}
-.nm-game-button{display:flex;align-items:center;gap:8px;width:100%;height:100%;padding:0 12px;border:0;border-radius:inherit;background:transparent;color:var(--m-text);font:inherit;text-align:left;cursor:pointer}
-.nm-label{flex:none;color:var(--m-faint);font-size:12px;font-weight:700}
-.nm-game-now{flex:1;min-width:0;overflow:hidden;font:600 14px var(--font-sans);white-space:nowrap;text-overflow:ellipsis}
-.nm-game-button svg{flex:none;color:var(--m-faint);transition:transform .15s}
-.nm-game[data-open] .nm-game-button svg{transform:rotate(180deg)}
-.nm-game-menu{position:absolute;z-index:30;top:calc(100% + 6px);right:-1px;min-width:calc(100% + 2px);width:max-content;max-width:calc(100vw - 32px);max-height:min(420px,60vh);
- margin:0;padding:6px;overflow-y:auto;border:1px solid #2e2e2e;border-radius:14px;background:#151515;box-shadow:0 18px 40px rgba(0,0,0,.55);list-style:none}
-.nm-game-menu li{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 10px;border-radius:9px;color:var(--m-text);cursor:pointer;outline:none}
-.nm-game-menu li:hover,.nm-game-menu li:focus-visible{background:#222}
-.nm-game-menu li[aria-selected=true]{background:#262626}
-.nm-game-teams{display:flex;align-items:center;gap:6px;flex:1;min-width:0;font-size:13.5px}
-.nm-game-teams img{width:20px;height:20px;object-fit:contain}
-.nm-game-teams b{font-weight:700}
-.nm-game-teams i{color:var(--m-faint);font-style:normal}
-.nm-game-when{flex:none;color:var(--m-faint);font-size:12px;white-space:nowrap}
-.nm-game-menu li svg{flex:none;color:var(--m-text)}
-.nm-sort{grid-area:sort;display:flex;gap:3px;padding:3px}
-.nm-sort button{flex:1;min-width:84px;height:100%;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--m-muted);font:700 13px var(--font-sans);white-space:nowrap;cursor:pointer}
-.nm-sort button[aria-pressed=true]{background:#262626;color:var(--m-text)}
-.nm-search:focus-within,.nm-game:focus-within{border-color:#3a3a3a}
+.nm-search button{display:grid;place-items:center;flex:none;width:26px;height:26px;border:0;border-radius:6px;background:#1c232c;color:var(--m-muted);cursor:pointer}
+.nm-search:focus-within{border-color:#3c4654}
+.nm-filter-button,.nm-refresh{position:relative;display:grid;place-items:center;flex:none;width:38px;padding:0;cursor:pointer}
+.nm-filter-button:hover,.nm-filter-button[aria-expanded=true],.nm-refresh:hover,.nm-slip:hover{border-color:#3c4654;background:var(--m-raised);color:var(--m-text)}
+.nm-filter-button i{position:absolute;top:-6px;right:-6px;display:grid;place-items:center;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:5px;
+ background:var(--m-text);color:#0a0d11;font:700 12px/1 var(--m-num);font-style:normal}
+.nm-refresh:disabled{opacity:.6;cursor:wait}
+.nm-refresh svg{transition:transform .25s ease}
+.nm-refresh:not(:disabled):active svg{transform:rotate(-90deg)}
+.nm-slip{display:inline-flex;align-items:center;gap:7px;padding:0 6px 0 11px;color:var(--m-text);font:700 15px/1 var(--m-num);letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.nm-slip svg{color:var(--m-muted)}
+.nm-slip b{display:grid;place-items:center;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;border-radius:6px;background:#1f262f;color:var(--m-muted);font:700 14px/1 var(--m-num);transition:background-color .2s,color .2s}
+.nm-slip b[data-on]{background:var(--m-accent);color:var(--theme-on-accent,#fff)}
+:is(.nm-refresh,.nm-filter-button,.nm-slip,.nm-search button):focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
 
-/* Lines (Regular, Goblins, Demons, All) and players (Everyone, Starters,
-   Bench): two small switches side by side, each its own row on a phone. */
-.nm-filters{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
-.nm-chips{display:flex;flex:1 1 auto;min-width:0;max-width:100%;box-sizing:border-box;gap:2px;padding:3px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field)}
-.nm-chips button{flex:1 1 auto;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:34px;padding:0 8px;border:0;border-radius:9px;background:transparent;
- color:var(--m-muted);font:700 12.5px var(--font-sans);white-space:nowrap;cursor:pointer}
-.nm-chips button[aria-pressed=true]{background:#262626;color:var(--m-text)}
+/* ---------------------------------------------------------------- Games
+   A stub per game: both logos, the time, how many props. Sideways on a
+   phone, wrapping on a computer; the picked one light. */
+.nm-strip{display:flex;gap:6px;margin:0 0 12px;padding:1px 1px 3px;overflow-x:auto;scrollbar-width:none;scroll-padding:0 12px}
+.nm-strip::-webkit-scrollbar{display:none}
+.nm-strip button{flex:none;display:grid;gap:5px;min-width:128px;padding:8px 11px 7px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);color:var(--m-text);
+ font:inherit;text-align:left;cursor:pointer;transition:background-color .18s,border-color .18s,color .18s,transform .12s}
+.nm-strip button:hover{border-color:#3c4654;background:var(--m-raised)}
+.nm-strip button:active{transform:scale(.97)}
+.nm-strip-teams{display:flex;align-items:center;gap:5px}
+.nm-strip-teams img{width:18px;height:18px;object-fit:contain}
+.nm-strip-teams b{font:700 16px/1 var(--m-num);letter-spacing:.03em}
+.nm-strip-teams i{color:var(--m-faint);font:600 12px var(--m-num);font-style:normal}
+.nm-strip-meta{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.nm-strip-meta small{color:var(--m-faint);font-size:11.5px;font-weight:600;white-space:nowrap}
+.nm-strip em,.nm-strip-all em{color:var(--m-muted);font:700 13px/1 var(--m-num);font-style:normal}
+.nm-strip-all{align-content:center;min-width:96px!important}
+.nm-strip-all b{font:700 16px/1 var(--m-num);letter-spacing:.04em;text-transform:uppercase}
+.nm-strip button[aria-pressed=true]{border-color:#eef2f6;background:#eef2f6;color:#0a0d11}
+.nm-strip button[aria-pressed=true] :is(small,em,i){color:#4a5361}
+.nm-strip button:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
+
+/* ---------------------------------------------------------------- Stats */
+.nba-matchups .nm-stats{margin:0 0 10px;overflow-x:auto;scrollbar-width:none}
+.nba-matchups .nm-stats::-webkit-scrollbar{display:none}
+.nba-matchups .nm-stats button{height:32px;padding:0 12px;font-size:15px;gap:5px;align-items:baseline;padding-top:9px}
+.nm-stats button small{color:var(--m-faint);font:600 10.5px/1 var(--font-sans);letter-spacing:0;transition:color .2s}
+.nm-stats button[aria-pressed=true] small{color:#56606e}
+
+/* ---------------------------------------------------------------- Filters
+   Sort, lines and players: each a small switch with its name. Out in the
+   open beside Soft spots and Track record on a computer; on a phone under
+   the Filters button. */
+.nm-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:0 0 12px}
+.nm-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
+.nm-filter-row{display:flex;align-items:center;gap:8px;min-width:0}
+.nm-filter-row>span{color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
+.nm-chips{display:flex;gap:2px;min-width:0;padding:2px;border:1px solid var(--m-line-2);border-radius:8px;background:var(--m-panel)}
+.nm-chips button{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1 1 auto;min-width:0;height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;
+ color:var(--m-muted);font:600 12.5px var(--font-sans);white-space:nowrap;cursor:pointer;transition:background-color .18s,color .18s}
+.nm-chips button:hover{color:var(--m-text)}
+.nm-chips button[aria-pressed=true]{background:#eef2f6;color:#0a0d11}
 .nm-chips img{width:14px;height:14px;object-fit:contain}
+.nm-chips button:focus-visible{outline:2px solid var(--m-accent);outline-offset:1px}
+.nm-active{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.nm-active button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px 0 10px;border:1px solid var(--m-line-2);border-radius:7px;background:var(--m-panel);
+ color:var(--m-text);font:600 12px var(--font-sans);cursor:pointer;animation:nm-in .25s ease backwards}
+.nm-active button svg{color:var(--m-muted)}
+.nm-active img{width:13px;height:13px;object-fit:contain}
+.nm-facing button{border-color:color-mix(in srgb,var(--m-accent) 55%,var(--m-line-2))}
 
-/* The stat, as tabs across the page. */
-.nm-stats{display:flex;margin:14px 0 0;overflow-x:auto;border-bottom:1px solid var(--m-line);scrollbar-width:none}
-.nm-stats::-webkit-scrollbar{display:none}
-.nm-stats button{flex:none;min-height:44px;padding:0 14px;border:0;background:transparent;color:#8f8f8f;font:800 12.5px var(--font-sans);letter-spacing:.04em;
- box-shadow:inset 0 -3px 0 transparent;cursor:pointer}
-.nm-stats button[aria-pressed=true]{color:var(--m-text);box-shadow:inset 0 -3px 0 var(--m-accent)}
+/* Soft spots and the track record: two buttons, one panel open under them. */
+.nm-folds{display:flex;gap:6px;margin-left:auto}
+.nm-fold{display:flex;align-items:center;gap:9px;min-width:0;height:38px;padding:0 10px 0 11px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);
+ color:var(--m-text);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background-color .15s}
+.nm-fold:hover{border-color:#3c4654;background:var(--m-raised)}
+.nm-fold>svg:first-child{flex:none;color:var(--m-muted)}
+.nm-fold span{display:flex;align-items:baseline;gap:8px;min-width:0}
+.nm-fold b{flex:none;font:700 15px/1 var(--m-num);letter-spacing:.05em;text-transform:uppercase}
+.nm-fold small{overflow:hidden;color:var(--m-muted);font-size:12px;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.nm-fold>svg:last-child{flex:none;color:var(--m-faint);transition:transform .25s ease}
+.nm-fold[aria-expanded=true]{border-color:#eef2f6}
+.nm-fold[aria-expanded=true]>svg:last-child{transform:rotate(180deg)}
+.nm-fold:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
+.nm-spots,.nba-matchups .nm-record{margin:0 0 12px;padding:12px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);animation:nm-fade .22s ease-out backwards}
+.nm-spots{overflow-x:auto;scrollbar-width:thin}
 
-/* The list: a table, one slim row per prop. The headings sit once above
-   the rows, and each row and the headings share one set of columns
-   (--nm-cols): photo, name over game, line, Matchup, Last 10;
-   the arrow for Why sits in its own column at the end. */
-.nm-table{--nm-cols:40px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.7fr) minmax(72px,.5fr);--nm-why:44px;margin:14px 0 0}
-.nm-thead{display:grid;grid-template-columns:var(--nm-cols);column-gap:12px;align-items:center;padding:0 calc(12px + var(--nm-why)) 8px 12px;
- border-bottom:1px solid var(--m-line);color:var(--m-faint);font:800 11px var(--font-sans);letter-spacing:.06em;text-transform:uppercase}
-.nm-th-player{grid-column:1 / span 2}
-.nm-th-player,.nm-th-line{display:flex;align-items:center;min-height:32px}
-.nm-th{display:inline-flex;align-items:center;justify-content:center;gap:3px;min-height:32px;padding:0;border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+/* The soft-spots map: each defense's average matchup by stat, a solid color by band. */
+.nm-spots-grid{display:grid;grid-template-columns:minmax(78px,auto) repeat(var(--cols),minmax(32px,1fr));gap:3px;align-items:center}
+.nm-spot-corner,.nm-spot-stat{color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.08em;text-align:center;text-transform:uppercase;white-space:nowrap}
+.nm-spot-corner{text-align:left}
+.nm-spot-team{display:grid;grid-template-columns:18px auto;align-items:center;column-gap:6px;min-width:0;padding-right:6px}
+.nm-spot-team img{grid-row:1 / span 2;width:18px;height:18px;object-fit:contain}
+.nm-spot-team b{font:700 14px/1.05 var(--m-num);letter-spacing:.03em}
+.nm-spot-team small{color:var(--m-faint);font-size:10px;line-height:1.1;white-space:nowrap}
+.nm-spot-cell{--tc:#7a8190;display:grid;place-items:center;min-width:0;height:30px;padding:0;border:0;border-radius:4px;
+ background:color-mix(in srgb,var(--tc) calc(18% + var(--heat,0) * 62%),#141920);color:#f4f6f9;font:700 14px/1 var(--m-num);font-variant-numeric:tabular-nums;
+ cursor:pointer;transition:box-shadow .15s,transform .12s}
+span.nm-spot-cell{background:#11161c;cursor:default}
+.nm-spot-cell[data-tone=strong]{--tc:#8cc84f;color:#0f1a07}
+.nm-spot-cell[data-tone=edge]{--tc:#3da876}
+.nm-spot-cell[data-tone=neutral]{--tc:#5d6573}
+.nm-spot-cell[data-tone=tough]{--tc:#d4574c}
+button.nm-spot-cell:hover{box-shadow:inset 0 0 0 1px #ffffff70}
+.nm-spot-cell[aria-pressed=true]{box-shadow:inset 0 0 0 2px #fff}
+.nm-spot-cell:focus-visible{outline:2px solid var(--m-accent);outline-offset:1px}
+.nm-spots-grid[data-wide]{grid-template-columns:52px repeat(var(--cols),minmax(38px,1fr));gap:3px}
+.nm-spots-grid[data-wide] .nm-spot-team{grid-template-columns:1fr;justify-items:center;row-gap:3px;padding:0 0 4px}
+.nm-spots-grid[data-wide] .nm-spot-team img{grid-row:auto;width:22px;height:22px}
+.nm-spots-grid[data-wide] .nm-spot-stat{text-align:left}
+.nm-spots-grid[data-wide] .nm-spot-cell{height:32px;font-size:15px}
+
+/* The track record, opened: each band's rate as a bar. */
+.nm-record-body table{width:100%;max-width:520px;border-collapse:collapse;font-size:13px}
+.nm-record-body caption{padding:0 0 8px;color:var(--m-muted);font-size:12px;font-weight:600;text-align:left}
+.nm-record-body th,.nm-record-body td{padding:7px 0;border-top:1px solid var(--m-line);text-align:right;font-variant-numeric:tabular-nums}
+.nm-record-body th:first-child{text-align:left}
+.nm-record-body thead th{border-top:0;color:var(--m-faint);font:700 12px var(--m-num);letter-spacing:.08em;text-transform:uppercase}
+.nm-record-body tbody th{font:700 15px var(--m-num)}
+.nm-record-note{margin:0;color:var(--m-faint);font-size:12px}
+.nm-rate{display:inline-block;width:80px;height:6px;margin-right:10px;border-radius:2px;background:#1f262f;vertical-align:middle;overflow:hidden}
+.nm-rate i{display:block;height:100%;background:var(--m-good);transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
+
+/* ---------------------------------------------------------------- The list
+   One panel, a row per prop on a thin rule. Its columns follow the
+   panel's own width: a phone stacks the line, then his last 10 beside the
+   game, under the name, the rank on his photo; from 640px each has its
+   own column; from 920px L5, L20 and the season join Last 10. The Why
+   arrow and the slip's + sit after the columns. */
+.nm-table{--nm-tail:64px;container-type:inline-size;margin:0;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);overflow:clip}
+.nm-table[data-picking]{--nm-tail:44px}
+.nm-thead,.nm-main{--nm-cols:36px auto minmax(0,1fr) 44px}
+.nm-thead{display:flex;align-items:center;gap:16px;height:38px;padding:0 var(--nm-tail) 0 12px;border-bottom:1px solid var(--m-line);
+ background:#0b0f13;color:var(--m-faint);font:700 12.5px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
+.nm-th-player{flex:1}
+.nm-th-rank,.nm-th-line,.nm-th-rate,.nm-long{display:none}
+.nm-th{display:inline-flex;align-items:center;justify-content:center;gap:3px;height:38px;padding:0;border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
 .nm-th:hover,.nm-th[aria-pressed=true]{color:var(--m-text)}
-.nm-short{display:none}
+.nm-th:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
 .nm-list{margin:0;padding:0;list-style:none}
-.nm-row{display:grid;grid-template-columns:minmax(0,1fr) var(--nm-why);align-items:center;border-bottom:1px solid var(--m-line)}
-.nm-row:hover,.nm-row[data-open]{background:#121212}
-.nm-main{display:grid;grid-template-columns:var(--nm-cols);grid-template-areas:'face name line score hit' 'face when line score hit';column-gap:12px;row-gap:2px;
- align-items:center;width:100%;min-width:0;padding:10px 12px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
-.nm-main .sa-face{--size:40px;grid-area:face}
-.nm-name{grid-area:name;align-self:end;overflow:hidden;font-size:14.5px;white-space:nowrap;text-overflow:ellipsis}
-.nm-when{grid-area:when;align-self:start;overflow:hidden;color:var(--m-faint);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
-/* The line: More 3.5 AST, a Demon marked beside it. */
-.nm-line{grid-area:line;display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 6px;min-width:0}
-.nm-line small{color:var(--m-faint);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
-.nm-line b{font:800 15px/1 'Sora',var(--font-sans)}
-.nm-line em{color:var(--m-muted);font-size:12px;font-style:normal;font-weight:800}
-/* PrizePicks' own Demon icon, as the Finder shows it. */
-.nm-line .nm-demon{flex:none;align-self:center;width:18px;height:18px;object-fit:contain}
-/* Starter or Bench, at the front of the game line. */
-.nm-role{font-weight:800}
-.nm-role[data-role=starter]{color:#e6e6e6}
-.nm-role[data-role=bench]{color:var(--m-neutral)}
+.nm-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;border-top:1px solid var(--m-line);
+ transition:background-color .15s ease;animation:nm-in .32s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--i,0) * 30ms)}
+.nm-row:first-child{border-top:0}
+.nm-row:hover,.nm-row[data-open]{background:var(--m-raised)}
+.nm-row::before{content:'';position:absolute;top:0;bottom:0;left:0;width:3px;background:var(--team,var(--m-accent));opacity:0;transition:opacity .15s}
+.nm-row[data-selected]{background:#161d26}
+.nm-row[data-selected]::before{opacity:1}
+.nm-main{display:grid;grid-template-columns:var(--nm-cols);grid-template-areas:'face name name grade' 'face line line grade' 'face l10 when grade';column-gap:8px;row-gap:3px;
+ align-items:center;width:100%;min-width:0;padding:10px 0 10px 10px;border:0;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}
+.nm-main:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
+.nm-rank{grid-area:face;z-index:1;align-self:start;justify-self:start;display:grid;place-items:center;min-width:17px;height:17px;margin:-4px 0 0 -4px;padding:0 3px;box-sizing:border-box;
+ border-radius:5px;background:#0e1217;box-shadow:0 0 0 1px #2a323d;color:#7d8794;font:700 12px/1 var(--m-num);font-variant-numeric:tabular-nums}
+.nm-rank[data-top]{color:var(--m-text)}
+/* His photo on a tile of his team's color, squared off. */
+.nm-main .sa-face,.nm-preview .sa-face{--size:36px;grid-area:face}
+.nba-matchups .sa-face-photo{border-radius:9px;background:color-mix(in srgb,var(--team,#2a313b) 55%,#151a20)}
+.nba-matchups .sa-face-badge{border-radius:6px}
+.nm-name{grid-area:name;align-self:end;overflow:hidden;font-size:14px;font-weight:650;white-space:nowrap;text-overflow:ellipsis}
+.nm-when{grid-area:when;min-width:0;overflow:hidden;color:var(--m-faint);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
+.nm-pos,.nm-own{display:none}
+.nm-line{grid-area:line;display:flex;align-items:baseline;gap:4px;min-width:0}
+.nm-line small{color:var(--m-faint);font:700 11px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
+.nm-line b{font:700 17px/1 var(--m-num);font-variant-numeric:tabular-nums}
+.nm-line em{color:var(--m-muted);font:700 12.5px/1 var(--m-num);letter-spacing:.06em;font-style:normal}
+.nm-line .nm-demon{flex:none;align-self:center;width:16px;height:16px;object-fit:contain}
+/* The matchup score: a solid badge in its band's color. */
+.nm-grade{grid-area:grade;justify-self:center;display:grid;place-items:center;min-width:42px;height:30px;padding:0 5px;box-sizing:border-box;border-radius:7px;background:#232a34;color:var(--m-text)}
+.nm-grade b{font:700 20px/1 var(--m-num);font-variant-numeric:tabular-nums}
+.nm-grade[data-tone=strong]{background:var(--m-strong);color:#122108}
+.nm-grade[data-tone=edge]{background:var(--m-edge);color:#03170d}
+.nm-grade[data-tone=neutral]{background:#2b323d;color:#e9edf2}
+.nm-grade[data-tone=tough]{background:var(--m-tough);color:#2a0805}
+/* Last 10: his games as bars up (over) or down (under) from the line, then the count. */
+.nm-l10{grid-area:l10;display:flex;align-items:center;justify-content:flex-start;gap:6px;min-width:0}
+.nm-l10 b,.nm-rate-cell{font:700 15px/1 var(--m-num);font-variant-numeric:tabular-nums;color:var(--m-muted)}
+.nm-l10 b{min-width:30px}
+:is(.nm-l10 b,.nm-rate-cell)[data-tone=good]{color:var(--m-good)}
+:is(.nm-l10 b,.nm-rate-cell)[data-tone=poor]{color:var(--m-poor)}
+.nm-spark{position:relative;display:flex;gap:2px;width:40px;height:16px}
+.nm-spark::before{content:'';position:absolute;top:50%;right:-2px;left:-2px;border-top:1px solid #39424e}
+.nm-spark i{position:relative;flex:1;min-width:0;height:100%}
+.nm-spark i::after{content:'';position:absolute;right:0;bottom:50%;left:0;height:calc(var(--h,0) * 50%);border-radius:1px 1px 0 0;background:var(--m-good);transform-origin:bottom;
+ animation:nm-grow .4s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--i,0) * 30ms + 160ms)}
+.nm-spark i:not([data-over])::after{top:50%;bottom:auto;border-radius:0 0 1px 1px;background:var(--m-poor);transform-origin:top}
+.nm-spark i[data-push]::after{top:calc(50% - 1px);height:2px;background:#8a93a0}
+.nm-rate-cell{display:none;justify-self:center}
+/* The Why arrow and the slip's +. */
+.nm-why{display:grid;place-items:center;width:26px;height:34px;padding:0;border:0;border-radius:7px;background:transparent;color:var(--m-faint);cursor:pointer}
+span.nm-why{cursor:default}
+button.nm-why:hover,.nm-why[aria-expanded=true]{background:#1d242d;color:var(--m-text)}
+.nm-why svg{transition:transform .2s ease}
+.nm-why[aria-expanded=true] svg{transform:rotate(180deg)}
+.nm-why:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
+.nm-save{margin:0 8px 0 2px}
+.nm-table[data-picking] .nm-save{margin:0 10px 0 4px}
 
-/* Matchup, Last 10 and Prop grade: the number, what it means under it. */
-.nm-cell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;text-align:center}
-.nm-cell.nm-score{grid-area:score}
-.nm-cell.nm-hit{grid-area:hit}
-/* The matchup is the row's big number, a bar under it; Last 10 sits quieter. */
-.nm-cell.nm-score b{font-size:22px}
-.nm-cell.nm-score .nm-bar{width:52px}
-.nm-cell.nm-hit b{font-size:14px;font-weight:700}
-.nm-cell.nm-hit b{color:var(--m-muted)}
-.nm-cell b{font:800 17px/1 'Sora',var(--font-sans);white-space:nowrap}
-.nm-cell em{max-width:100%;overflow:hidden;color:var(--m-faint);font-size:11px;font-style:normal;font-weight:600;line-height:1.2;white-space:nowrap;text-overflow:ellipsis}
-.nm-cell[data-tone=strong] b,.nm-cell[data-tone=strong] em{color:var(--m-strong)}
-.nm-cell[data-tone=edge] b,.nm-cell[data-tone=edge] em{color:var(--m-edge)}
-.nm-cell[data-tone=tough] b,.nm-cell[data-tone=tough] em{color:var(--m-tough)}
-.nm-cell[data-tone=neutral] em{color:var(--m-neutral)}
-.nm-cell small{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:3px 4px;color:var(--m-faint);font-size:10.5px;font-weight:600;line-height:1.1;white-space:nowrap}
-/* Marks under the grade: its props have been beating what they needed
-   lately (Hitting); a big spread tonight, a starter's risk or a bench
-   player's boost. */
-.nm-bar{display:block;height:4px;border-radius:999px;background:#242424;overflow:hidden}
-.nm-bar i{display:block;height:100%;border-radius:inherit;background:#6f6f6f}
+@container (min-width:640px){
+ .nm-thead{--nm-tail:76px}
+ .nm-table[data-picking] .nm-thead{--nm-tail:44px}
+ .nm-thead,.nm-main{--nm-cols:24px 40px minmax(0,1.5fr) minmax(0,1fr) 56px 104px}
+ .nm-main{grid-template-areas:'rank face name line grade l10' 'rank face when line grade l10';column-gap:12px;padding:11px 0 11px 12px}
+ .nm-thead{display:grid;grid-template-columns:var(--nm-cols);column-gap:12px}
+ .nm-th-rank{display:flex;align-items:center;justify-content:center}
+ .nm-th-player{grid-column:span 2}
+ .nm-rank{grid-area:rank;align-self:center;justify-self:center;min-width:0;height:auto;margin:0;padding:0;background:none;box-shadow:none;color:#4f5865;font-size:14px}
+ .nm-when{align-self:start}
+ .nm-name{align-self:end}
+ .nm-l10{justify-content:flex-end;gap:7px}
+ .nm-l10 b{text-align:right}
+ .nm-why{width:30px}
+ .nm-save{margin:0 10px 0 4px}
+ .nm-main .sa-face{--size:40px}
+ .nm-name{font-size:15px}
+ .nm-when{font-size:12px}
+ .nm-pos,.nm-own,.nm-th-line,.nm-long{display:inline}
+ .nm-short{display:none}
+ .nm-line b{font-size:21px}
+ .nm-line em{font-size:13.5px}
+ .nm-grade{min-width:48px;height:34px}
+ .nm-grade b{font-size:23px}
+ .nm-spark{width:62px;height:24px}
+}
+
+@container (min-width:920px){
+ .nm-thead,.nm-main{--nm-cols:24px 40px minmax(0,1.5fr) minmax(0,1fr) 56px 112px 44px 44px 44px}
+ .nm-main{grid-template-areas:'rank face name line grade l10 l5 l20 season' 'rank face when line grade l10 l5 l20 season'}
+ .nm-th-rate,.nm-rate-cell{display:block;text-align:center}
+}
+
+/* What made the scores, under the row (and in the preview). */
+.nm-reads{grid-column:1 / -1;display:flex;flex-direction:column;margin:0 12px 12px 62px;padding:2px 14px;border-left:2px solid var(--m-line-2);list-style:none;animation:nm-fade .22s ease-out backwards}
+.nm-reads li{display:grid;gap:5px;padding:10px 0;border-top:1px solid var(--m-line)}
+.nm-reads li:first-child{border-top:0}
+.nm-reads li.nm-read-note{padding:7px 0;color:#a9b1bc;font-size:12.5px;font-weight:500;line-height:1.45}
+.nm-read-head{display:flex;justify-content:space-between;gap:8px}
+.nm-read-head b{font:700 15px/1.1 var(--m-num);letter-spacing:.04em;text-transform:uppercase}
+.nm-read-head em{flex:none;color:var(--m-faint);font:700 14px/1.1 var(--m-num);font-style:normal;white-space:nowrap}
+.nm-reads li[data-sign=up] .nm-read-head em{color:var(--m-good)}
+.nm-reads li[data-sign=down] .nm-read-head em{color:var(--m-poor)}
+.nm-read-text{color:var(--m-muted);font-size:12.5px;line-height:1.45}
+.nm-bar{display:block;height:3px;border-radius:2px;background:#1f262f;overflow:hidden}
+.nm-bar i{display:block;height:100%;background:#6f7884;transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
 .nm-bar[data-tone=strong] i{background:var(--m-strong)}
 .nm-bar[data-tone=edge] i{background:var(--m-edge)}
 .nm-bar[data-tone=neutral] i{background:var(--m-neutral)}
 .nm-bar[data-tone=tough] i{background:var(--m-tough)}
-.nm-why{display:grid;place-items:center;width:36px;height:36px;padding:0;border:0;border-radius:10px;background:transparent;color:var(--m-faint);cursor:pointer}
-.nm-why:hover,.nm-why[aria-expanded=true]{background:var(--m-raised);color:var(--m-text)}
-.nm-why svg{transition:transform .2s}
-.nm-why[aria-expanded=true] svg{transform:rotate(180deg)}
-/* What made the scores, under the row. */
-.nm-reads{grid-column:1 / -1;display:flex;flex-direction:column;margin:0 12px 12px 64px;padding:4px 12px;border-radius:12px;background:#0f0f0f;list-style:none}
-.nm-reads li{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid #1f1f1f}
-.nm-reads li:last-child{border-bottom:0}
-/* The lines above the parts: the Prop grade, then how the matchup's points add up. */
-.nm-reads li.nm-read-note{padding:8px 0;color:#a6a6a6;font-size:12px;font-weight:600;line-height:1.45}
-.nm-read-head{display:flex;justify-content:space-between;gap:8px}
-.nm-read-head b{font-size:12.5px}
-.nm-read-head em{color:var(--m-faint);font-size:11px;font-style:normal;white-space:nowrap}
-.nm-read-text{color:var(--m-muted);font-size:12.5px;line-height:1.45}
-.nm-main:focus-visible,.nm-why:focus-visible,.nm-th:focus-visible,.nm-stats button:focus-visible,.nm-sort button:focus-visible,.nm-refresh:focus-visible,.nm-game-button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
-.nm-game-menu li:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 
-/* The track record (props-record.js): one line, a table under it when opened. */
-.nm-record{margin:12px 0 0;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field)}
-.nm-record-head{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:48px;padding:8px 14px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.nm-record-head span{display:flex;flex-direction:column;gap:2px;min-width:0}
-.nm-record-head b{font-size:13px}
-.nm-record-head small{overflow:hidden;color:var(--m-muted);font-size:12px;white-space:nowrap;text-overflow:ellipsis}
-.nm-record-head svg{flex:none;color:var(--m-faint);transition:transform .2s}
-.nm-record[data-open] .nm-record-head svg{transform:rotate(180deg)}
-.nm-record-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 20px;padding:0 14px 14px}
-.nm-record-body table{width:100%;border-collapse:collapse;font-size:12.5px}
-.nm-record-body caption{padding:0 0 6px;color:var(--m-faint);font-size:11px;font-weight:700;text-align:left}
-.nm-record-body th,.nm-record-body td{padding:6px 0;border-top:1px solid #1f1f1f;text-align:right;font-variant-numeric:tabular-nums}
-.nm-record-body th:first-child{text-align:left}
-.nm-record-body thead th{color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-top:0}
-.nm-record-body p{grid-column:1 / -1;margin:0;color:var(--m-faint);font-size:11.5px;line-height:1.5}
-.nm-record-note{margin:12px 0 0;color:var(--m-faint);font-size:12px}
-.nm-record-head:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:-2px}
 .nm-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 20px;color:var(--m-muted);text-align:center}
-.nm-empty b{color:var(--m-text);font-size:15px}
+.nm-empty b{color:var(--m-text);font:700 20px var(--m-num);letter-spacing:.03em;text-transform:uppercase}
 .nm-empty span{max-width:360px;font-size:13px;line-height:1.5}
-.nm-empty button{min-height:44px;padding:0 18px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-field);color:var(--m-text);font-weight:700;cursor:pointer}
-.nm-note{margin:12px 0 0;color:var(--m-muted);font-size:12.5px}
-.nm-meta{margin:16px 0 0;color:var(--m-faint);font-size:11.5px;line-height:1.55}
+.nm-empty button{height:40px;padding:0 18px;border:1px solid var(--m-line-2);border-radius:9px;background:var(--m-panel);color:var(--m-text);font-weight:700;cursor:pointer}
+.nm-note{margin:0 0 10px;color:var(--m-muted);font-size:12.5px}
+.nm-meta{margin:12px 0 0;color:var(--m-faint);font-size:11.5px}
 
+/* ---------------------------------------------------------------- Phones */
 @media (max-width:760px){
- .nm-league button{flex:1;min-width:0}
- .nm-head h2{font-size:21px}
- .nm-tools{grid-template-columns:minmax(0,1fr) minmax(0,150px);grid-template-areas:'search game' 'sort sort'}
- .nm-sort button{min-width:0;padding:0 8px}
- /* "All games" or "MIA @ MIN" says what it is: the label makes room. */
- .nm-game-button .nm-label{display:none}
- /* A phone: the line goes under the name, the headings shorten and a
-    caption may take two lines. */
- .nm-table{--nm-cols:30px minmax(0,1fr) 56px 44px;--nm-why:26px}
- .nm-thead{column-gap:5px;padding:0 calc(8px + var(--nm-why)) 6px 8px;font-size:10.5px;letter-spacing:.04em}
- .nm-th-line{display:none}
- .nm-long{display:none}
- .nm-short{display:inline}
- .nm-th{min-height:40px}
- .nm-main{grid-template-areas:'face name score hit' 'face line score hit' 'face when score hit';column-gap:5px;row-gap:3px;padding:10px 8px}
- .nm-main .sa-face{--size:30px}
- .nm-pos,.nm-own{display:none}
- .nm-line .nm-demon{width:16px;height:16px}
- .nm-cell small{font-size:9.5px}
- .nm-name{font-size:13.5px}
- .nm-when{font-size:11px}
- .nm-line b{font-size:13.5px}
- .nm-line em{font-size:11px}
- .nm-cell b{font-size:15px}
- .nm-cell.nm-score b{font-size:20px}
- .nm-cell.nm-score .nm-bar{width:40px}
- .nm-cell.nm-hit b{font-size:13px}
- .nm-cell em{font-size:10px;white-space:normal;overflow-wrap:anywhere}
- .nm-why{width:26px;height:36px}
- .nm-reads{margin:0 8px 10px}
+ .nm-league{display:flex;width:100%;margin-bottom:14px}
+ .nm-league button{flex:1;min-width:0;padding:0 8px}
+ .nm-head{gap:10px}
+ .nm-title h2{font-size:28px}
+ .nm-tools{flex:1 1 100%;min-width:0}
+ .nm-search{flex:1 1 0;width:auto;min-width:0}
+ .nm-slip span{display:none}
+ .nm-slip{padding:0 6px 0 9px}
+ .nm-strip{margin-inline:-16px;padding-inline:16px}
+ .nm-filters{display:grid;gap:8px;margin:0 0 10px;padding:10px;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);animation:nm-fade .22s ease-out backwards}
+ .nm-filter-row{display:grid;grid-template-columns:54px minmax(0,1fr)}
+ .nm-chips button{padding:0 4px;font-size:12px}
+ .nm-folds{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));margin:0 0 10px}
+ .nm-fold span{flex-direction:column;gap:3px}
+ .nm-fold{height:46px}
+ .nm-spots,.nba-matchups .nm-record{padding:10px}
+ .nm-table{margin-inline:-6px}
+ .nm-reads{margin:0 10px 10px 10px}
 }
 
-/* ---------------------------------------------------------------- Personality
-   Oct 25, the owner: "animations ... colors ... so it's not just black and
-   boring". The page stays solid and dark; color comes from the props
-   themselves: each row washed faintly in the player's team color with a
-   ring on his photo, the matchup score glowing in its tone (90+ softly
-   pulsing), and the line kinds and filters in their own colors. Motion:
-   the first rows slide in one after another, scores count up and their
-   bars fill, the Why panel unfolds. All of it stops with reduced motion. */
-.nm-row{position:relative;background:linear-gradient(90deg,color-mix(in srgb,var(--team,#2a2a2a) 9%,transparent),transparent 58%);
- transition:background-color .2s ease;animation:nm-in .45s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0) * 35ms)}
-.nm-row::before{content:'';position:absolute;top:10px;bottom:10px;left:0;width:3px;border-radius:0 3px 3px 0;background:var(--team,transparent);opacity:.75}
-.nm-row:hover,.nm-row[data-open]{background-color:#141414;background-image:linear-gradient(90deg,color-mix(in srgb,var(--team,#2a2a2a) 18%,transparent),transparent 65%)}
-.nm-main{transition:transform .12s ease}
-.nm-main:active{transform:scale(.985)}
-.nm-main .sa-face{border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--team,#3a3a3a) 85%,#fff 15%)}
-@keyframes nm-in{from{opacity:0;transform:translateY(6px)}}
-
-/* The score: its bar filling from the left (Oct 27, the owner: no glows). */
-.nm-cell.nm-score b{transition:color .2s}
-.nm-bar i{transform-origin:left;animation:nm-fill .8s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(var(--i,0) * 35ms + 120ms)}
-.nm-cell.nm-score[data-tone=strong] .nm-bar{color:var(--m-strong)}
-.nm-cell.nm-score[data-tone=edge] .nm-bar{color:var(--m-edge)}
-.nm-cell.nm-score[data-tone=neutral] .nm-bar{color:var(--m-neutral)}
-.nm-cell.nm-score[data-tone=tough] .nm-bar{color:var(--m-tough)}
-@keyframes nm-fill{from{transform:scaleX(0)}}
-
-/* The Why panel unfolds; its bars fill. */
-.nm-reads{animation:nm-open .28s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:top}
-@keyframes nm-open{from{opacity:0;transform:translateY(-6px) scaleY(.96)}}
-.nm-why svg{transition:transform .2s ease}
-.nm-row[data-open] .nm-why svg{transform:rotate(180deg)}
-
-/* Controls: colored when picked, easing between. */
-.nm-sort button,.nm-chips button,.nm-stats button,.nm-league button{transition:background-color .18s ease,color .18s ease,box-shadow .2s ease}
-.nm-sort button[aria-pressed=true],.nm-chips button[aria-pressed=true]{box-shadow:inset 0 0 0 1px #ffffff14}
-.nm-chips:first-child button:nth-child(2)[aria-pressed=true]{background:rgba(70,227,154,.16);color:#7ff0ba}
-.nm-chips:first-child button:nth-child(3)[aria-pressed=true]{background:rgba(255,99,99,.16);color:#ff9a9a}
-.nm-chips img{transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
-.nm-chips button[aria-pressed=true] img{transform:scale(1.22) rotate(-8deg)}
-.nm-stats button[aria-pressed=true]{color:var(--m-text)}
-.nm-refresh:not(:disabled):active svg{transform:rotate(-90deg)}
-.nm-refresh svg{transition:transform .25s ease}
-
-@media (prefers-reduced-motion:reduce){
- .nm-row,.nm-bar i,.nm-reads{animation:none}
- .nm-main:active{transform:none}
-}
-
-/* ---------------------------------------------------------------- Background
-   Oct 25, the owner: "a nicer background, not just plain black". The NBA /
-   NFL Props pages paint the whole app behind them (#app-shell, edge to
-   edge) instead of the flat theme black; the panel itself goes clear. The
-   list: a deep slate, lighter at the top (Oct 27: the colored glows are
-   gone, the owner didn't want a futuristic look). A player's page: his
-   team's color glowing down from the banner and a faint tint of it all the
-   way down (MatchupPageShell sets --props-team). A fine grain over both
-   keeps the gradients smooth. Still the background photo and site glow stay
-   off here: this is the page's own. */
-:root #app-shell:has(#panel-v2[data-league]:not([hidden])){
- --props-grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
- background:var(--props-grain),linear-gradient(180deg,#15181d 0,#0e1013 460px,#0b0c0e 100%)!important}
-:root #app-shell:has(#props-league-root[data-page=player]){
- background:var(--props-grain),
-  radial-gradient(120% 700px at 85% -60px,color-mix(in srgb,var(--props-team,#2f5b9a) 40%,transparent),transparent 72%),
-  radial-gradient(90% 500px at 0% 380px,color-mix(in srgb,var(--props-team,#2f5b9a) 18%,transparent),transparent 70%),
-  radial-gradient(80% 500px at 100% 1100px,color-mix(in srgb,var(--props-team,#2f5b9a) 12%,transparent),transparent 70%),
-  linear-gradient(180deg,color-mix(in srgb,var(--props-team,#2f5b9a) 16%,#0b0c10) 0,color-mix(in srgb,var(--props-team,#2f5b9a) 11%,#0a0b0e) 700px,color-mix(in srgb,var(--props-team,#2f5b9a) 8%,#09090c) 100%)!important}
-:root #app-shell #panel-v2[data-league]:not([hidden]){background:transparent!important;background-color:transparent!important}
-
-/* ---------------------------------------------------------------- Compact top
-   Oct 25, the owner: cleaner buttons, more compact, props in view without
-   scrolling past every control. A slim title row (the line under it only on
-   wider screens), one row of 40px controls (search, game, Filters), the
-   filters opening under it as a small panel, active ones as chips. */
-.nm-league{margin-bottom:12px}
-.nm-league button{min-height:40px}
-.nm-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 10px;margin:0 0 10px}
-.nm-head h2{grid-column:1;font-size:21px}
-.nm-head p{grid-column:1;margin:0;font-size:12.5px}
-.nm-refresh{grid-column:2;grid-row:1 / span 2;width:38px;height:38px;border-radius:11px;transition:background-color .18s,color .18s}
-.nm-refresh:hover{background:#1a1d24}
-
-.nm-tools{grid-template-columns:minmax(0,1fr) minmax(0,200px) 40px;grid-template-areas:'search game filter';gap:6px}
-.nm-search,.nm-game{height:40px;border-radius:12px;background:rgba(16,18,23,.8);border-color:#262a33;transition:border-color .18s,background-color .18s}
-.nm-search input{font-size:14px}
-.nm-game-button{padding:0 10px}
-.nm-game-now{font-size:13.5px}
-.nm-filter-button{grid-area:filter;position:relative;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid #262a33;border-radius:12px;
- background:rgba(16,18,23,.8);color:var(--m-muted);cursor:pointer;transition:background-color .18s,color .18s,border-color .18s}
-.nm-filter-button:hover,.nm-filter-button[aria-expanded=true]{color:var(--m-text);border-color:#3a404c;background:#1a1d24}
-.nm-filter-button i{position:absolute;top:-5px;right:-5px;display:grid;place-items:center;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;border-radius:999px;
- background:var(--m-strong);color:#05140d;font:800 10px/1 var(--font-sans);font-style:normal;box-shadow:0 0 0 2px #0c0e13}
-.nm-filter-button:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
-
-.nm-filters{display:grid;gap:8px;margin:8px 0 0;padding:10px;border:1px solid #262a33;border-radius:14px;background:rgba(16,18,23,.85);
- animation:nm-open .22s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:top}
-.nm-filter-row{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:8px}
-.nm-filter-row>span{color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
-.nm-filter-row .nm-chips{padding:2px;border-radius:10px;border-color:#22262e;background:#0d0f13}
-.nm-filter-row .nm-chips button{min-height:30px;padding:0 6px;border-radius:8px;font-size:12px}
-.nm-filter-row .nm-chips button[aria-pressed=true]{background:#262a33}
-
-.nm-active{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
-.nm-active button{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px 0 11px;border:1px solid color-mix(in srgb,var(--m-strong) 35%,#262a33);border-radius:999px;
- background:color-mix(in srgb,var(--m-strong) 10%,transparent);color:#c9f5df;font:700 12px var(--font-sans);cursor:pointer;animation:nm-in .25s ease backwards}
-.nm-active button svg{color:var(--m-muted)}
-.nm-active img{width:13px;height:13px;object-fit:contain}
-
-.nm-stats{margin-top:8px}
-.nm-stats button{min-height:38px;padding:0 12px;font-size:12px}
-.nm-record{margin-top:8px;border-radius:11px;background:rgba(16,18,23,.7);border-color:#22262e}
-.nm-record-head{min-height:38px;padding:6px 12px}
-.nm-record-head span{flex-direction:row;align-items:baseline;gap:8px}
-.nm-record-head b{flex:none;font-size:12px}
-.nm-record-head small{font-size:11.5px}
-.nm-table{margin-top:8px}
-.nm-thead{padding-bottom:6px}
-
-@media (max-width:760px){
- .nm-head p{display:none}
- .nm-head h2{font-size:19px}
- .nm-tools{grid-template-columns:minmax(0,1fr) minmax(0,128px) 40px;grid-template-areas:'search game filter'}
- .nm-search{gap:7px;padding:0 6px 0 11px}
- .nm-filter-row{grid-template-columns:50px minmax(0,1fr)}
- .nm-filter-row .nm-chips button{padding:0 4px;font-size:11.5px}
-}
-@media (prefers-reduced-motion:reduce){.nm-filters,.nm-active button{animation:none}}
-
-/* ---------------------------------------------------------------- Desktop
-   From 1100px (useWide) the list is two parts across the screen: a
-   sidebar with the title, search, Sort / Lines / Players (always open) and
-   every game listed, and the props filling the rest. On a big monitor the
-   props sit in two columns. Phones and tablets keep the compact layout:
-   the two parts are just the page there. */
-.nm-side,.nm-maincol{display:contents}
+/* ---------------------------------------------------------------- Computer
+   From 1100px (useWide) the list takes the screen's width: the filters out
+   in the open, the games wrapping, and from 1500px the picked prop beside
+   the list (Preview), held in view while the list scrolls. */
+.nm-work,.nm-workmain{display:contents}
 @media (min-width:1100px){
- /* The Props tab takes the screen's width on a computer (the player page's
-    stylesheet says the same, for when it opens first). */
  :root[data-theme] body #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]),
  #app-shell #panel-v2:is([data-league=nba],[data-league=nfl]):not([hidden]){width:calc(100% - 64px)!important;max-width:2200px!important}
  #props-league-root{max-width:none}
- /* One framed surface across the screen (Oct 25, the owner: no floating
-    page): the sidebar its left pane, the props the rest, a line between. */
- .nba-matchups[data-wide]{--frame:min(2200px,calc(100vw - 80px));width:var(--frame);margin:0 0 24px calc(50% - var(--frame) / 2);padding:0;
-  display:grid;grid-template-columns:320px minmax(0,1fr);align-items:stretch;border:1px solid #ffffff14;border-radius:26px;overflow:clip;
-  background:linear-gradient(180deg,rgba(18,21,28,.94),rgba(12,14,19,.96));box-shadow:0 40px 80px -50px #000,0 0 0 1px #00000060}
- .nba-matchups[data-wide] .nm-side{display:flex;flex-direction:column;gap:12px;padding:22px 20px;border-right:1px solid #ffffff10;background:#0d0f14}
- .nba-matchups[data-wide] .nm-maincol{display:block;min-width:0;padding:14px 28px 24px}
- .nba-matchups[data-wide] .nm-head{margin:0}
- .nba-matchups[data-wide] .nm-head h2{font-size:24px}
- .nba-matchups[data-wide] .nm-head p{display:block}
- .nba-matchups[data-wide] .nm-tools{grid-template-columns:1fr;grid-template-areas:'search'}
- .nba-matchups[data-wide] .nm-filters{margin:0;padding:0;border:0;background:transparent;animation:none;gap:12px}
- .nba-matchups[data-wide] .nm-filter-row{grid-template-columns:1fr;gap:6px}
- .nba-matchups[data-wide] .nm-filter-row .nm-chips button{min-height:32px}
- .nba-matchups[data-wide] .nm-stats{margin-top:0}
- .nm-games{display:flex;flex-direction:column;gap:2px;padding-top:4px;border-top:1px solid #ffffff10}
- .nm-games-head{padding:10px 2px 6px;color:var(--m-faint);font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
- .nm-games button{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'teams count' 'when count';align-items:center;gap:1px 10px;min-height:44px;padding:7px 10px;
-  border:0;border-radius:11px;background:transparent;color:var(--m-text);font:inherit;text-align:left;cursor:pointer;transition:background-color .15s}
- .nm-games button:hover{background:#ffffff0a}
- .nm-games button[aria-pressed=true]{background:color-mix(in srgb,var(--m-accent) 14%,#161a21);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--m-accent) 35%,transparent)}
- .nm-games .nm-game-teams{grid-area:teams}
- .nm-games small{grid-area:when;color:var(--m-faint);font-size:11.5px}
- .nm-games em{grid-area:count;min-width:26px;padding:2px 7px;box-sizing:border-box;border-radius:999px;background:#ffffff0d;color:var(--m-muted);font-size:11px;font-style:normal;font-weight:800;text-align:center}
- .nba-matchups[data-wide] .nm-table{--nm-cols:44px minmax(0,1.6fr) minmax(0,1fr) minmax(110px,.6fr) minmax(80px,.45fr)}
- .nba-matchups[data-wide] .nm-main{padding-block:12px}
- .nba-matchups[data-wide] .nm-main .sa-face{--size:44px}
- .nba-matchups[data-wide] .nm-name{font-size:15.5px}
- .nba-matchups[data-wide] .nm-cell.nm-score b{font-size:26px}
-}
-
-
-/* ---------------------------------------------------------------- Clean
-   Oct 27, the owner: the tab is theirs alone and should feel premium, but
-   "I don't want it to look like it was made with AI ... not the futuristic
-   look ... nice looking animations". So this reads like a sports app:
-   solid colors, no glows, no gradient text, nothing that pulses forever.
-   A plain title with when the board updated; the soft-spots map as a flat
-   colored stat table; ranks; Last 10 as ten small bars against the line.
-   Motion is short and has a job: the tab underline glides to the picked
-   tab, rows ease in, bars fill, panels fade open. */
-
-/* Title, with when the board last updated under it. */
-.nm-head{grid-template-columns:minmax(0,1fr) auto;row-gap:3px;margin-bottom:12px}
-.nm-head h2{grid-column:1;margin:0}
-.nm-updated{grid-column:1;color:var(--m-faint);font-size:12px;font-weight:600}
-.nm-head .nm-refresh{grid-row:1 / span 2;align-self:center}
-
-/* The league and stat tabs: one underline that glides to the picked tab. */
-.nm-league,.nm-stats{position:relative}
-.nm-league button[aria-pressed=true],.nm-stats button[aria-pressed=true]{box-shadow:none}
-.nm-ink{position:absolute;bottom:0;left:0;height:3px;border-radius:3px 3px 0 0;background:var(--theme-accent,#f3f5f8);pointer-events:none;
- transition:transform .35s cubic-bezier(.22,.8,.24,1),width .35s cubic-bezier(.22,.8,.24,1),opacity .2s}
-.nm-league .nm-ink{bottom:-1px}
-
-/* Soft spots and the track record: two buttons side by side, one panel open under them. */
-.nm-folds{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:10px 0 0}
-.nm-folds[data-two]{grid-template-columns:repeat(2,minmax(0,1fr))}
-.nm-fold{display:flex;align-items:center;gap:10px;min-width:0;min-height:48px;padding:7px 12px;border:1px solid #23272e;border-radius:12px;
- background:#12151a;color:var(--m-text);font:inherit;text-align:left;cursor:pointer;transition:border-color .18s,background-color .18s}
-.nm-fold:hover{border-color:#30353e;background:#15191f}
-.nm-fold>svg:first-child{flex:none;color:var(--m-muted)}
-.nm-fold span{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
-.nm-fold b{font-size:12.5px}
-.nm-fold small{overflow:hidden;color:var(--m-muted);font-size:11.5px;white-space:nowrap;text-overflow:ellipsis}
-.nm-fold>svg:last-child{flex:none;color:var(--m-faint);transition:transform .25s ease}
-.nm-fold[aria-expanded=true]{border-color:#3a404a;background:#171b21}
-.nm-fold[aria-expanded=true]>svg:last-child{transform:rotate(180deg)}
-.nm-fold:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:2px}
-.nm-spots,.nba-matchups .nm-record{margin:8px 0 0;padding:12px;border:1px solid #23272e;border-radius:12px;background:#101317;animation:nm-fade .22s ease-out backwards}
-@keyframes nm-fade{from{opacity:0;transform:translateY(-4px)}}
-.nm-spots{overflow-x:auto;scrollbar-width:thin}
-
-/* The soft-spots map: each defense's average matchup by stat, a flat color by band. */
-.nm-spots-grid{display:grid;grid-template-columns:minmax(78px,auto) repeat(var(--cols),minmax(32px,1fr));gap:3px;align-items:center}
-.nm-spot-corner,.nm-spot-stat{color:var(--m-faint);font-size:10.5px;font-weight:700;text-align:center;white-space:nowrap}
-.nm-spot-corner{text-align:left}
-.nm-spot-team{display:grid;grid-template-columns:18px auto;align-items:center;column-gap:6px;min-width:0;padding-right:6px}
-.nm-spot-team img{grid-row:1 / span 2;width:18px;height:18px;object-fit:contain}
-.nm-spot-team b{font-size:12px;line-height:1.1}
-.nm-spot-team small{color:var(--m-faint);font-size:10px;line-height:1.1;white-space:nowrap}
-.nm-spot-cell{--tc:#7a8190;display:grid;place-items:center;min-width:0;height:30px;padding:0;border:0;border-radius:6px;
- background:color-mix(in srgb,var(--tc) calc(var(--heat,0) * 50%),#171a20);color:#e9edf3;font:700 12px/1 var(--font-sans);font-variant-numeric:tabular-nums;
- cursor:pointer;transition:background-color .15s,box-shadow .15s}
-span.nm-spot-cell{background:#121419;cursor:default}
-.nm-spot-cell[data-tone=strong]{--tc:#2fbf7f}
-.nm-spot-cell[data-tone=edge]{--tc:#2ba59a}
-.nm-spot-cell[data-tone=neutral]{--tc:#8a8f9a}
-.nm-spot-cell[data-tone=tough]{--tc:#d9534f}
-button.nm-spot-cell:hover{box-shadow:inset 0 0 0 1px #ffffff40}
-.nm-spot-cell[aria-pressed=true]{box-shadow:inset 0 0 0 2px #fff}
-.nm-spot-cell:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:1px}
-.nm-spots-grid[data-wide]{grid-template-columns:52px repeat(var(--cols),minmax(38px,1fr));gap:4px}
-.nm-spots-grid[data-wide] .nm-spot-team{grid-template-columns:1fr;justify-items:center;row-gap:3px;padding:0 0 4px}
-.nm-spots-grid[data-wide] .nm-spot-team img{grid-row:auto;width:22px;height:22px}
-.nm-spots-grid[data-wide] .nm-spot-stat{text-align:left}
-.nm-spots-grid[data-wide] .nm-spot-cell{height:32px;font-size:12.5px}
-
-/* The track record, opened: each band's rate as a bar. */
-.nba-matchups .nm-record .nm-record-body{display:block;padding:0}
-.nba-matchups .nm-record caption{padding:0 0 8px;color:var(--m-muted);font-size:12px;font-weight:600}
-.nba-matchups .nm-record .nm-record-note{margin:0}
-.nm-rate{display:inline-block;width:72px;height:5px;margin-right:10px;border-radius:999px;background:#ffffff12;vertical-align:middle;overflow:hidden}
-.nm-rate i{display:block;height:100%;border-radius:inherit;background:var(--m-strong);transform-origin:left;animation:nm-fill .7s cubic-bezier(.2,.8,.2,1) backwards}
-
-/* The rows: a rank, then as before; Last 10 with its ten bars under it. */
-.nm-table{--nm-cols:26px 40px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.7fr) minmax(84px,.5fr)}
-.nm-main{grid-template-areas:'rank face name line score hit' 'rank face when line score hit'}
-.nm-th-rank{grid-column:1;display:flex;align-items:center;justify-content:center;min-height:32px}
-.nm-th-player{grid-column:2 / span 2}
-.nm-rank{grid-area:rank;justify-self:center;color:#5d6472;font:700 12px/1 var(--font-sans);font-variant-numeric:tabular-nums}
-.nm-rank[data-top]{color:var(--m-text)}
-.nm-row{animation-duration:.35s;animation-timing-function:cubic-bezier(.22,.8,.24,1)}
-.nm-reads{animation:nm-fade .22s ease-out backwards}
-.nm-spark{position:relative;display:flex;align-items:flex-end;gap:2px;width:62px;height:16px;margin-top:2px}
-.nm-spark i{flex:1;min-width:0;border-radius:1px 1px 0 0;background:#e36a6a99;transform-origin:bottom;
- animation:nm-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--i,0) * 35ms + 200ms)}
-.nm-spark i[data-over]{background:var(--m-strong)}
-.nm-spark s{position:absolute;right:-2px;left:-2px;height:0;border-top:1px solid rgba(255,255,255,.4);text-decoration:none}
-@keyframes nm-grow{from{transform:scaleY(0)}}
-.nm-cell.nm-hit{gap:4px}
-
-@media (prefers-reduced-motion:reduce){
- .nm-ink{transition:none}
- .nm-spark i,.nm-spots,.nba-matchups .nm-record,.nm-rate i{animation:none}
-}
-
-@media (max-width:760px){
- .nm-fold{min-height:46px;padding:6px 10px;gap:8px}
- .nm-fold b{font-size:12px}
- .nm-fold small{font-size:11px}
- .nm-spots,.nba-matchups .nm-record{padding:10px}
- .nm-table{--nm-cols:14px 30px minmax(0,1fr) 44px 46px;--nm-why:24px}
- .nm-main{grid-template-areas:'rank face name score hit' 'rank face line score hit' 'rank face when score hit'}
- .nm-rank{font-size:10.5px}
- .nm-spark{width:42px;height:12px;gap:1px}
-}
-@media (min-width:1100px){
- .nba-matchups[data-wide] .nm-table{--nm-cols:28px 44px minmax(0,1.6fr) minmax(0,1fr) minmax(110px,.6fr) minmax(96px,.45fr)}
- .nba-matchups[data-wide] .nm-spark{width:72px;height:18px}
-}
-@media (min-width:1900px){
- .nba-matchups[data-wide] .nm-table{--nm-cols:28px 44px minmax(0,1.5fr) minmax(0,1fr) minmax(96px,.6fr) minmax(84px,.4fr)}
-}
-
-/* ---------------------------------------------------------------- Big screen
-   Oct 27, the owner: "make a better layout design" (on a big monitor the
-   props had been split into two columns that read 1 left, 2 right, with
-   wide gaps across each row). From 1500px: one ranked list, and beside it
-   the picked prop (MatchupList.jsx Preview), held in view while the list
-   scrolls. A row picks; the preview's button opens his page. For it to
-   stay in view the page body mustn't be its own clipping box here (it is
-   overflow-x:hidden site-wide, which keeps position:sticky from sticking):
-   on the Props tab on a computer it clips without one. */
-@media (min-width:1100px){
+ .nba-matchups[data-wide]{--frame:min(2200px,calc(100vw - 80px));width:var(--frame);margin:0 0 24px calc(50% - var(--frame) / 2)}
+ .nba-matchups[data-wide] .nm-strip{flex-wrap:wrap;overflow:visible}
+ /* For the preview to stay in view the page body mustn't clip on its own
+    (it is overflow-x:hidden site-wide, which stops position:sticky). */
  body:has(#panel-v2[data-league]:not([hidden])){overflow-x:clip!important;overflow-y:visible!important}
 }
-.nm-work,.nm-workmain{display:contents}
-.nba-matchups[data-preview] .nm-work{display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,440px);gap:24px;align-items:start;margin-top:8px}
+.nba-matchups[data-preview] .nm-work{display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,430px);gap:16px;align-items:start}
 .nba-matchups[data-preview] .nm-workmain{display:block;min-width:0}
-.nba-matchups[data-preview] .nm-table{--nm-why:0px;margin-top:0}
-.nba-matchups[data-preview] .nm-row[data-selected]{background-color:#181c22;background-image:linear-gradient(90deg,color-mix(in srgb,var(--team,#2a2a2a) 22%,transparent),transparent 70%)}
-.nba-matchups[data-preview] .nm-row[data-selected]::before{top:6px;bottom:6px;width:4px;opacity:1}
-.nba-matchups[data-preview] .nm-row[data-selected] .nm-name{color:#fff}
 
-.nm-preview{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;border:1px solid #242830;border-radius:16px;background:#101317;scrollbar-width:thin}
+/* ---------------------------------------------------------------- Preview */
+.nm-preview{position:sticky;top:14px;max-height:calc(100vh - 28px);overflow-y:auto;border:1px solid var(--m-line);border-radius:12px;background:var(--m-panel);scrollbar-width:thin}
 .nm-pv-card{display:flex;flex-direction:column;animation:nm-fade .22s ease-out backwards}
-.nm-pv-head{display:flex;align-items:center;gap:14px;padding:18px;border-bottom:1px solid #1f232a;
- background:linear-gradient(180deg,color-mix(in srgb,var(--team,#2a2f38) 28%,#101317),#101317)}
-.nm-pv-head .sa-face{--size:64px;border-radius:50%;box-shadow:0 0 0 2px color-mix(in srgb,var(--team,#3a3a3a) 85%,#fff 15%)}
-.nm-pv-who{display:grid;gap:3px;min-width:0}
-.nm-pv-who b{overflow:hidden;font:800 19px/1.2 'Sora',var(--font-sans);letter-spacing:-.01em;white-space:nowrap;text-overflow:ellipsis}
+.nm-pv-head{display:flex;align-items:center;gap:14px;padding:16px;border-top:4px solid var(--team,var(--m-accent));border-bottom:1px solid var(--m-line)}
+.nm-pv-head .sa-face{--size:62px}
+.nm-pv-head .sa-face-photo{border-radius:12px}
+.nm-pv-who{display:grid;gap:4px;min-width:0}
+.nm-pv-who b{overflow:hidden;font:700 27px/.95 var(--m-num);letter-spacing:.01em;text-transform:uppercase;white-space:nowrap;text-overflow:ellipsis}
 .nm-pv-who small{color:var(--m-muted);font-size:12.5px;font-weight:600}
-.nm-pv-game{display:inline-flex;align-items:center;gap:6px;color:#cfd4dc;font-size:12.5px;font-weight:700}
+.nm-pv-game{display:inline-flex;align-items:center;gap:6px;color:#d2d8e0;font-size:12.5px;font-weight:700}
 .nm-pv-game img{width:18px;height:18px;object-fit:contain}
-.nm-pv-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px;padding:16px 18px;border-bottom:1px solid #1f232a}
-.nm-pv-main small{display:block;margin-bottom:6px;color:var(--m-faint);font-size:12px;font-weight:700}
-.nm-pv-main span{display:flex;align-items:baseline;gap:7px;min-width:0}
-.nm-pv-line b{font:800 28px/1 'Sora',var(--font-sans)}
-.nm-pv-line em{color:var(--m-muted);font-size:13px;font-style:normal;font-weight:800}
+.nm-pv-main{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px 12px}
+.nm-pv-main small{display:block;color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
+.nm-pv-line span{display:flex;align-items:baseline;gap:6px;margin-top:4px}
+.nm-pv-line b{font:700 44px/.9 var(--m-num);font-variant-numeric:tabular-nums}
+.nm-pv-line em{color:var(--m-muted);font:700 17px/1 var(--m-num);letter-spacing:.06em;font-style:normal}
 .nm-pv-line img{align-self:center;width:18px;height:18px;object-fit:contain}
-.nm-pv-score b{font:800 28px/1 'Sora',var(--font-sans);color:var(--m-text)}
-.nm-pv-score em{overflow:hidden;color:var(--m-muted);font-size:13px;font-style:normal;font-weight:700;white-space:nowrap;text-overflow:ellipsis}
-.nm-pv-score[data-tone=strong] :is(b,em){color:var(--m-strong)}
-.nm-pv-score[data-tone=edge] :is(b,em){color:var(--m-edge)}
+.nm-pv-score{display:flex;align-items:center;gap:10px}
+.nm-pv-badge{display:grid;place-items:center;min-width:62px;height:52px;padding:0 6px;box-sizing:border-box;border-radius:9px;background:#2b323d;color:var(--m-text);font:700 36px/1 var(--m-num);font-variant-numeric:tabular-nums}
+.nm-pv-score span{display:grid;gap:5px}
+.nm-pv-score em{color:var(--m-muted);font-size:13px;font-style:normal;font-weight:700;white-space:nowrap}
+.nm-pv-score[data-tone=strong] .nm-pv-badge{background:var(--m-strong);color:#122108}
+.nm-pv-score[data-tone=edge] .nm-pv-badge{background:var(--m-edge);color:#03170d}
+.nm-pv-score[data-tone=tough] .nm-pv-badge{background:var(--m-tough);color:#2a0805}
+.nm-pv-score[data-tone=strong] em{color:var(--m-strong)}
+.nm-pv-score[data-tone=edge] em{color:var(--m-edge)}
 .nm-pv-score[data-tone=neutral] em{color:var(--m-neutral)}
-.nm-pv-score[data-tone=tough] :is(b,em){color:var(--m-tough)}
-.nm-pv-score .nm-bar{margin-top:9px}
-.nm-pv-part{padding:14px 18px;border-bottom:1px solid #1f232a}
-.nm-pv-part h3{margin:0 0 10px;color:var(--m-muted);font:700 13px/1.2 var(--font-sans)}
-/* His last 10 games: a bar each, green over the line, the line across. */
-.nm-pv-chart{display:grid;gap:5px}
-.nm-pv-bars{position:relative;display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:16px}
-.nm-pv-bars>span{position:relative;flex:1;min-width:0;border-radius:5px 5px 2px 2px;background:rgba(227,106,106,.55);transform-origin:bottom;
- animation:nm-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--k,0) * 35ms + 80ms)}
-.nm-pv-bars>span[data-over]{background:var(--m-strong)}
-.nm-pv-bars>span b{position:absolute;bottom:100%;left:50%;margin-bottom:3px;color:var(--m-muted);font:700 11px/1 var(--font-sans);transform:translateX(-50%);white-space:nowrap}
-.nm-pv-bars>span[data-over] b{color:#c8f5dd}
-.nm-pv-at{position:absolute;z-index:1;right:-4px;left:-4px;height:0;border-top:1px dashed rgba(255,255,255,.55);pointer-events:none}
-.nm-pv-opps{display:flex;gap:6px}
-.nm-pv-opps small{flex:1;min-width:0;overflow:hidden;color:var(--m-faint);font-size:10px;font-weight:700;text-align:center;white-space:nowrap}
-.nm-pv-rates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:12px 18px;border-bottom:1px solid #1f232a}
-.nm-pv-rates span{display:grid;justify-items:center;gap:3px;border-left:1px solid #1f232a}
-.nm-pv-rates span:first-child{border-left:0}
-.nm-pv-rates small{color:var(--m-faint);font-size:11.5px;font-weight:700}
-.nm-pv-rates b{font:800 16px/1 'Sora',var(--font-sans)}
-.nm-pv-rates [data-tone=good] b{color:var(--m-strong)}
-.nm-pv-rates [data-tone=poor] b{color:var(--m-tough)}
-.nm-pv-why .nm-reads{margin:0;padding:0;border-radius:0;background:transparent;animation:none}
-.nm-pv-others{display:flex;flex-wrap:wrap;gap:6px}
-.nm-pv-others button{display:inline-flex;align-items:baseline;gap:6px;min-height:34px;padding:0 11px;border:1px solid #2a2f37;border-radius:10px;background:#141820;color:var(--m-text);font:inherit;cursor:pointer;transition:border-color .15s,background-color .15s}
-.nm-pv-others button:hover{border-color:#3a404a;background:#181d25}
-.nm-pv-others small{color:var(--m-faint);font-size:11.5px;font-weight:800}
-.nm-pv-others b{font:800 13.5px var(--font-sans)}
-.nm-pv-others em{font-size:12px;font-style:normal;font-weight:800;color:var(--m-muted)}
-.nm-pv-others em[data-tone=strong]{color:var(--m-strong)}.nm-pv-others em[data-tone=edge]{color:var(--m-edge)}.nm-pv-others em[data-tone=tough]{color:var(--m-tough)}
-.nm-pv-open{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;margin:16px 18px 18px;border:0;border-radius:12px;
- background:var(--theme-accent,#f3f5f8);color:var(--theme-on-accent,#071018);font:800 14px var(--font-sans);cursor:pointer;transition:filter .15s}
-.nm-pv-open:hover{filter:brightness(1.08)}
+.nm-pv-score[data-tone=tough] em{color:var(--m-tough)}
+.nm-pv-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:8px;padding:0 16px 14px;border-bottom:1px solid var(--m-line)}
+.nm-pv-actions .slip-toggle{width:100%}
+.nm-pv-open{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;padding:0 12px;border:1px solid var(--m-line-2);border-radius:9px;background:transparent;
+ color:var(--m-text);font:600 13px var(--font-sans);white-space:nowrap;cursor:pointer;transition:border-color .15s,background-color .15s}
+.nm-pv-open:hover{border-color:#3c4654;background:var(--m-raised)}
 .nm-pv-open svg{transition:transform .2s ease}
 .nm-pv-open:hover svg{transform:translateX(3px)}
-.nm-pv-open:focus-visible,.nm-pv-others button:focus-visible{outline:2px solid var(--theme-accent,#cccccc);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){.nm-pv-card,.nm-pv-bars>span{animation:none}.nm-pv-open svg{transition:none}}
+.nm-pv-open:focus-visible{outline:2px solid var(--m-accent);outline-offset:2px}
+.nm-pv-rates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--m-line)}
+.nm-pv-rates span{display:grid;gap:5px;padding:11px 14px;border-left:1px solid var(--m-line)}
+.nm-pv-rates span:first-child{border-left:0}
+.nm-pv-rates small{color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.1em;text-transform:uppercase}
+.nm-pv-rates b{font:700 22px/1 var(--m-num);font-variant-numeric:tabular-nums}
+.nm-pv-rates i{position:relative;height:3px;border-radius:2px;background:#1f262f;overflow:hidden}
+.nm-pv-rates i::after{content:'';position:absolute;inset:0 auto 0 0;width:var(--w,0);background:#7b8491;transform-origin:left;animation:nm-fill .6s cubic-bezier(.2,.8,.2,1) backwards}
+.nm-pv-rates [data-tone=good] b{color:var(--m-good)}
+.nm-pv-rates [data-tone=good] i::after{background:var(--m-good)}
+.nm-pv-rates [data-tone=poor] b{color:var(--m-poor)}
+.nm-pv-rates [data-tone=poor] i::after{background:var(--m-poor)}
+.nm-pv-part{padding:14px 16px;border-bottom:1px solid var(--m-line)}
+.nm-pv-part:last-child{border-bottom:0}
+.nm-pv-part h3{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 10px;color:var(--m-text);font:700 16px/1.1 var(--m-num);letter-spacing:.06em;text-transform:uppercase}
+.nm-pv-part h3 em{color:var(--m-faint);font:700 13px var(--m-num);font-style:normal}
+/* His last 10: a light track per game, the bar inside it, his number on top, the line across. */
+.nm-pv-chart{display:grid;gap:6px}
+.nm-pv-bars{position:relative;display:flex;align-items:flex-end;gap:5px;height:118px;margin-top:18px}
+.nm-pv-bars>span{position:relative;flex:1;min-width:0;height:100%;border-radius:4px;background:#141a21}
+.nm-pv-bars>span::after{content:'';position:absolute;right:0;bottom:0;left:0;height:var(--v,0);border-radius:4px;background:color-mix(in srgb,var(--m-poor) 70%,#141a21);transform-origin:bottom;
+ animation:nm-grow .45s cubic-bezier(.22,.8,.24,1) backwards;animation-delay:calc(var(--k,0) * 35ms + 80ms)}
+.nm-pv-bars>span[data-over]::after{background:var(--m-good)}
+.nm-pv-bars>span b{position:absolute;z-index:1;bottom:calc(var(--v,0) + 4px);left:50%;color:var(--m-muted);font:700 14px/1 var(--m-num);transform:translateX(-50%);white-space:nowrap}
+.nm-pv-bars>span[data-over] b{color:var(--m-text)}
+.nm-pv-at{position:absolute;z-index:2;right:-3px;left:-3px;height:0;border-top:1.5px solid rgba(238,242,246,.75);pointer-events:none}
+.nm-pv-opps{display:flex;gap:5px}
+.nm-pv-opps small{flex:1;min-width:0;overflow:hidden;color:var(--m-faint);font:700 12px/1 var(--m-num);letter-spacing:.03em;text-align:center;white-space:nowrap}
+.nm-pv-why .nm-reads{margin:0;padding:0;border-left:0;animation:none}
+.nm-pv-others{display:grid;margin:0;padding:0;list-style:none}
+.nm-pv-others li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--m-line)}
+.nm-pv-others li:first-child{border-top:0}
+.nm-pv-others button:not(.slip-toggle){display:flex;align-items:baseline;gap:8px;flex:1;min-width:0;height:40px;padding:0 6px;border:0;border-radius:7px;background:transparent;color:var(--m-text);font:inherit;text-align:left;cursor:pointer}
+.nm-pv-others button:not(.slip-toggle):hover{background:var(--m-raised)}
+.nm-pv-others small{min-width:38px;color:var(--m-muted);font:700 14px var(--m-num);letter-spacing:.05em}
+.nm-pv-others b{font:700 18px var(--m-num)}
+.nm-pv-others em{margin-left:auto;padding:3px 6px;border-radius:5px;background:#2b323d;color:var(--m-text);font:700 14px/1 var(--m-num);font-style:normal}
+.nm-pv-others em[data-tone=strong]{background:var(--m-strong);color:#122108}
+.nm-pv-others em[data-tone=edge]{background:var(--m-edge);color:#03170d}
+.nm-pv-others em[data-tone=tough]{background:var(--m-tough);color:#2a0805}
+.nm-pv-others button:focus-visible{outline:2px solid var(--m-accent);outline-offset:-2px}
+
+@media (prefers-reduced-motion:reduce){
+ .nm-spin{animation-duration:3s}
+ .nm-ink,.nm-league button,.nm-stats button{transition:none}
+ .nm-row,.nm-spark i::after,.nm-reads,.nm-spots,.nba-matchups .nm-record,.nm-rate i,.nm-bar i,.nm-active button,.nm-filters,.nm-pv-card,.nm-pv-bars>span::after,.nm-pv-rates i::after{animation:none}
+ .nm-pv-open svg{transition:none}
+}

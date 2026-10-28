@@ -182,7 +182,7 @@ export function NbaMatchupPage({row,lines,league,onBack}){
   :<ChancesLink key={kind} kind={kind} row={row} league={leagueState} onOpen={()=>setShots(kind)}/>;
  // Under his games: home and away against tonight's line, minutes and shots lately.
  const extras=<><HomeAway row={row} logs={logs} short={SHORT[row.marketKey]||row.market}/><MinutesShots logs={logs}/></>;
- return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet}
+ return <MatchupPageShell row={row} team={team} opponent={opponent} home={home} facts={facts} color={color} onBack={onBack} tabs={TABS} tab={tab} onTab={setTab} jump={wide?jump:null} wide={wide} after={sheet} lines={lines} stats={STAT_CHIPS}
   action={admin&&<button type="button" className="mp-writeup" onClick={()=>setShots('writeup')}><PenLine size={15} aria-hidden="true"/>Write-up</button>}>
   {/* Oct 25, the owner: no floating cards, no gaps. One framed page; each
      column stacks on its own (three on a big monitor, two on a laptop), so

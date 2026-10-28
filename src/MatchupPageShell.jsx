@@ -7,6 +7,8 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,LineChart,Minus,Plus} from 'lucide-react';
 import {Card,Photo} from './sports/wnba/NbaScout';
 import {finite,fmt,realGames} from './sports/wnba/wnba-research';
+import {tierOf} from './props-lines';
+import {SlipToggle,useSlipIds} from './SlipToggle';
 
 /** "Tonight, 7:30 PM" (or "Today, ..." for a day game), else "Sun 1:00 PM". */
 export function when(iso,today='Tonight'){
@@ -137,22 +139,41 @@ export function Trend({row,lines,logs,chips,notes,tonight}){
 
 // ------------------------------------------------------------ The frame
 const hide=event=>{event.currentTarget.hidden=true;};
-// "Shai Gilgeous-Alexander" -> ["Shai", "Gilgeous-Alexander"]: the banner sets the name on two lines.
-const nameLines=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?[parts[0],parts.slice(1).join(' ')]:[parts[0]||'',''];};
+const figure=value=>Number.isInteger(Number(value))?String(Number(value)):Number(value).toFixed(1);
+const PICS={demon:['/prizepicks/demon-64.png','Demon'],goblin:['/prizepicks/goblin.png','Goblin']};
+// His lines on the board of this one's kind, one per stat, this one first.
+function heroLines(row,lines){
+ const kind=tierOf(row),seen=new Set();
+ return [row,...(lines||[]).filter(line=>line.id!==row.id&&tierOf(line)===kind)].filter(line=>!seen.has(line.marketKey)&&seen.add(line.marketKey));
+}
 
-function Hero({row,team,opponent,home,facts,today,onBack,heroRef,action}){
- const [first,last]=nameLines(row.player),longest=Math.max(first.length,last.length);
- return <header ref={heroRef} className="mp-hero" data-long={longest>=14?'xl':longest>=10?'l':undefined}>
-  {team?.logo&&<img className="mp-hero-mark" src={team.logo} alt="" onError={hide}/>}
-  {row.headshot&&<img className="mp-hero-photo" src={row.headshot} alt="" onError={hide}/>}
-  <button type="button" className="mp-back" onClick={onBack} aria-label="Back to matchups"><ArrowLeft size={20}/></button>
-  {action}
+// Oct 28, the owner: "nothing should look alike". The banner is a player
+// card now: his photo on a tile of his team's color, his name and facts,
+// tonight's game, and his lines tonight, each with its + for the slip.
+function Hero({row,team,opponent,home,facts,today,onBack,heroRef,action,lines,stats,saved}){
+ const shown=heroLines(row,lines);
+ const label=line=>stats?.find(([key])=>key===line.marketKey)?.[1]||line.market;
+ return <header ref={heroRef} className="mp-hero">
+  <div className="mp-hero-top">
+   <button type="button" className="mp-back" onClick={onBack} aria-label="Back to matchups"><ArrowLeft size={18}/><span>All props</span></button>
+   {action}
+  </div>
+  <div className="mp-hero-card" aria-hidden="true">
+   {team?.logo&&<img className="mp-hero-mark" src={team.logo} alt="" onError={hide}/>}
+   {row.headshot&&<img className="mp-hero-photo" src={row.headshot} alt="" onError={hide}/>}
+  </div>
   <div className="mp-hero-text">
-   <h1>{first}{last&&<><br/>{last}</>}</h1>
+   <h1>{row.player}</h1>
    <p>{facts.map((fact,index)=><React.Fragment key={fact}>{index>0&&<i aria-hidden="true"/>}{fact}</React.Fragment>)}</p>
-   <div className="mp-next">{opponent?.logo&&<img src={opponent.logo} alt="" width="34" height="34" onError={hide}/>}
+   <div className="mp-next">{opponent?.logo&&<img src={opponent.logo} alt="" width="30" height="30" onError={hide}/>}
     <span><small>Next matchup</small><b>{home?'vs':'@'} {row.opponent}</b><em>{when(row.startsAt,today)}</em></span></div>
   </div>
+  {shown.length>0&&<section className="mp-hero-lines" aria-label="His lines">
+   <h2>His lines {today==='Today'?'today':'tonight'}</h2>
+   <ul>{shown.map(line=>{const pic=PICS[tierOf(line)];return <li key={line.id} data-page={line.id===row.id||undefined}>
+    <small>{label(line)}</small><span><em>More</em><b>{figure(line.line)}</b>{pic&&<img src={pic[0]} alt={pic[1]} width="15" height="15"/>}</span>
+    <SlipToggle row={line} saved={saved} stat={label(line)}/></li>;})}</ul>
+  </section>}
  </header>;
 }
 
@@ -162,8 +183,10 @@ function Hero({row,team,opponent,home,facts,today,onBack,heroRef,action}){
  * [[key, label]], the open one `tab` (onTab picks another), the sections
  * as children and anything drawn over the page (a sheet) as `after`.
  */
-export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBack,tabs,tab,onTab,jump,wide,action,children,after}){
+export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBack,tabs,tab,onTab,jump,wide,action,children,after,lines,stats}){
  const [pinned,setPinned]=useState(null);
+ // What's on the slip: the banner's lines and the pinned bar show it.
+ const saved=useSlipIds();
  const heroRef=useRef(null),slotRef=useRef(null),miniRef=useRef(null);
  // Once the banner scrolls up under where the slim bar goes, the bar and
  // the section tabs pin to the top of the screen (fixed: the page's body
@@ -189,12 +212,14 @@ export function MatchupPageShell({row,team,opponent,home,facts,color,today,onBac
  const pick=key=>{if(jump){jump(key);return;}onTab(key);const slot=slotRef.current,bar=miniRef.current;
   if(pinned&&slot&&bar)window.scrollTo(0,window.scrollY+slot.getBoundingClientRect().top-bar.offsetHeight+1);};
  return <section className="nba-mp" data-wide={wide||undefined} aria-label={`${row.player} matchup`} style={color?{'--team':color}:undefined}>
-  <Hero row={row} team={team} opponent={opponent} home={home} facts={facts} today={today} onBack={onBack} heroRef={heroRef} action={action}/>
+  <Hero row={row} team={team} opponent={opponent} home={home} facts={facts} today={today} onBack={onBack} heroRef={heroRef} action={action} lines={lines} stats={stats} saved={saved}/>
   <div className="mp-stick-slot" ref={slotRef}><div className="mp-stick" data-mini={pinned?true:undefined} style={pinned?{left:pinned.left,width:pinned.width}:undefined}>
    <div className="mp-mini" ref={miniRef} aria-hidden={!pinned}>
     <button type="button" className="mp-back" onClick={onBack} tabIndex={pinned?0:-1} aria-label="Back to matchups"><ArrowLeft size={18}/></button>
     <Photo src={row.headshot}/><b>{row.player}</b>
     <span className="mp-mini-game">{opponent?.logo&&<img src={opponent.logo} alt="" width="18" height="18" onError={hide}/>}{home?'vs':'@'} {row.opponent}<small>{when(row.startsAt,today)}</small></span>
+    <span className="mp-mini-line"><em>More</em><b>{figure(row.line)}</b><small>{stats?.find(([key])=>key===row.marketKey)?.[1]||row.market}</small></span>
+    {pinned&&<SlipToggle row={row} saved={saved} stat={stats?.find(([key])=>key===row.marketKey)?.[1]||row.market}/>}
    </div>
    <nav className="mp-tabs" role="tablist" aria-label="Sections" data-count={tabs.length} style={{'--mp-tab-count':tabs.length}}>{tabs.map(([key,label])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>pick(key)}>{label}</button>)}</nav>
   </div></div>

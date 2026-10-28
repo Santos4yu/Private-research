@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-28 (the Props tab, matchup page and Pick Builder redesigned; save to slip). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,7 +75,55 @@ Last updated 2026-10-27 (the Props tab: premium but plain, no AI look). Read thi
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
-### Oct 28: Props tab on a computer starts at the top
+### Oct 28: Props tab, matchup page and Pick Builder redesigned; save to slip
+
+- The owner (screenshots of the list, the matchup page and the Pick
+  Builder): "redesign this whole thing make it look nicer and easier to
+  research DONT REMOVE DATA ... ONLY DO A VISUAL REDESIGN AND NOTHING
+  SHOULD LOOK ALIKE ... also add a button to save a prop to our bet slip
+  and redesign the Pick Builder and make it easier to navigate it".
+- The look (all three): a stat sheet. Barlow Condensed (added to the
+  Google Fonts link in index.html) for titles, labels and every number;
+  switches are a dark well whose picked button is a light pill (the league
+  and stat pills glide, `use-ink.js`); score badges are solid in their
+  band's color (75+ lime, 60-74 green, 40-59 grey, under 40 coral); thin
+  rules instead of grey boxes; a flat ink background (the old gradient,
+  grain and team glows are gone). Still no glows, gradient text or loops.
+- Props list (`src/MatchupList.jsx`, `src/nba-matchups.css` rewritten):
+  title, search, a Slip button with the count (opens the Pick Builder) and
+  refresh across the top; the games as stubs (a strip, sideways on a
+  phone, wrapping on a computer; the old game dropdown and sidebar list
+  are gone); stat pills show how many props each has; on a computer Sort /
+  Lines / Players and Soft spots / Track record sit in the open on one row
+  (a phone keeps the Filters button). Rows: the Last 10 bars now go up or
+  down from his line by how far over or under he went; L5 / L20 / season
+  join Last 10 when the list is 920px+ wide (container queries on
+  `.nm-table`); the rank sits on the photo on a phone. The preview beside
+  the list (1500px+) has Save to slip and Open his matchup page right
+  under the line and score, and a + on each of his other lines.
+- Save to slip (`src/SlipToggle.jsx`, `slip-toggle.css`): a + on every row,
+  in the preview, on the matchup page's lines and in its pinned bar. It
+  puts the line on the one slip as More (`finderSlipProp`, the same ids as
+  the Finder's stars, so a line saved in both places is one pick) and
+  takes it off again; app.js shows its usual toast. One `useSlipIds` per
+  page, handed down.
+- Matchup page (`src/MatchupPageShell.jsx` Hero, Oct 28 block at the end of
+  `src/sports/wnba/nba-scout.css`; the old banner rules are deleted): the
+  banner is a player card (photo on a tile of his team's color, name,
+  facts, next game) with "His lines tonight" (one per stat, of this line's
+  kind, each with its +). NBA and NFL pass `lines` and their stat names to
+  the shell. Every section is its own panel on a 12px grid (10px on a
+  phone); the stat tiles are cells split by hairlines; the grade's score
+  is a solid badge (`data-tone` on `.ng-score`, NbaScout and the NFL page)
+  over a ticked tough-to-soft scale.
+- Pick Builder (`src/PickBuilder.jsx`, the panel half of
+  `src/pick-builder.css`; the Finder star menu above it is untouched): six
+  slots show how many places are taken, picks are numbered rows with the
+  line big and Under / Over beside it, and Export / Copy link / Clear stay
+  pinned at the bottom while the list scrolls. In the desktop rail the
+  links step aside while it's open; its "Menu" button closes it.
+- Checked with fixture data at 1600, 1280 and 390 wide.
+
 
 - The owner: "i hate this desktop layout design its like low down ... i
   want a normal page thats higher up". From 761px the Props tab drops the
