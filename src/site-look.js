@@ -3,25 +3,31 @@
 // want to use black i can use white grey pink different brightness etc".
 //
 // Most pages paint their own dark colors, so a color can't reach them
-// through the theme variables (the old Background tint only moved those).
-// The whole page is recolored at once instead (site-look.css):
-//  - a dark color lifts every pixel toward it: a full-screen layer in
-//    screen blend over everything. Black becomes the color, white stays
-//    white, and everything between keeps its order, so panels still stand
-//    off the page and text stays readable;
-//  - a light color flips the site light (invert, then hue-rotate 180deg,
-//    which brings the hues back: green stays green, red stays red), turns
-//    photos and logos back the right way round, then tints it with the
-//    same layer, which under the flip works as a multiply.
-// lookOf works out that layer's color so the page ends up on exactly the
-// color picked; the brightness moves the picked color toward white or black.
+// through the old theme variables (the old Background tint only moved those).
+//  - A dark color becomes the site's own colors: every grey in every
+//    stylesheet is built to follow `--ls`, the page color
+//    (build/look-surfaces.mjs), so the page, panels, cards, borders and grey
+//    text turn that color, each as far above the page as before, while white
+//    text, the colored numbers, photos and logos stay as they are. (The first
+//    try, a see-through layer of color over everything, read as a tint: the
+//    owner, "its not even the actual website color".)
+//  - A light color flips the whole site light (invert, then hue-rotate
+//    180deg, which brings the hues back: green stays green, red stays red),
+//    with photos and logos flipped back, and the same greys set so that,
+//    once flipped, they land on the color picked. lookOf works out that
+//    color before the flip.
+// Grey text keeps its contrast too: on a lighter dark page the text greys
+// follow a lighter color, `--lst` (look-surfaces.mjs says which greys are
+// text).
+// The brightness moves the picked color toward white or black.
 //
 // A gradient (Oct 30, the owner: "gradient colors with animations like that
 // discord gradient look where the color like sways"): two colors, each a
 // deep shade on a dark site or a pale one on a light site (the background
-// picked says which), drawn as a band on a layer twice the screen's size
-// that slowly sways (site-look.css). The member's name takes the two
-// colors themselves, moving the same way.
+// picked says which), drawn as a band twice the screen's size that slowly
+// sways (site-look.css): behind the page on a dark site (its panels and
+// cards in the two colors' middle), over it on a light one. The member's
+// name takes the two colors themselves, moving the same way.
 
 export const DEFAULT_BASE = '#0a0a0a';
 // [color, name]: the dark ones first, then the light ones.
@@ -37,9 +43,11 @@ export const GRADIENTS = [
 export const BRIGHT = {min: -30, max: 30};
 // The site's own page color, #0A0A0A, every channel.
 const NATIVE = 10 / 255;
-// Past these the text loses its contrast: a dark page no lighter than about
-// #4C4C4C, a light page no darker than about #C6C6C6 (relative luminance).
-const DARKEST_LIGHT = 0.56, LIGHTEST_DARK = 0.072;
+// Past these the text and the green / red numbers lose their contrast: a
+// dark page no lighter than about #595959 (white text 7:1), a light page no
+// darker than about #BCBCBC, in relative luminance. A color between them
+// goes to whichever side it's nearer, made just light or dark enough.
+const DARKEST_LIGHT = 0.5, LIGHTEST_DARK = 0.1;
 // A light color is one closer to white than black.
 const LIGHT_FROM = 0.3;
 // How much of a gradient's color shows on the page: the rest is the dark
@@ -83,35 +91,58 @@ function nudge(rgb, toward, ok) {
   return mix(rgb, toward, high);
 }
 
-// One color of the page: brightened, held readable, and the layer that draws it.
-function drawn(rgb, light, shift) {
-  let page = shift > 0 ? mix(rgb, [1, 1, 1], shift) : mix(rgb, [0, 0, 0], -shift);
-  page = light ? nudge(page, [1, 1, 1], color => luminance(color) >= DARKEST_LIGHT) : nudge(page, [0, 0, 0], color => luminance(color) <= LIGHTEST_DARK);
-  // Dark: screen(native, lift) = page, a channel at a time.
-  // Light: the flip takes the page's own color to 1 - native (brightened
-  // back to white in site-look.css); a layer under it multiplies by
-  // turn(1 - lift), so lift = 1 - turn(page).
-  const lift = light ? turn(page).map(value => clamp(1 - value, 0, 1)) : page.map(value => clamp((value - NATIVE) / (1 - NATIVE), 0, 1));
-  // A strong color on a light site can ask for more than the layer can
-  // give (it was held at 0): the page is then the nearest it draws.
-  if (light) page = turn(lift.map(value => 1 - value));
-  return {page: hexOf(page), lift: Math.max(...lift) < 0.004 ? null : hexOf(lift)};
+// The flip on a light site: invert, hue-rotate(180deg), then brightness so
+// the site's own page lands on white (site-look.css).
+const LIFT = 1 / (1 - NATIVE);
+const flipped = rgb => turn(rgb.map(value => 1 - value)).map(value => clamp(value * LIFT, 0, 1));
+// The color that the flip takes to rgb (or as near as it can draw).
+const beforeFlip = rgb => turn(rgb.map(value => value / LIFT)).map(value => clamp(1 - value, 0, 1));
+const contrast = (a, b) => {
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (high + 0.05) / (low + 0.05);
+};
+// The dimmest grey text on the site (#606060): how far its mix leans to
+// the page color, and its contrast on the site's own page.
+const FAINT = 96 / 255, FAINT_KEEP = 1 - (FAINT - NATIVE) / (1 - NATIVE);
+const FAINT_CONTRAST = contrast([FAINT, FAINT, FAINT], [NATIVE, NATIVE, NATIVE]);
+
+// One color of the page: brightened and held readable.
+function shade(rgb, light, shift) {
+  const page = shift > 0 ? mix(rgb, [1, 1, 1], shift) : mix(rgb, [0, 0, 0], -shift);
+  return light ? nudge(page, [1, 1, 1], color => luminance(color) >= DARKEST_LIGHT) : nudge(page, [0, 0, 0], color => luminance(color) <= LIGHTEST_DARK);
+}
+// The color grey text follows on a dark page: the page color, lightened
+// just enough that the dimmest text reads as well as it does on black.
+function textOn(page) {
+  const faint = anchor => anchor.map(value => value * FAINT_KEEP + (1 - FAINT_KEEP));
+  // Black and the darkest colors read as they are; past that, a little margin over rounding.
+  if (contrast(faint(page), page) >= FAINT_CONTRAST - 0.01) return page;
+  return nudge(page, [1, 1, 1], anchor => contrast(faint(anchor), page) >= FAINT_CONTRAST + 0.02);
 }
 
 /**
- * The look for a picked color, brightness and gradient: dark or light, the
- * page's color, and the layer's color (null when the page needs none);
- * with a gradient its second color too, the two colors picked and whether
- * it stays still.
+ * The look for a picked color, brightness and gradient: dark or light,
+ * the page as it shows (`page`, and `page2` with a gradient), `surface` and
+ * `text` (the colors every grey and every grey text follow, before the
+ * flip on a light site), with a gradient the two colors picked and the
+ * moving page's two colors (`layer`, before the flip too), and whether it
+ * stays still.
  */
 export function lookOf(base, bright = 0, grad = null, sway = true) {
   const picked = channels(normalizeBase(base)), shift = normalizeBright(bright) / 100;
   const light = luminance(picked) > LIGHT_FROM, pair = normalizeGrad(grad);
-  if (!pair) return {mode: light ? 'light' : 'dark', ...drawn(picked, light, shift)};
   const behind = light ? [1, 1, 1] : [NATIVE, NATIVE, NATIVE];
-  const [from, to] = pair.map(hex => drawn(mix(channels(hex), behind, 1 - GRAD_SHARE), light, shift));
-  return {mode: light ? 'light' : 'dark', page: from.page, lift: from.lift || '#000000', page2: to.page, lift2: to.lift || '#000000',
-    grad: pair, ...(sway === false ? {still: true} : {})};
+  const pages = (pair ? pair.map(hex => mix(channels(hex), behind, 1 - GRAD_SHARE)) : [picked]).map(rgb => shade(rgb, light, shift));
+  // On a light site each color is set before the flip, then shown as the flip draws it.
+  const drawn = light ? pages.map(beforeFlip) : pages;
+  const shown = light ? drawn.map(flipped) : pages;
+  // The panels and cards: the color, or a gradient's two colors' middle.
+  const surface = drawn.length > 1 ? mix(drawn[0], drawn[1], 0.5) : drawn[0];
+  const look = {mode: light ? 'light' : 'dark', page: hexOf(shown[0]), surface: hexOf(surface),
+    // On a light site the flip keeps grey text's contrast by itself.
+    text: hexOf(light ? surface : textOn(surface))};
+  if (pair) Object.assign(look, {page2: hexOf(shown[1]), grad: pair, layer: drawn.map(hexOf), ...(sway === false ? {still: true} : {})});
+  return look;
 }
 
 /** The background a color tap in the account sheet gives: a tint of it, dark or light as the site is. */
@@ -126,19 +157,17 @@ export function tintOf(hex, base) {
 
 /** Puts a look on the page (site-look.css reads these). */
 export function applyLook(look, root = document.documentElement) {
+  const set = (name, value) => value ? root.style.setProperty(name, value) : root.style.removeProperty(name);
   if (look.mode === 'light') root.setAttribute('data-look', 'light'); else root.removeAttribute('data-look');
-  if (look.lift) { root.setAttribute('data-look-lift', ''); root.style.setProperty('--look-lift', look.lift); }
-  else { root.removeAttribute('data-look-lift'); root.style.removeProperty('--look-lift'); }
-  root.style.setProperty('--look-page', look.page);
-  if (look.grad) {
-    root.setAttribute('data-look-grad', '');
-    root.style.setProperty('--look-lift-2', look.lift2);
-    root.style.setProperty('--grad-a', look.grad[0]);
-    root.style.setProperty('--grad-b', look.grad[1]);
-  } else {
-    root.removeAttribute('data-look-grad');
-    ['--look-lift-2', '--grad-a', '--grad-b'].forEach(name => root.style.removeProperty(name));
-  }
+  // The colors every grey and every grey text in the site follow.
+  set('--ls', look.surface);
+  set('--lst', look.text);
+  set('--look-page', look.page);
+  if (look.grad) root.setAttribute('data-look-grad', ''); else root.removeAttribute('data-look-grad');
+  set('--look-layer-1', look.layer?.[0]);
+  set('--look-layer-2', look.layer?.[1]);
+  set('--grad-a', look.grad?.[0]);
+  set('--grad-b', look.grad?.[1]);
   if (look.still) root.setAttribute('data-look-still', ''); else root.removeAttribute('data-look-still');
   // The phone's status bar and toolbar take the page's color.
   document.getElementById('theme-color-meta')?.setAttribute('content', look.page);

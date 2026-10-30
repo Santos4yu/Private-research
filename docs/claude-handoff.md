@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (swaying gradients and account-sheet colors that tint the whole site; Background colors; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (site colors are now the site's own colors, not a tint; gradients; Background colors; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -76,6 +76,38 @@ Last updated 2026-10-30 (swaying gradients and account-sheet colors that tint th
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: the colors are the site's own colors now, not a tint
+
+- The owner, on a green pick: "this all just looks like a tint tho its not
+  even the actual website color?" The first build laid a see-through
+  layer (screen blend) over everything: photos, numbers and all got
+  washed, and a bright color flattened every panel into one. Replaced:
+- `build/look-surfaces.mjs` (a PostCSS plugin in vite.config.js) rewrites
+  every grey in every stylesheet (~3,980) into
+  `color-mix(in srgb,var(--ls) keep%,#lifted)`, worked out so that on the
+  site's own #0A0A0A it is exactly the grey it was (checked: Black
+  screenshots match the old build pixel for pixel, apart from clock
+  times). Grey text (color/fill/stroke, or custom properties named like
+  text: muted, faint, dim, label...) follows `--lst` instead. A grey is
+  channels within 14 (or a fifth of the brightest, for #626A74-like
+  blue-greys), #040404-#E6E6E6. Only 7 colors are set from JS.
+- Dark colors: `--ls` = the page color; `--lst` = the page color lightened
+  just enough that the dimmest text (#606060) keeps its contrast on black
+  (`textOn`). White text, colored numbers, photos stay put.
+- Light colors: the site still flips (invert + hue-rotate + brightness on
+  `html`), but `--ls` is set BEFORE the flip (`beforeFlip`) so the flipped
+  greys land on the color; no layer, so photos aren't tinted. Light pages
+  stay at relative luminance >= 0.5 (green/red numbers stay readable);
+  dark pages <= 0.1.
+- Gradients: `.look-grad-layer` (index.html, fixed, z-index -1, twice the
+  screen, swaying transform) is the page behind everything for light and
+  dark (pre-flip colors on light); page-wide backgrounds are cleared
+  (body, #app-shell, .hero, .tab-panel, .unified-finder, and the Props
+  tab's own #app-shell rule outranked); cards sit in the two colors'
+  middle (`--ls`). The `html::after` layer and `data-look-lift` are gone.
+- The look saved for the head script is now {mode, page, surface, text,
+  grad, layer, page2, still}.
+
 ### Oct 30: account-sheet colors tint the site; swaying gradients
 
 - The owner: "make it so those colors on the account setting can also
@@ -92,7 +124,7 @@ Last updated 2026-10-30 (swaying gradients and account-sheet colors that tint th
   The accent object carries `grad: [from, to] | null` and `sway`; a
   Background swatch turns the gradient off; the gradient follows the
   background's dark or light (30% of each color on the page).
-- How: `data-look-grad` makes the `html::after` layer twice the screen's
+- (Replaced, see the section above.) How it was: `data-look-grad` made the `html::after` layer twice the screen's
   size with a 115deg band of the two colors' layers, swaying on a 16s
   transform (no repaint); the name (`.vortex-sidebar-me-text > b`,
   `.as-name`) gets the raw colors as moving gradient text. Still with
@@ -113,7 +145,7 @@ Last updated 2026-10-30 (swaying gradients and account-sheet colors that tint th
   +30) replace the old Background tint slider. Per device, saved in the
   accent object (`vortex_custom_accents`: `base`, `bright` and the
   worked-out `look`), so it syncs with the account and goes in presets.
-- How (most pages paint their own dark colors, so theme variables can't
+- (Replaced by the build-time greys, see above.) How it was (most pages paint their own dark colors, so theme variables can't
   reach them): `src/site-look.js` + `src/site-look.css`. A dark color is
   a full-screen `html::after` layer in screen blend (`data-look-lift`,
   `--look-lift`); a light color flips the site (`data-look="light"`:

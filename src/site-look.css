@@ -1,27 +1,40 @@
 /* The site's background color (src/site-look.js says how it works).
-   data-look-lift: a layer over everything in screen blend, the page lifted
-   toward the color; data-look="light": the whole site flipped light, the
-   photos and logos flipped back. The early copy of these attributes is set
-   by the inline script in index.html's head, before the first paint. */
+   --ls / --lst: the colors every grey and every grey text in the site's
+   stylesheets follow (build/look-surfaces.mjs). data-look="light": the
+   whole site flipped light, photos and logos flipped back. The early copy
+   of all of it is set by the inline script in index.html's head, before
+   the first paint. */
 
-:root[data-look-lift]::after {
-  content: "";
+:root { --ls: #0a0a0a; --lst: var(--ls); }
+
+/* A gradient: the page itself is a band of its two colors twice the
+   screen's size, swaying slowly from side to side behind everything (a
+   transform, so the browser moves it without repainting the page), with
+   the page-wide backgrounds cleared to show it, as for a background photo.
+   Panels and cards sit in the two colors' middle (--ls). On a light site
+   the flip draws it too. Still when the member turns Sway off or asks
+   their device for less motion. */
+.look-grad-layer { display: none; }
+:root[data-look-grad] .look-grad-layer {
+  display: block;
   position: fixed;
-  inset: 0;
-  z-index: 2147483647;
-  background: var(--look-lift);
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-/* A gradient: the band of its two colors on a layer twice the screen's
-   size, swaying slowly from side to side (a transform, so the browser
-   moves it without repainting the page). Still when the member turns Sway
-   off or asks their device for less motion. */
-:root[data-look-grad]::after {
   inset: -50%;
-  background: linear-gradient(115deg, var(--look-lift) 22%, var(--look-lift-2) 50%, var(--look-lift) 78%);
+  z-index: -1;
+  background: linear-gradient(115deg, var(--look-layer-1) 22%, var(--look-layer-2) 50%, var(--look-layer-1) 78%);
+  pointer-events: none;
   animation: look-sway 16s ease-in-out infinite alternate;
   will-change: transform;
+}
+/* The Finder's own page on a phone too (its board stays a card on it). */
+:root[data-look-grad] :is(body, #app-shell, .hero, .tab-panel, .unified-finder) {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+/* The Props tab and its player pages paint the app's background their own
+   way (nba-matchups.css, nba-scout.css): cleared the same, outranking them. */
+:root[data-look-grad] #app-shell:is(:has(#panel-v2[data-league]:not([hidden])), :has(#props-league-root[data-page=player])) {
+  background: transparent !important;
 }
 @keyframes look-sway {
   from { transform: translate3d(-17%, -5%, 0) rotate(-5deg); }
@@ -38,15 +51,14 @@
   animation: look-name 6s ease-in-out infinite alternate;
 }
 @keyframes look-name { to { background-position: 100% 0; } }
-:root[data-look-still]::after,
-:root[data-look-still] :is(.vortex-sidebar-me-text > b, .as-name) { animation: none; }
+:root[data-look-still] :is(.look-grad-layer, .vortex-sidebar-me-text > b, .as-name) { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  :root[data-look-grad]::after,
-  :root[data-look-grad] :is(.vortex-sidebar-me-text > b, .as-name) { animation: none; }
+  :root[data-look-grad] :is(.look-grad-layer, .vortex-sidebar-me-text > b, .as-name) { animation: none; }
 }
 
 /* The site's own page is #0A0A0A, so the flip leaves it at 96% white;
-   brightness brings it to white (the layer then tints it). */
+   brightness brings it to white (the greys, set before the flip, then
+   land on the color picked). */
 :root[data-look=light] { filter: invert(1) hue-rotate(180deg) brightness(1.0408); }
 /* A modal dialog (the account sheet) is drawn above the page, out of the
    page's filter: it takes its own. */

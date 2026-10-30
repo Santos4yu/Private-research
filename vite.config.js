@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
+import { lookSurfaces } from "./build/look-surfaces.mjs";
 
 // Each build's id: baked into the app and written to /version.json, so an
 // open app notices a newer release and reloads itself (src/app-update.js).
@@ -15,6 +16,8 @@ const buildId = {
 export default defineConfig({
   plugins: [tailwindcss(), buildId],
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
+  // The site's greys follow the page color picked in Settings (build/look-surfaces.mjs).
+  css: { postcss: { plugins: [lookSurfaces()] } },
   resolve: {
     alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
   },

@@ -25,19 +25,17 @@
 <script>
   try {
     var look = (JSON.parse(localStorage.getItem("vortex_custom_accents") || "null") || {}).look;
-    if (look && /^#[0-9a-f]{6}$/.test(look.page || "")) {
-      var root = document.documentElement;
+    var hex = /^#[0-9a-f]{6}$/;
+    if (look && hex.test(look.page || "") && hex.test(look.surface || "")) {
+      var root = document.documentElement, set = function (name, value) { if (hex.test(value || "")) root.style.setProperty(name, value); };
       if (look.mode === "light") root.setAttribute("data-look", "light");
-      if (/^#[0-9a-f]{6}$/.test(look.lift || "")) { root.setAttribute("data-look-lift", ""); root.style.setProperty("--look-lift", look.lift); }
-      root.style.setProperty("--look-page", look.page);
+      set("--ls", look.surface); set("--lst", look.text); set("--look-page", look.page);
       document.getElementById("theme-color-meta").setAttribute("content", look.page);
-      var grad = look.grad || [];
-      var hex = /^#[0-9a-f]{6}$/;
-      if (grad.length === 2 && hex.test(grad[0]) && hex.test(grad[1]) && hex.test(look.lift2 || "")) {
+      var grad = look.grad || [], layer = look.layer || [];
+      if (grad.length === 2 && hex.test(grad[0]) && hex.test(grad[1]) && layer.length === 2) {
         root.setAttribute("data-look-grad", "");
-        root.style.setProperty("--look-lift-2", look.lift2);
-        root.style.setProperty("--grad-a", grad[0]);
-        root.style.setProperty("--grad-b", grad[1]);
+        set("--look-layer-1", layer[0]); set("--look-layer-2", layer[1]);
+        set("--grad-a", grad[0]); set("--grad-b", grad[1]);
         if (look.still) root.setAttribute("data-look-still", "");
       }
     }
@@ -127,6 +125,8 @@
 <body>
 
 <div class="user-bg-layer" id="user-bg-layer" aria-hidden="true" hidden></div>
+<!-- A gradient's moving page on a dark site (src/site-look.css). -->
+<div class="look-grad-layer" aria-hidden="true"></div>
 <div class="grid-bg" aria-hidden="true"></div>
 <div class="vortex-swirl" aria-hidden="true"></div>
 <div class="glow-orb glow-orb-a" aria-hidden="true"></div>
