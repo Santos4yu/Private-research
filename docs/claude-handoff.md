@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (the computer Finder board redesigned: open, fuller, no boxes). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (a Background color for the whole site in Settings; the computer Finder board redesigned). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,46 @@ Last updated 2026-10-30 (the computer Finder board redesigned: open, fuller, no 
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Oct 30: a Background color for the whole site (Settings)
+
+- The owner: "a new color setting that changes EVERYTHING ... incase i
+  dont want to use black i can use white grey pink different brightness
+  etc i want cool customizations". Settings, Accent studio: Background
+  (10 swatches: Black, Graphite, Navy, Forest, Plum, Pink, White, Light
+  grey, Blush, Sky, plus Custom, a color picker) and Brightness (-30 to
+  +30) replace the old Background tint slider. Per device, saved in the
+  accent object (`vortex_custom_accents`: `base`, `bright` and the
+  worked-out `look`), so it syncs with the account and goes in presets.
+- How (most pages paint their own dark colors, so theme variables can't
+  reach them): `src/site-look.js` + `src/site-look.css`. A dark color is
+  a full-screen `html::after` layer in screen blend (`data-look-lift`,
+  `--look-lift`); a light color flips the site (`data-look="light"`:
+  invert + hue-rotate(180deg) + brightness(1.0408) on `html`), with
+  photos, logos, video and canvas flipped back and PropScout's white logo
+  and mark left to flip to black. The layer's color is solved so the page
+  lands on the picked color: checked in Chromium, every swatch within 1
+  shade (tests/site-look.test.mjs does the math). Readability limits: a
+  dark page never lighter than ~#4C4C4C, a light one never darker than
+  ~#C6C6C6. Black can't go darker than the site's own #0A0A0A.
+- Gotchas: modal dialogs are drawn in the top layer, outside `html`'s
+  filter, so `dialog:modal` takes its own copy in light mode (and gets no
+  tint layer). In light mode the color pickers, preset previews and the
+  account sheet's color dots flip back so they show the real color. The
+  `:where()` on the image rule matters: an ID inside `:is()` outranked the
+  logo exception. `index.html`'s head has an inline script that applies
+  the saved look before the first paint (no black flash on a light site).
+- An old Background tint is turned into the background it made
+  (`withBackground` in app.js), so nobody's colors jump. The admin's
+  "everyone sees this" theme still sends only the accents and tint
+  (`site_controls.py` checks those fields); its tint now shows as a
+  background the same way. A site-wide background for everyone would
+  need `site_controls.py` to accept `base` / `bright`: a next step if the
+  owner asks.
+- Also fixed: Settings showed an empty notice bar under "Make it yours."
+  (`.site-appearance-notice` had display:flex over `hidden`).
+- Light mode limits: emoji in text flip too (darker); an element's own
+  CSS filter on an image gives way to the flip-back.
 
 ### Oct 30: the computer Finder board, open and fuller
 

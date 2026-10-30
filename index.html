@@ -19,6 +19,21 @@
      switches by app.js, so mobile Safari's status-bar/toolbar area blends
      with the app instead of showing its own default grey. -->
 <meta name="theme-color" content="#0E0E0E" id="theme-color-meta" />
+<!-- The background color picked in Settings (src/site-look.js), on before
+     the first paint so a light or tinted site never flashes black first.
+     app.js saves the worked-out look with the accent colors. -->
+<script>
+  try {
+    var look = (JSON.parse(localStorage.getItem("vortex_custom_accents") || "null") || {}).look;
+    if (look && /^#[0-9a-f]{6}$/.test(look.page || "")) {
+      var root = document.documentElement;
+      if (look.mode === "light") root.setAttribute("data-look", "light");
+      if (/^#[0-9a-f]{6}$/.test(look.lift || "")) { root.setAttribute("data-look-lift", ""); root.style.setProperty("--look-lift", look.lift); }
+      root.style.setProperty("--look-page", look.page);
+      document.getElementById("theme-color-meta").setAttribute("content", look.page);
+    }
+  } catch (_) { /* private mode or a bad value: the default black */ }
+</script>
 <!-- Translucent: the home-screen app draws edge to edge, under the clock.
      iOS 26+ blurs a ~35px band below the status bar ("Liquid Glass"), so
      page content starts below both (--site-status-inset, site-access.css)
@@ -173,7 +188,13 @@
       <label class="accent-control"><span>Primary accent</span><div><input type="color" id="primary-accent" value="#828282" aria-label="Choose primary accent color" /><output id="primary-accent-value">#828282</output></div></label>
       <label class="accent-control"><span>Secondary accent</span><div><input type="color" id="secondary-accent" value="#e6e6e6" aria-label="Choose secondary accent color" /><output id="secondary-accent-value">#E6E6E6</output></div></label>
     </div>
-    <label class="accent-tint-control"><span>Background tint</span><input type="range" id="accent-tint" min="0" max="35" step="1" value="0" aria-label="Background tint opacity" /><output id="accent-tint-value">0%</output></label>
+    <!-- The background color for the whole site (src/site-look.js); app.js
+         fills the swatches from LOOKS. -->
+    <div class="look-control">
+      <span class="look-label">Background</span>
+      <div class="look-swatches" id="look-swatches" role="radiogroup" aria-label="Background color"></div>
+      <label class="accent-tint-control look-bright"><span>Brightness</span><input type="range" id="look-bright" min="-30" max="30" step="1" value="0" aria-label="Background brightness" /><output id="look-bright-value">0</output></label>
+    </div>
     <div class="accent-save-row"><label for="accent-preset-name">Preset name</label><div><input type="text" id="accent-preset-name" maxlength="24" placeholder="Game night" autocomplete="off" /><button type="button" id="accent-preset-save">Save</button></div></div>
     <div class="accent-presets" id="accent-presets" aria-label="Saved accent presets"></div>
     <p class="theme-picker-note" id="accent-status" aria-live="polite">Colors save automatically on this device.</p>

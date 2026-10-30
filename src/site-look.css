@@ -1,0 +1,31 @@
+/* The site's background color (src/site-look.js says how it works).
+   data-look-lift: a layer over everything in screen blend, the page lifted
+   toward the color; data-look="light": the whole site flipped light, the
+   photos and logos flipped back. The early copy of these attributes is set
+   by the inline script in index.html's head, before the first paint. */
+
+:root[data-look-lift]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: var(--look-lift);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* The site's own page is #0A0A0A, so the flip leaves it at 96% white;
+   brightness brings it to white (the layer then tints it). */
+:root[data-look=light] { filter: invert(1) hue-rotate(180deg) brightness(1.0408); }
+/* A modal dialog (the account sheet) is drawn above the page, out of the
+   page's filter: it takes its own. */
+:root[data-look=light] dialog:modal { filter: invert(1) hue-rotate(180deg) brightness(1.0408); }
+/* Photos, logos and video back the right way round. A filter of their own
+   (a grey league icon, a drop shadow) gives way to this one. */
+:root[data-look=light] :where(img, video, canvas, picture, iframe) { filter: invert(1) hue-rotate(180deg) !important; }
+:root[data-look=light] #user-bg-layer { filter: invert(1) hue-rotate(180deg); }
+/* PropScout's own white logo and mark flip with the text (white to black). */
+:root[data-look=light] img:is([src*="/brand/propscout-logo"], [src*="/brand/propscout-mark"]) { filter: none !important; }
+/* The color pickers show the colors picked: the swatches, the accent
+   pickers and the saved presets flip back too. */
+:root[data-look=light] :is(.look-swatch > i, input[type=color], .accent-preset-preview, .as-colors > button) { filter: invert(1) hue-rotate(180deg); }
