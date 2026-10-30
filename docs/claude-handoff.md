@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page, with a Team filter; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -102,8 +102,25 @@ Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt, then laid ou
   chart, Average and Median, then Game log / Stats / Depth tabs under the
   chart (`.fp2-his`, so the bottom isn't empty).
 - Phone: one column in the same order, the buttons on one line (the lines
-  select takes what's left), the filters one sideways-scrolling line edge
-  to edge, the windows an even row over the chart.
+  select takes what's left), the filters sharing their lines evenly, the
+  windows an even row over the chart.
+- Then: the hit-rate block "thin like" the phone's (a wide, flat strip:
+  the windows evenly spread, 42% of the chart column, centred beside the
+  title, buttons and filters). And a Team filter: "when someone wants to
+  see H2H stats we want to see stats from the current team not from 2
+  years ago when they were on another team ... the dropdown should only
+  show the teams he was in". Each ESPN game-log row now carries `team`
+  (api/wnba.py `_game_logs`, ESPN's event `team.abbreviation`, else his
+  side by homeTeamId / awayTeamId and an id seen as an opponent; cache key
+  v7), the chart's games keep it (trend-data.js), and the page turns on
+  the panel's existing Team filter (`filters: ['seasonKind','team']`). In
+  app.js the Team menu lists his teams latest first and shows even with
+  one team. It narrows the chart and every window, H2H included (not the
+  Game log table). ESPN couldn't be reached from the container, so the
+  `team` field was checked only against the test; if the menu doesn't
+  show on the live site, ESPN's events lack `team` and the fallback
+  missed (his current team is never an opponent).
+- Phone filters: two even rows (Season and Year, Location and Team).
 - The research column (computer): Matchup, Defense, Shooting, Similar,
   Injuries, Rankings (WNBAFinderContext takes `tab` from the page and
   hides its own tab row). Under 1051px it's one tab row with all nine

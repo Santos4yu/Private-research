@@ -269,6 +269,23 @@ class GameLogTests(unittest.TestCase):
         # 25 points and 6 rebounds: one category in double figures.
         self.assertEqual(values["player_double_double"], 0)
 
+    def test_each_game_carries_the_team_he_played_for(self):
+        # A traded player: his own team from ESPN's "team", or, without it,
+        # his side of the game (home at "vs") by an id seen as an opponent.
+        from unittest.mock import patch
+        names = ["points"]
+        payload = {"names": names, "events": {
+            "401": {"gameDate": "2026-06-01T23:00Z", "opponent": {"id": "9", "abbreviation": "LV"}, "team": {"id": "5", "abbreviation": "IND"}, "atVs": "@"},
+            "402": {"gameDate": "2026-07-01T23:00Z", "opponent": {"id": "5", "abbreviation": "IND"}, "homeTeamId": "8", "awayTeamId": "5", "atVs": "vs"},
+            "403": {"gameDate": "2026-07-05T23:00Z", "opponent": {"id": "8", "abbreviation": "SEA"}, "homeTeamId": "8", "awayTeamId": "3", "atVs": "@"}},
+                   "seasonTypes": [{"displayName": "2026 Regular Season", "categories": [{"events": [
+                       {"eventId": event, "stats": ["20"]} for event in ("401", "402", "403")]}]}]}
+        with patch.object(wnba_api, "_espn_json", return_value=payload), patch.object(wnba_api.store, "get", return_value=None), \
+                patch.object(wnba_api.store, "set"), patch.object(wnba_api, "_rebound_split", return_value={}):
+            rows = wnba_api._game_logs("test-only-team", 2026)["rows"]
+        # 403: his side (away, id 3) was never an opponent, so it stays unknown.
+        self.assertEqual([row["team"] for row in rows], ["IND", "SEA", None])
+
     def test_offensive_and_defensive_rebounds_come_from_the_stored_box_scores(self):
         from unittest.mock import patch
         from backend.sports.wnba import league

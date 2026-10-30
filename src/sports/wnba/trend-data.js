@@ -67,7 +67,7 @@ export function gameDetails(row,marketKey,note){
 export function wnbaChart(logs,marketKey,opponent,notes={}){
  // Every game by default; the chart's Season menu narrows it to
  // preseason, regular season or postseason.
- const all=(logs||[]).map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',dateLabel:playedOn(row.date),opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score,seasonKind:row.seasonKind||'regular',
+ const all=(logs||[]).map(row=>({value:row.values?.[marketKey],season:String(row.season||''),fullDate:row.date||'',dateLabel:playedOn(row.date),team:row.team||'',opponent:row.opponent||'',opponentLabel:(row.isHome===false?'@':'')+(row.opponent||''),isHome:row.isHome,gameId:row.gameId,result:row.result,score:row.score,seasonKind:row.seasonKind||'regular',
   details:gameDetails(row,marketKey,notes?.[String(row.gameId)])})).filter(row=>Number.isFinite(row.value));
  const chart={all};const h2h=opponent?all.filter(game=>game.opponent===opponent):[];
  if(h2h.length){chart.h2h=h2h;chart.meta={h2hLabel:`vs ${opponent}`};}return chart;

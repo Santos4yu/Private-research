@@ -92,7 +92,7 @@ html:root .fp2 .wnba-trend-host { margin: 0; padding: 0; border: 0; background: 
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge { position: static; display: block; margin: 0; padding: 0; border: 0 !important; background: none !important; box-shadow: none !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 42%) !important;
   grid-template-rows: none !important;
   grid-template-areas: "quotes quotes" "tabs tabs" "bet windows" "tool windows" "filters windows" "chart chart" "summary summary" "odds odds" !important;
   align-items: start;
@@ -211,17 +211,18 @@ html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .ace-select-trigger { width: auto !important; min-width: 0 !important; height: 30px !important; min-height: 0 !important; padding: 0 8px !important; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--fp-text); font: 600 12.5px/1 var(--font-sans) !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel :is(.gamelog-ext-chips) { width: 100%; }
 
-/* The hit-rate windows: a neat block beside the title and buttons, each
-   window its name, its % in its color and its record; the picked one lit. */
+/* The hit-rate windows: one wide, flat strip beside the title and buttons
+   (Oct 30, the owner: "thin like" the phone's), each window its name, its %
+   in its color and its record, evenly spread; the picked one lit. */
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs {
-  display: grid !important; grid-auto-flow: column; grid-auto-columns: minmax(66px, auto); gap: 2px !important; align-self: start;
+  display: grid !important; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px !important; align-self: center !important;
   margin: 0 !important; padding: 4px !important; overflow-x: auto; scrollbar-width: none;
   border: 0 !important; border-radius: 14px !important; background: rgba(255, 255, 255, .03) !important; box-shadow: none !important;
 }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs::-webkit-scrollbar { display: none; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button {
-  display: grid !important; grid-template-columns: auto; grid-template-areas: "label" "pct" "rec"; justify-items: center; align-content: center; gap: 5px;
-  min-width: 0; height: auto !important; min-height: 0 !important; margin: 0; padding: 9px 12px !important;
+  display: grid !important; grid-template-columns: auto; grid-template-areas: "label" "pct" "rec"; justify-items: center; align-content: center; gap: 4px;
+  min-width: 0; height: auto !important; min-height: 0 !important; margin: 0; padding: 7px 6px !important;
   border: 0 !important; border-radius: 10px !important; background: none !important; box-shadow: none !important; color: var(--fp-faint); cursor: pointer;
   transition: background-color .15s ease;
 }
@@ -308,10 +309,9 @@ html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) > header small { c
   html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-save { min-width: 0 !important; }
   html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root { flex: 1 1 0 !important; min-width: 0 !important; }
   html:root .fp2 .fp2-analyze .ap-trigger { padding: 0 11px 0 9px !important; }
-  /* The filters: one line that scrolls sideways, edge to edge. */
-  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel { flex-wrap: nowrap !important; margin: 0 -14px !important; padding: 0 14px !important; overflow-x: auto; scrollbar-width: none; }
-  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel::-webkit-scrollbar { display: none; }
-  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field:not([hidden]) { flex: none !important; }
+  /* The filters: every one in sight, sharing each line evenly (Season and
+     Year, then Location and Team). */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field:not([hidden]) { flex: 1 1 auto !important; justify-content: space-between; }
   html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root .ace-select-trigger { width: 100% !important; justify-content: space-between; }
   html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs { grid-auto-columns: minmax(0, 1fr); margin-top: 14px !important; }
   html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button { padding: 8px 4px !important; }

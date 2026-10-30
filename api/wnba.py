@@ -461,8 +461,9 @@ def _rebound_split(player_id, season, league_name="wnba"):
 def _game_logs(player_id, season, league="wnba"):
     # v4: rows carry the full box line (attempts, fouls) for the game log
     # and supporting-stats views, are tagged by season type, and give the
-    # score with this player's team first.
-    cache_key = f"krazy_data:{league}:v6:gamelog:{player_id}:{season}"
+    # score with this player's team first. v7: and the team he played for
+    # (the chart's Team filter: a traded player's games for each team).
+    cache_key = f"krazy_data:{league}:v7:gamelog:{player_id}:{season}"
     now = time.time()
     # A season that is over never changes; the current one is re-read.
     fresh = 12 * 3600 if league == "nba" and season < _nba_seasons()[-1] else 30 * 60
@@ -476,6 +477,14 @@ def _game_logs(player_id, season, league="wnba"):
     data = _espn_json(f"https://site.web.api.espn.com/apis/common/v3/sports/basketball/{league}/athletes/{player_id}/gamelog?region=us&lang=en&contentorigin=espn&season={season}")
     names, events = data.get("names", []), data.get("events", {})
     boards = _rebound_split(player_id, season, league)
+    # Team ids to abbreviations, from every team he faced, for a game whose
+    # own team is missing (his side is the home team at "vs").
+    known = {str(team.get("id")): team.get("abbreviation") for event in events.values()
+             for team in (event.get("opponent") or {}, event.get("team") or {}) if team.get("id") and team.get("abbreviation")}
+    def own_team(event):
+        mine = (event.get("team") or {}).get("abbreviation")
+        if mine: return mine
+        return known.get(str(event.get("homeTeamId") if event.get("atVs") == "vs" else event.get("awayTeamId") or ""))
     rows, seen = [], set()
     for season_type in data.get("seasonTypes", []):
         for category in season_type.get("categories", []):
@@ -510,7 +519,7 @@ def _game_logs(player_id, season, league="wnba"):
                      "fgm":_number(fg[0]) if len(fg)==2 else None,"fga":_number(fg[1]) if len(fg)==2 else None,"tpm":_number(tp[0]) if len(tp)==2 else None,"tpa":_number(tp[1]) if len(tp)==2 else None,"ftm":_number(ft[0]) if len(ft)==2 else None,"fta":_number(ft[1]) if len(ft)==2 else None}
                 display_type=str(season_type.get("displayName") or "")
                 kind="postseason" if "Postseason" in display_type or "Play" in display_type else "preseason" if "Preseason" in display_type else "regular"
-                rows.append({"gameId":event_id,"date":event.get("gameDate"),"season":season,"seasonType":display_type,"seasonKind":kind,"opponent":(event.get("opponent") or {}).get("abbreviation"),"opponentLogo":(event.get("opponent") or {}).get("logo"),"isHome":event.get("atVs")=="vs","result":event.get("gameResult"),"score":_own_score_first(event.get("score"),event.get("gameResult")),"minutes":_number(stats.get("minutes")),"values":values,"box":box})
+                rows.append({"gameId":event_id,"date":event.get("gameDate"),"season":season,"seasonType":display_type,"seasonKind":kind,"team":own_team(event),"opponent":(event.get("opponent") or {}).get("abbreviation"),"opponentLogo":(event.get("opponent") or {}).get("logo"),"isHome":event.get("atVs")=="vs","result":event.get("gameResult"),"score":_own_score_first(event.get("score"),event.get("gameResult")),"minutes":_number(stats.get("minutes")),"values":values,"box":box})
     rows.sort(key=lambda row: row.get("date") or "")
     result={"status":"AVAILABLE","source":"espn","playerId":player_id,"season":season,"rows":rows,"fetchedAt":datetime.now(timezone.utc).isoformat()}
     try: store.set(cache_key,json.dumps({"at":now,"value":result},separators=(",",":")))

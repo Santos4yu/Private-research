@@ -3312,10 +3312,12 @@ function renderGameLogBookOdds() {
 
 
 // Filters a host sport can switch on for its chart (config.filters): each
-// matches a field on the chart's games. Soccer uses all three.
+// matches a field on the chart's games. Soccer uses all three, basketball
+// Team (the teams he played for, his latest first).
 const GL_EXTRA_FILTERS = [["opponent", "Opponent"], ["league", "League"], ["team", "Team"]];
 function extraFilterValues(field) {
-  return [...new Set(recentGameLogSource().map((game) => game[field]).filter(Boolean).map(String))].sort();
+  const values = recentGameLogSource().map((game) => game[field]).filter(Boolean).map(String);
+  return field === "team" ? [...new Set(values.reverse())] : [...new Set(values)].sort();
 }
 function extraFilterOn(field) {
   return trendAdapter === EXTERNAL_TREND_ADAPTER && Boolean(externalTrendConfig?.filters?.includes(field));
@@ -3376,8 +3378,9 @@ function renderGameLogSubfilters() {
   for (const [field] of GL_EXTRA_FILTERS) {
     const values = extraFilterOn(field) ? extraFilterValues(field) : [];
     const current = gameLogState.extraFilters?.[field] || "all";
-    // Only worth showing with a choice to make (or one already made).
-    const shown = values.length > 1 || current !== "all";
+    // Only worth showing with a choice to make (or one already made); a
+    // player's team shows even when he's had one, so it's always there.
+    const shown = values.length > (field === "team" ? 0 : 1) || current !== "all";
     const fieldEl = els.glExtraFields?.[field];
     if (fieldEl) fieldEl.hidden = !shown;
     if (!shown) continue;
