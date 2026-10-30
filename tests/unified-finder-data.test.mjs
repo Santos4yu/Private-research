@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applyTennisHistory,applySoccerHistory,finderWindow,windowGames,windowRate,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow,withMlbMatchups,gameLog} from '../src/unified-finder-data.js';
+import {applyTennisHistory,applySoccerHistory,finderWindow,windowGames,windowRate,normalizeFinderRows,applyMlbHistory,enrichMlbRows,loadFinderSport,finderSlipProp,bookProbability,powerDevig,defenseRank,withDefense,trendPickRow,withMlbMatchups,gameLog,keepOpenPlayer,takeOpenPlayer} from '../src/unified-finder-data.js';
 
 test('book chance comes from the books\' prices with the margin removed, never a fixed 50/50',()=>{
  // PrizePicks' payouts and an app quoting the same price both ways say nothing.
@@ -312,4 +312,16 @@ test('An NBA season hit rate is the season under way; the last ten still reach b
  // A one-season history (the WNBA's) reads as before.
  const wnba=applyWnbaHistory({id:'y',sport:'wnba',playerId:'2',marketKey:'player_points',line:20.5,direction:'over'},{rows:payload.rows.slice(0,3)});
  assert.equal(wnba.windows.season.decisions,3);
+});
+
+test('a new release reloads the Finder back onto the player that was open, once and only soon after', () => {
+  const store = new Map(), storage = {getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key)};
+  keepOpenPlayer(storage, {sport: 'nba', player: 'Deandre Ayton', market: 'Rebounds'}, 1000);
+  assert.deepEqual(takeOpenPlayer(storage, 5000), {sport: 'nba', player: 'Deandre Ayton', stat: 'Rebounds'});
+  assert.equal(takeOpenPlayer(storage, 5000), null);
+  keepOpenPlayer(storage, {sport: 'nba', player: 'Deandre Ayton', market: 'Rebounds'}, 1000);
+  assert.equal(takeOpenPlayer(storage, 1000 + 2 * 60 * 1000), null);
+  keepOpenPlayer(storage, null, 1000);
+  assert.equal(takeOpenPlayer(storage, 1000), null);
+  assert.equal(takeOpenPlayer(null), null);
 });

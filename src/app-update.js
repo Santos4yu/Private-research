@@ -23,7 +23,14 @@ async function latest(fetcher = fetch) {
   }
 }
 
-function reload(id, storage = globalThis.sessionStorage, go = () => globalThis.location.reload()) {
+// Pages that can come back the way they were (the Finder's open player)
+// hear about it first.
+function reloadPage() {
+  try { globalThis.dispatchEvent(new Event('vortex:update-reload')); } catch { /* reload anyway */ }
+  globalThis.location.reload();
+}
+
+function reload(id, storage = globalThis.sessionStorage, go = reloadPage) {
   try {
     const [before, at] = String(storage?.getItem(TRIED) || '').split('|');
     if (before === id && Date.now() - Number(at) < RETRY) return false;

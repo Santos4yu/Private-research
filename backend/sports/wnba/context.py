@@ -422,7 +422,9 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", 
     the rotation as actually used, not a coach's depth chart. With the
     current `rosters` (team -> {id: {name, pos, headshot}}), a team's chart
     is its players now (_roster_rotation): at the start of a season its
-    last games are last season's, and a signing would be missing."""
+    last games are last season's, and a signing would be missing. Every
+    player is listed: an NBA roster runs to 18, and a cut at 13 left a
+    regular off his own team's chart (Oct 30: Deandre Ayton, Wizards)."""
     order = {"G": 0, "F": 1, "C": 2}
     result = {}
     # Every player's games, wherever he played them: (date, started, minutes), in order.
@@ -439,7 +441,7 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", 
         if len(roster) >= FULL_ROSTER:
             entries = _with_recent(_roster_rotation(team, games, roster, history, players, size, league), games)
             entries.sort(key=lambda e: (not e["lastStart"], order.get(primary_position([None, e["pos"]]), 3) if e["lastStart"] else 0, -e["min"]))
-            result[team] = {"games": min(len(games), size), "lastGame": games[-1]["date"] if games else None, "players": entries[:13]}
+            result[team] = {"games": min(len(games), size), "lastGame": games[-1]["date"] if games else None, "players": entries}
             continue
         if not games:
             continue
@@ -463,7 +465,7 @@ def rotation(by_team: dict, players: dict, size: int = 5, league: str = "wnba", 
         for entry in entries:
             entry.update({"lastStart": entry["id"] in starters, "playedLast": entry["id"] in played_last})
         entries.sort(key=lambda e: (not e["lastStart"], order.get(primary_position([None, e["pos"]]), 3) if e["lastStart"] else 0, -e["min"]))
-        result[team] = {"games": len(recent), "lastGame": games[-1]["date"], "players": _with_recent(entries[:13], games)}
+        result[team] = {"games": len(recent), "lastGame": games[-1]["date"], "players": _with_recent(entries, games)}
     return result
 
 

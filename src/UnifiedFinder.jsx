@@ -2,7 +2,7 @@ import React,{lazy,startTransition,Suspense,useCallback,useEffect,useMemo,useRef
 import {matchesSearch,searchKey} from './finder-search.js';
 import {flushSync} from 'react-dom';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
-import {finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
+import {finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,keepOpenPlayer,takeOpenPlayer,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
 import {comebackTag} from './workload';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
@@ -23,6 +23,13 @@ const SoccerPlayerPage=lazy(()=>import('./sports/soccer/SoccerPlayerPage').then(
 const NHLPlayerPage=lazy(()=>import('./sports/nhl/NHLPlayerPage').then(m=>({default:m.NHLPlayerPage})));
 const CFBPlayerPage=lazy(()=>import('./sports/cfb/CFBPlayerPage').then(m=>({default:m.CFBPlayerPage})));
 const SPORTS=['all','nba','wnba','mlb','nfl','cfb','nhl','soccer','tennis','cs2'],KEYS=SPORTS.slice(1),EMPTY={state:'idle',rows:[]};
+// React may run a board update again before it lands (a refresh waits
+// behind anything more urgent and is replayed on each render meanwhile).
+// The same boards in give back the same boards out: a fresh copy each time
+// made the list look new on every render, which re-rendered the player page,
+// which replayed the update again -- the page locked up when you came back to
+// the tab (Oct 30).
+const once=update=>{let seen,result;return old=>old===seen?result:(result=update(seen=old));};
 const LOGOS={prizepicks:'/prizepicks/logo.png',draftkings:'/sportsbooks/draftkings.png',fanduel:'/sportsbooks/fanduel.png',betmgm:'/sportsbooks/betmgm.png',underdog:'/sportsbooks/underdog.png'};
 const WINDOWS=[['l5','L5'],['l10','L10'],['l15','L15'],['h2h','H2H'],['season','SZN']];
 const SPORT_WORDS={soccer:'Soccer',tennis:'Tennis'};
@@ -111,12 +118,15 @@ export function PhoneAccountButtons(){
  </>;
 }
 const storage=()=>{try{return window.localStorage;}catch{return null;}};
+const session=()=>{try{return window.sessionStorage;}catch{return null;}};
 export function UnifiedFinder(){
  // A notification's link (/finder?sport=&player=&stat=) opens that prop;
  // otherwise the Finder comes back the way it was left (readFinderView).
  const [target]=useState(()=>typeof location==='undefined'?null:linkTarget(location.search));
  const [view]=useState(()=>target?{}:readFinderView(storage()));
- const linked=useRef(target),restoring=useRef(Boolean(view.marketFilter?.length||view.bookFilter?.length||view.teamFilter?.length));
+ // A new release's reload opens the player you were on again.
+ const [reopen]=useState(()=>target?null:takeOpenPlayer(session()));
+ const linked=useRef(target||reopen),restoring=useRef(Boolean(view.marketFilter?.length||view.bookFilter?.length||view.teamFilter?.length));
  const [mobileSearch,setMobileSearch]=useState(Boolean(target));
  // Which leagues a regular user may see here is an admin switch
  // (site_controls disabledFinderSports); admins always get every league. Re-read
@@ -154,7 +164,7 @@ export function UnifiedFinder(){
  // refreshed boards) gives way to taps and typing.
  const putBoard=useCallback((key,next)=>{
   if(typeof next!=='function'&&next.rows)latest.current[key]=next.rows;
-  const update=()=>setBoards(old=>{const board=typeof next==='function'?next(old[key]):next;if(board.rows)latest.current[key]=board.rows;return {...old,[key]:board};});
+  const update=()=>setBoards(once(old=>{const board=typeof next==='function'?next(old[key]):next;if(board.rows)latest.current[key]=board.rows;return {...old,[key]:board};}));
   if(boardsRef.current[key]?.rows?.length)startTransition(update);else update();
  },[]);
  // Saving a board to the device copies every line, so it waits for a quiet moment.
@@ -219,7 +229,7 @@ export function UnifiedFinder(){
    const cached=!force?await (started?started.cached:readFinderCache(key)):null;
    if(c.signal.aborted)return;
    if(cached){latest.current[key]=cached.rows;savedRows.current.set(key,cached.rows);putBoard(key,old=>({...old,...cached,state:'ready',error:null,version:(old.version||0)+1}));}
-   else setBoards(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'loading',error:null}}));
+   else setBoards(once(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'loading',error:null}})));
    // A board saved moments ago is current; otherwise ask again, keeping the
    // hit rates of every line that hasn't changed (carryHistory).
    if(!cached||Date.now()-Number(cached.ts||0)>=BOARD_FRESH){
@@ -249,7 +259,7 @@ export function UnifiedFinder(){
     saveSoon(key);
    }
   }
-  catch(e){if(e.name!=='AbortError')setBoards(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'error',error:e.message}}));}
+  catch(e){if(e.name!=='AbortError')setBoards(once(old=>({...old,[key]:{...old[key],state:old[key].rows?.length?'ready':'error',error:e.message}})));}
   finally{requests.current.delete(key);controllers.current.delete(c);}
   // Hit rates next, for the lines on screen first. Leagues warmed in the
   // background wait their turn (enrichBoard).
@@ -289,7 +299,9 @@ export function UnifiedFinder(){
  }),[boards,allowedKeys,leagues]);
  // A detail page opened from a saved board must receive fresh fixture IDs
  // when the live board arrives, rather than retaining its stale snapshot.
- useEffect(()=>{setSelected(current=>{
+ // Only a soccer page asks: any other sport's page doesn't set its player
+ // again on every change to the list.
+ useEffect(()=>{if(selected?.sport!=='soccer')return;setSelected(current=>{
   if(!current||current.sport!=='soccer')return current;
   const fresh=allRows.find(row=>row.id===current.id);
   return fresh&&fresh.eventId&&(!current.eventId||fresh.eventId!==current.eventId||fresh.teamId!==current.teamId)?fresh:current;
@@ -420,6 +432,11 @@ export function UnifiedFinder(){
  // (numbered in order). Tapping a chip again flips it; its x removes it.
  const changePage=n=>{setPage(n);tableRef.current?.scrollTo({top:0});};
  const playerRows=useMemo(()=>finderPlayerRows(allRows,selected),[allRows,selected]);
+ useEffect(()=>{
+  if(!selected)return undefined;
+  const keep=()=>keepOpenPlayer(session(),selected);
+  window.addEventListener('vortex:update-reload',keep);return()=>window.removeEventListener('vortex:update-reload',keep);
+ },[selected]);
  // The trend panel's save star (app.js vortexTrendPanel.setSave): it saves
  // the line the panel is showing, through the same Over / Under chooser as
  // the board's stars.

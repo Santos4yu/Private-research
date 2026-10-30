@@ -76,6 +76,37 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: the site froze coming back to its tab; depth charts cut players
+
+- "EVERYTIME i switch tabs ... and come back its just frozen and refreshing
+  wont help". Cause (Finder, a player page open): coming back reloads every
+  league's board (UnifiedFinder's refresh on visibilitychange,
+  `load(key,true)`), and a refreshed board renders as a transition. While
+  it waited, the soccer-only effect on `allRows` still called `setSelected`
+  for every sport; React then replayed the waiting `setBoards` updaters,
+  each replay built new board objects, `allRows` changed, the player page's
+  trend-panel config changed, app.js's panel set state again, the effect
+  fired again: an endless render loop, so the tab locked up (and Chrome
+  kept the hung renderer for a reload). Fixed twice over: the board
+  updaters go through `once()` (same boards in, same boards out), and the
+  effect returns early unless a soccer page is open. Checked with headless
+  hide/show, Chrome's freeze and both, three rounds each, on the player
+  page, the list and home: answers and taps every time. Found with an
+  unminified build (`vite build --minify false`) and a counter in React's
+  `dispatchSetState`, which named the looping setState by call site.
+- Coming back when a new release is out reloads the site (app-update.js);
+  that used to drop you on the list. The reload now fires
+  `vortex:update-reload` first, the Finder saves the open player for the
+  tab (sessionStorage `finder:reopen`, a minute), and the reload opens it
+  again through the link path (`keepOpenPlayer` / `takeOpenPlayer` in
+  unified-finder-data.js).
+- "also missing players on the depth chart" (Deandre Ayton missing from the
+  Wizards' chart on his own page): `rotation()` cut every team to 13 and an
+  NBA roster runs to 18. It now lists everyone (the other readers of
+  `rotation.players` filter on minutes, so a deep bench changes nothing
+  there). The Finder's depth card also adds the page's own player to his
+  team's chart when the rosters haven't caught up with a trade yet.
+
 ### Oct 30: defense rankings by season and position; older H2H games
 
 - The owner compared PropsEdge (Nesmith vs MIA H2H 6 games, ours 2; their

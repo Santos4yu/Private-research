@@ -214,6 +214,15 @@ class ContextTests(unittest.TestCase):
         short = context.league_context(self.payload, rosters={"AAA": {"mate": {"name": "Mate"}}})["rotation"]["AAA"]["players"]
         self.assertEqual(short[0]["id"], "star")
 
+    def test_rotation_lists_a_full_nba_roster(self):
+        # 15 players and three two-ways: every one is on the chart, the
+        # signing who's played the most minutes among them (Oct 30, Ayton).
+        roster = {"mate": {"name": "Mate", "pos": "C"}, "b_g": {"name": "B Guard", "pos": "C"},
+                  **{f"deep{n}": {"name": f"Deep {n}", "pos": "SF"} for n in range(16)}}
+        chart = context.league_context(self.payload, rosters={"AAA": roster})["rotation"]["AAA"]["players"]
+        self.assertEqual(len(chart), 18)
+        self.assertEqual({player["id"] for player in chart}, set(roster))
+
     def test_player_context(self):
         ctx = context.player_context(self.payload, "star", "AAA", "BBB", "player_points", 25.0)
         self.assertEqual(ctx["zones"]["ra"], [3, 4])

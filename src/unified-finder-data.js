@@ -488,6 +488,25 @@ export function linkTarget(search) {
   return sport && player ? {sport, player, stat: params.get('stat') || ''} : null;
 }
 
+// A new release reloads the site as you come back to it (app-update.js);
+// the player you had open in the Finder opens again, the way a link would.
+// Kept for the tab only (sessionStorage) and for a minute at most.
+const REOPEN = 'finder:reopen', REOPEN_FOR = 60 * 1000;
+export function keepOpenPlayer(storage, row, now = Date.now()) {
+  try {
+    if (row?.sport && row?.player) storage?.setItem(REOPEN, JSON.stringify({sport: row.sport, player: row.player, stat: row.market || '', at: now}));
+  } catch { /* private mode: it just doesn't reopen */ }
+}
+export function takeOpenPlayer(storage, now = Date.now()) {
+  try {
+    const saved = JSON.parse(storage?.getItem(REOPEN) || 'null');
+    storage?.removeItem(REOPEN);
+    return saved?.sport && saved?.player && now - Number(saved.at) < REOPEN_FOR ? {sport: saved.sport, player: saved.player, stat: saved.stat || ''} : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The board line a link names: that player's line for that stat, the
  * standard one first. Null when it's no longer posted. */
 export function findLinkedRow(rows, target) {

@@ -97,7 +97,11 @@ function DepthChart({row,matchup,filters,onToggleFilter}){
  const rotation=league.data?.rotation?.[side],teams=league.data?.teams||{};
  const injuries=matchup?.injuries?.[side]||[];
  const injured=new Map(injuries.map(item=>[item.id,item]));
- const rows=useMemo(()=>rotation?depthRows(rotation.players,injuries):[],[rotation,injuries]);
+ // His own team's chart always has him: a trade the rosters haven't caught
+ // up with yet left a player off his new team's chart.
+ const players=useMemo(()=>{const list=rotation?.players||[];
+  return side===team&&row.playerId&&!list.some(player=>String(player.id)===String(row.playerId))?[...list,{id:row.playerId,name:row.player,pos:row.position,headshot:row.headshot,min:null}]:list;},[rotation,side,team,row.playerId,row.player,row.position,row.headshot]);
+ const rows=useMemo(()=>rotation?depthRows(players,injuries):[],[rotation,players,injuries]);
  const columns=Math.max(1,...rows.map(([,players])=>players.length));
  // With/without only means something for the player's own teammates.
  const impact=side===team?new Map((context.data?.withWithout||[]).map(item=>[item.id,item])):null;
