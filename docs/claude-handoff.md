@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -85,18 +85,30 @@ Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt; site colors 
 - Top bar (FinderPlayerBanner `layout="v2"`): back, photo, name, position,
   team logo, game and time; account button on a phone. No brand logo, no
   team watermark, no Trends / Matchup / Depth switch.
-- The chart column, top to bottom: stat tabs (words with their lines,
-  underlined when picked), the bet ("More 21.5 Points", tier icon, price,
-  Analyze) beside the line's - / +, PrizePicks lines and the save star;
-  the hit-rate windows (each % in its color with its record, the picked
-  one on a soft fill) ABOVE the chart; the chart; Average and Median (the
-  summary's hit rate and record are hidden, the windows show them);
-  filters as soft chips; odds as soft chips.
-- One tab row for everything else: Matchup, Defense, Shooting, Similar,
-  Injuries, Rankings (WNBAFinderContext now takes `tab` from the page and
-  hides its own tab row), Stats (supporting stats), Game log, Depth. Every
-  section stays mounted and is hidden when not picked (instant, keeps its
-  state). Computer (1051px+): chart left, tabs right; phone: stacked.
+- Then the owner: "hate how the buttons are so close to the line buttons
+  are also ugly and i hate how to bottom is just empty", and with a
+  PickFinder trends screenshot: "see how they make their trends all clean
+  nice buttons and layout perfectly placed we need it like this". Only its
+  layout idea was used (no branding, no wording).
+- The chart column now, top to bottom: the odds as soft chips (the panel's
+  "Odds" label hidden); stat tabs (words with their lines, underlined when
+  picked); a title, "Points" with "More 21.5" in green (red for Less), tier
+  icon and price; one row of small even buttons (36px, 9px corners, soft
+  fill): the panel's own line - / + (unhidden; it drives the title through
+  `vortex:trend-odds`), PrizePicks lines, save star, Analyze (portaled into
+  `.gamelog-toolbar-head`); the filters as soft chips under them. On a
+  computer the hit-rate windows sit as one compact block to the right of
+  those rows (label, % in its color, record; the picked one lit). Then the
+  chart, Average and Median, then Game log / Stats / Depth tabs under the
+  chart (`.fp2-his`, so the bottom isn't empty).
+- Phone: one column in the same order, the buttons on one line (the lines
+  select takes what's left), the filters one sideways-scrolling line edge
+  to edge, the windows an even row over the chart.
+- The research column (computer): Matchup, Defense, Shooting, Similar,
+  Injuries, Rankings (WNBAFinderContext takes `tab` from the page and
+  hides its own tab row). Under 1051px it's one tab row with all nine
+  (`.fp2-tabs-all`, Game log / Stats / Depth included). Every section stays
+  mounted and is hidden when not picked (instant, keeps its state).
 - Win predictor is now two teams with their chances and one split bar
   (`wp-*`), not a ring. Cards are soft panels without outlines.
 - How: the chart is app.js's shared trend panel (#gamelog-overlay) moved

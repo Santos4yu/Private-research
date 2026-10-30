@@ -57,7 +57,7 @@ function usePanelSlots(ref){
   const look=()=>{
    const hero=scope.querySelector('#gamelog-hero-slot');
    if(!hero)return false;
-   setSlots({hero,quotes:scope.querySelector('#gamelog-quotes-slot'),tabs:scope.querySelector('#gamelog-switch-slot'),section:scope});
+   setSlots({hero,quotes:scope.querySelector('#gamelog-quotes-slot'),tabs:scope.querySelector('#gamelog-switch-slot'),tools:scope.querySelector('.gamelog-toolbar-head'),section:scope});
    return true;
   };
   if(look())return undefined;
@@ -122,9 +122,12 @@ function HitRing({record}){
 }
 
 // layout "v2" (the NBA / WNBA page, finder-player-v2.css): one top bar with
-// the player and the game; under the stat tabs the bet itself (the side, the
-// line large, the stat, the price, Analyze); no Trends / Matchup / Depth
-// switch (the page has its own section tabs).
+// the player and the game; the chart's title (the stat, More or Less, the
+// price) over the chart's own line - / +, PrizePicks lines and save star,
+// with Analyze after them (Oct 30, the owner: the buttons sat too close to
+// the line, then a reference with the title, one row of small even buttons
+// and the filters under it); no Trends / Matchup / Depth switch (the page
+// has its own section tabs).
 export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
  const ref=useRef(null);
  const slots=usePanelSlots(ref);
@@ -189,13 +192,13 @@ export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
  if(layout==='v2'){
   const canAnalyze=ANALYZE_SPORTS.has(row.sport)&&!row.researchOnly;
   const bet=<div className="fp2-bet">
-   {row.market&&row.researchOnly?<p className="fp2-bet-main"><span className="fp2-bet-stat">{row.market}</span><span className="fp2-bet-note">No PrizePicks line tonight</span></p>
-    :<p className="fp2-bet-main"><span className="fp2-bet-side" data-side={side==='Less'?'less':'more'}>{side}</span><b>{shownLine}</b><span className="fp2-bet-stat">{row.market}</span>
-     {tier&&<img src={`/prizepicks/${tier}.png`} alt={tier} width="18" height="18"/>}</p>}
+   <h2 className="fp2-bet-title">{row.market}</h2>
+   {row.researchOnly?<span className="fp2-bet-note">No PrizePicks line tonight</span>
+    :<span className="fp2-bet-side" data-side={side==='Less'?'less':'more'}>{side} {shownLine}</span>}
+   {tier&&!row.researchOnly&&<img src={`/prizepicks/${tier}.png`} alt={tier} width="18" height="18"/>}
    {priced&&<span className="fp2-bet-price" title={`${priced.name} ${american(priced[sideKey])}`}><img src={priced.logo} alt={priced.name} width="16" height="16" onError={e=>{e.currentTarget.hidden=true;}}/>
     <b data-side={priced[sideKey]<0?'fav':'dog'}>{american(priced[sideKey])}</b></span>}
-   {/* Analyze grades this bet (the line on the chart), so it sits with it. */}
-   {canAnalyze&&<AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>}
+   {canAnalyze&&!slots?.tools&&<AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>}
   </div>;
   return <header ref={ref} className={`fpb fp2-head${slots?' fpb-merged':''}`}>
    <div className="fp2-top">
@@ -211,6 +214,7 @@ export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
      <button type="button" className="fpb-account fp2-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button></span>
    </div>
    {slots?createPortal(bet,slots.hero):bet}
+   {canAnalyze&&slots?.tools&&createPortal(<span className="fp2-analyze"><AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/></span>,slots.tools)}
    {oddsRow&&(slots?.quotes?createPortal(oddsRow,slots.quotes):oddsRow)}
   </header>;
  }

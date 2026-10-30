@@ -18,15 +18,21 @@ import '../../finder-player-v2.css';
 // The NBA / WNBA player page off the Finder (finder-player-v2.css). Oct 30,
 // the owner: "new buttons new everything ... new placements ... nice and
 // mobile friendly and user friendly easy to navigate and see data nothing
-// complex". A top bar (the player, the game, Analyze); the shared trend
-// chart with the stat tabs, the bet, the hit-rate windows, the chart, the
-// filters and the odds, top to bottom; then one row of tabs for everything
-// else: the matchup panel's six, his supporting stats, game log and the
-// depth chart. On a computer the chart takes the left and the tabs the right.
-// Every section stays mounted (hidden when not picked), so a tab opens at
-// once and keeps where it was.
-const SECTIONS=[...RESEARCH_TABS.map(([key,label])=>[key,label]),['stats','Stats'],['log','Game log'],['depth','Depth']];
+// complex". A top bar (the player, the game); the shared trend chart with
+// the odds, the stat tabs, the title and one row of small buttons, the
+// filters (the hit-rate windows beside them on a computer), the chart, top
+// to bottom; then one row of tabs for everything
+// else: the matchup panel's six, his game log, supporting stats and the
+// depth chart. On a computer the chart takes the left with his own three
+// under it (their own tabs: the owner hated the empty space under the
+// chart) and the matchup's six take the right. Every section stays mounted
+// (hidden when not picked), so a tab opens at once and keeps where it was.
+const HIS=[['log','Game log'],['stats','Stats'],['depth','Depth']];
+const RESEARCH_LIST=RESEARCH_TABS.map(([key,label])=>[key,label]);
 const RESEARCH=new Set(RESEARCH_TABS.map(([key])=>key));
+function Tabs({list,picked,onPick,className,label}){
+ return <nav className={`fp2-tabs ${className}`} aria-label={label}>{list.map(([key,name])=><button type="button" key={key} aria-pressed={picked===key} onClick={()=>onPick(key)}>{name}</button>)}</nav>;
+}
 
 // The known stats in their usual order, then any other market PrizePicks
 // posts for this player (shown by its own name; no history to chart yet).
@@ -132,9 +138,10 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
  // With/without choices from the depth chart or Injuries tab; the chart
  // keeps the games that match every one of them.
  const [filters,setFilters]=useState([]);
- // The section picked under the chart, and the matchup panel's last tab.
- const [section,setSection]=useState('matchup'),[researchTab,setResearchTab]=useState('matchup');
- const pickSection=useCallback(key=>{setSection(key);if(RESEARCH.has(key))setResearchTab(key);},[]);
+ // The matchup panel's tab, his own three's, and which of the two a
+ // phone's one row of tabs last picked.
+ const [researchTab,setResearchTab]=useState('matchup'),[hisTab,setHisTab]=useState('log'),[group,setGroup]=useState('research');
+ const pickSection=useCallback(key=>{if(RESEARCH.has(key)){setResearchTab(key);setGroup('research');}else{setHisTab(key);setGroup('his');}},[]);
  useEffect(()=>{setSelected(row);setFilters([]);},[row]);
  const toggleFilter=useCallback(entry=>setFilters(old=>toggleSplit(old,entry)),[]);
  const removeFilter=useCallback(key=>setFilters(old=>old.filter(filter=>splitKey(filter)!==key)),[]);
@@ -157,17 +164,22 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
   <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack} layout="v2"/>
   {!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to ESPN's roster yet, so trends and matchup research are not available.</span></div>:<>
   {trend.state==='error'&&<div className="wnba-board-message" role="alert"><span>{trend.error}</span><button type="button" className="wnba-trend-back" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
-  <div className="fp2-grid">
+  <div className="fp2-grid" data-group={group}>
    <div className="fp2-chart">
     <TrendChart row={selected} playerRows={playerRows} extraRows={extraRows} logs={chartLogs} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
     {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}
+    <div className="fp2-his">
+     <Tabs className="fp2-tabs-his" label="His games" list={HIS} picked={hisTab} onPick={pickSection}/>
+     <div className="fp2-section" hidden={hisTab!=='log'}><PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/></div>
+     <div className="fp2-section" hidden={hisTab!=='stats'}><SupportingStats logs={trend.rows} loading={loading}/></div>
+     <div className="fp2-section" hidden={hisTab!=='depth'}><DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/></div>
+    </div>
    </div>
    <div className="fp2-research">
-    <nav className="fp2-tabs" aria-label="Research">{SECTIONS.map(([key,label])=><button type="button" key={key} aria-pressed={section===key} onClick={()=>pickSection(key)}>{label}</button>)}</nav>
-    <div className="fp2-section" hidden={!RESEARCH.has(section)}><WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter} tab={researchTab}/></div>
-    <div className="fp2-section" hidden={section!=='stats'}><SupportingStats logs={trend.rows} loading={loading}/></div>
-    <div className="fp2-section" hidden={section!=='log'}><PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/></div>
-    <div className="fp2-section" hidden={section!=='depth'}><DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/></div>
+    {/* A phone (and a narrow window): one row for all nine. */}
+    <Tabs className="fp2-tabs-all" label="Research" list={[...RESEARCH_LIST,...HIS]} picked={group==='research'?researchTab:hisTab} onPick={pickSection}/>
+    <Tabs className="fp2-tabs-research" label="Matchup research" list={RESEARCH_LIST} picked={researchTab} onPick={pickSection}/>
+    <div className="fp2-section fp2-matchup"><WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter} tab={researchTab}/></div>
    </div>
   </div></>}
  </section>;
