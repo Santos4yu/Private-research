@@ -76,6 +76,25 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: Defense vs position is G / F / C again (the owner's call)
+
+- "Let's just go back to the G F AND C I think it's better than just
+  guessing." The card's positions are ALL, G, F and C, as ESPN's box scores
+  list players; the views (Total / Per player / Per 36), the four windows,
+  the game list, the "L10 (5)" labels and the box-score check all stay.
+- Removed with it: context.split_positions / inches / PG_ASSISTS /
+  PF_INSIDE / WING_INCHES / SPECIFIC, season_dvp's specific / split /
+  heights / place_from / sources (season_dvp(payload) now), api's ESPN
+  fantasy-list reader (_espn_positions, _fantasy_positions), the roster
+  height in _team_rosters, the admin "positions" line, and the
+  espn-positions-check workflow. The sections below about the PG / SG /
+  SF / PF / C split and ESPN's fantasy list are history; if the owner asks
+  for specific positions again, ESPN's fantasy list (lm-api-reads.fantasy.
+  espn.com .../fba/seasons/{year}/players, view players_wl,
+  x-fantasy-filter filterActive; defaultPositionId 1-5 = PG..C) answered
+  from GitHub's machines with 1,099 players, but was never confirmed from
+  Vercel.
+
 ### Oct 30: ESPN's own positions for Defense vs position
 
 - The owner compared Miami vs SGs (ours 11.0 rebounds, 29th; PropsEdge 7.8,

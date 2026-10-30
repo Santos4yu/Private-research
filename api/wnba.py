@@ -231,106 +231,27 @@ _dvp_memory = {}
 DVP_SEASONS = 4
 
 
-# ESPN's own PG / SG / SF / PF / C for every NBA player: the player list of
-# its fantasy game (defaultPositionId 1-5), on the same player ids as its box
-# scores. The box scores and rosters say only G, F or C (99.6% of last
-# season's minutes), and placing guards and forwards by how they play was
-# right about 3 times in 4 (Oct 30, the owner: "it's just not accurate").
-# A player the list doesn't have is still placed that way
-# (context.split_positions). Read once a day and kept in the store.
-FANTASY_POSITIONS = {1: "PG", 2: "SG", 3: "SF", 4: "PF", 5: "C"}
-POSITIONS_SECONDS = 24 * 60 * 60
-POSITIONS_RETRY_SECONDS = 30 * 60
-_positions_memory = {}
-
-
-def _fantasy_positions(listing) -> dict:
-    """{player id: PG...} from ESPN's fantasy player list: a list of players,
-    or {"players": [...]}, each maybe under "player"."""
-    items = listing if isinstance(listing, list) else (listing or {}).get("players") or []
-    positions = {}
-    for item in items:
-        player = (item.get("player") or item) if isinstance(item, dict) else {}
-        position = FANTASY_POSITIONS.get(player.get("defaultPositionId"))
-        if player.get("id") and position:
-            positions[str(player["id"])] = position
-    return positions
-
-
-def _espn_positions(season):
-    """({player id: PG / SG / SF / PF / C}, when read) for an NBA season from
-    ESPN's fantasy player list; ({}, 0) when it can't be read (a failure is
-    tried again after POSITIONS_RETRY_SECONDS)."""
-    now = time.time()
-    memory = _positions_memory.get(season)
-    if memory and now - memory[0] < (POSITIONS_SECONDS if memory[1] else POSITIONS_RETRY_SECONDS):
-        return memory[1], memory[0] if memory[1] else 0
-    key = f"krazy_data:nba:espn_positions:{season}"
-    try:
-        raw = store.get(key)
-        envelope = json.loads(raw) if raw else None
-        if envelope and envelope.get("positions") and now - float(envelope.get("at", 0)) < POSITIONS_SECONDS:
-            _positions_memory[season] = (float(envelope["at"]), envelope["positions"])
-            return envelope["positions"], float(envelope["at"])
-    except Exception:  # noqa: BLE001 -- read it from ESPN instead
-        pass
-    try:
-        response = requests.get(f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/{season}/players",
-                                params={"view": "players_wl"}, timeout=12,
-                                headers={"Accept": "application/json", "x-fantasy-filter": json.dumps({"filterActive": {"value": True}})})
-        response.raise_for_status()
-        positions = _fantasy_positions(response.json())
-    except Exception:  # noqa: BLE001 -- the card places players by how they play
-        positions = {}
-    _positions_memory[season] = (now, positions)
-    if positions:
-        try:
-            store.set(key, json.dumps({"at": now, "positions": positions}, separators=(",", ":")))
-        except Exception:  # noqa: BLE001
-            pass
-        return positions, now
-    return {}, 0
-
-
 def _dvp(league_name, season, position, player_id, view="total", team=""):
-    """One stored season's Defense vs position for one position (ALL, PG...
-    or G / F / C) and view (context.VIEWS), every team: {season, seasons,
-    positions, position, playerPosition, view, views, windows, teamCount,
-    games, played, through, teams, stats, dvp: {team: {stats, n, g}},
-    log, audit}. `log`: `team`'s games one at a time (context.position_log);
-    `audit`: the box scores checked (context.reconcile; the card shows it to
-    admins). The NBA's PG / SG / SF / PF: ESPN's rosters where they say, how
-    each player plays otherwise (context.split_positions), early in a season
-    on last season's games too. None when that season isn't stored."""
-    from backend.sports.wnba import context, league, opportunity
+    """One stored season's Defense vs position for one position (ALL, G, F
+    or C, as ESPN's box scores list players) and view (context.VIEWS), every
+    team: {season, seasons, positions, position, playerPosition, view,
+    views, windows, teamCount, games, played, through, teams, stats, dvp:
+    {team: {stats, n, g}}, log, audit}. `log`: `team`'s games one at a time
+    (context.position_log); `audit`: the box scores checked
+    (context.reconcile; the card shows it to admins). None when that season
+    isn't stored."""
+    from backend.sports.wnba import context, league
     current = league.current_season(league=league_name)
     payload = league.ensure(current, league_name) if season == current else league.stored(season, league_name)
     if not payload or not payload.get("games"):
         return None
-    rosters, roster_at = _team_rosters(league_name) if league_name == "nba" else (None, 0)
-    specific = {str(pid): str(info.get("pos") or "").upper() for team in (rosters or {}).values() for pid, info in team.items()}
-    heights = {str(pid): context.inches(info.get("height")) for team in (rosters or {}).values() for pid, info in team.items()}
-    # ESPN's fantasy positions first: the NBA's real PG / SG / SF / PF / C.
-    listed, listed_at = _espn_positions(season) if league_name == "nba" else ({}, 0)
-    specific.update(listed)
-    key = (payload.get("builtAt"), len(payload.get("games") or {}), roster_at, listed_at)
+    key = (payload.get("builtAt"), len(payload.get("games") or {}))
     memory = _dvp_memory.get((league_name, season))
     if not memory or memory["key"] != key:
-        place_from = None
-        games = len(payload.get("games") or {})
-        teams_playing = len({side for game in payload["games"].values() for side in (game.get("t") or {})}) or 1
-        if league_name == "nba" and games * 2 / teams_playing < opportunity.BLEND_GAMES:
-            previous = _last_season(season, league_name)
-            place_from = opportunity.blend(previous, payload) if previous else None
-        memory = {"key": key, "value": context.season_dvp(payload, specific, split=league_name == "nba", heights=heights, place_from=place_from),
-                  "audit": context.reconcile(payload)}
+        memory = {"key": key, "value": context.season_dvp(payload), "audit": context.reconcile(payload)}
         _dvp_memory[(league_name, season)] = memory
     table = memory["value"]
-    players = payload.get("players") or {}
-    mine = table["placed"].get(str(player_id)) if table["specific"] else None
-    mine = mine if mine in table["positions"] else context.primary_position(players.get(str(player_id)))
-    if table["specific"] and mine in ("G", "F"):
-        mine = None
+    mine = context.primary_position((payload.get("players") or {}).get(str(player_id)))
     chosen = position if position in table["positions"] else mine if mine in table["positions"] else "ALL"
     view = view if view in table["views"] else "total"
     def stored(year):
@@ -355,7 +276,7 @@ def _dvp(league_name, season, position, player_id, view="total", team=""):
             "stats": [[key, label] for key, label, _ in context.STATS],
             "dvp": {abbr: entry.get(chosen) for abbr, entry in rows.items()},
             "log": context.position_log(table, team, chosen) if team in rows else None,
-            "audit": {**memory["audit"], "positions": table["sources"]}}
+            "audit": memory["audit"]}
 
 
 def _last_season(season, league_name):
@@ -447,8 +368,7 @@ def _team_rosters(league="wnba"):
         for entry in entries:
             if entry.get("id") and entry.get("teamAbbr"):
                 rosters.setdefault(entry["teamAbbr"], {})[str(entry["id"])] = {
-                    "name": entry.get("name"), "pos": entry.get("position"), "headshot": entry.get("headshot"),
-                    "height": entry.get("height")}
+                    "name": entry.get("name"), "pos": entry.get("position"), "headshot": entry.get("headshot")}
     return rosters, (_roster_memory.get(league) or (0,))[0]
 
 

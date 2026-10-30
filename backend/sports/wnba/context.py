@@ -7,7 +7,6 @@ written down next to it and repeated to the viewer in the page's notes.
 """
 from __future__ import annotations
 
-import re
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -202,106 +201,34 @@ def position_table(by_team: dict, spots: dict, positions, windows=WINDOWS, view:
     return result
 
 
-# The Finder's Defense vs position, one season at a time (resource=dvp).
-# ALL: every opposing player. The NBA splits by PG, SG, SF, PF and C (the
-# owner, Oct 30: "make it specific instead of just G C F"). ESPN names almost
-# nobody that way -- 99.6% of last season's minutes were played by a G, F or
-# C in its box scores, and its rosters read the same -- so a G or F is placed
-# by how he plays (split_positions) wherever the rosters don't say.
-SPECIFIC = ("PG", "SG", "SF", "PF", "C")
-SPECIFIC_SHARE = 0.6
-# A 36 minutes: a guard with 5.5 assists or more is the point guard, a
-# forward with 7.5 rebounds and blocks or more the power forward. A guard
-# who isn't the passer and stands 6'6" or more (ESPN's rosters) plays the
-# wing: small forward (Mikal Bridges). Checked on the 2025
-# and 2026 seasons' box scores against players whose position is well
-# known: guards 67% placed as known on assists alone, 74% with the height;
-# a forward's height didn't help (SFs and PFs there both stand about 6'8").
-PG_ASSISTS, PF_INSIDE, WING_INCHES = 5.5, 7.5, 78
-
-
-def inches(height) -> int | None:
-    """6'5 (or ESPN's 6' 5") in inches; None when it can't be read."""
-    match = re.match(r"\s*(\d+)\s*'\s*(\d+)", str(height or ""))
-    return int(match[1]) * 12 + int(match[2]) if match else None
-
-
-def split_positions(by_team: dict, players: dict, heights: dict | None = None) -> dict:
-    """player id -> PG, SG, SF, PF or C, from his own games in `by_team`:
-    a G by his assists (and his height, `heights`: id -> inches), an F by
-    his rebounds and blocks, a C stays C."""
-    heights = heights or {}
-    totals = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
-    for games in by_team.values():
-        for game in games:
-            for row in game["own"]["p"]:
-                total = totals[row[0]]
-                for index, field in enumerate(("min", "ast", "reb", "blk")):
-                    total[index] += row[_I[field]] or 0
-    placed = {}
-    for pid, (minutes, ast, reb, blk) in totals.items():
-        broad = primary_position(players.get(pid))
-        if not minutes or not broad:
-            continue
-        per = 36 / minutes
-        guard = "PG" if ast * per >= PG_ASSISTS else "SF" if (heights.get(str(pid)) or 0) >= WING_INCHES else "SG"
-        placed[str(pid)] = {"G": guard, "F": "PF" if (reb + blk) * per >= PF_INSIDE else "SF", "C": "C"}[broad]
-    return placed
-
-
-# The Finder's Defense vs position views and windows (resource=dvp). Total
-# (the default, the usual way it's counted): the position's players added up
-# a game. Per player: a player-game at a time. Per 36: per 36 minutes they
-# played, so a defense isn't judged on how many of them it happened to face.
+# The Finder's Defense vs position, one season at a time (resource=dvp):
+# ALL (every opposing player) and G / F / C, as ESPN's box scores list them.
+# Oct 30 the card split the NBA into PG / SG / SF / PF / C (placed by how
+# players play, then by ESPN's fantasy list); the owner went back to G / F
+# / C: "I think it's better than just guessing".
+# Its views and windows. Total (the default, the usual way it's counted):
+# the position's players added up a game. Per player: a player-game at a
+# time. Per 36: per 36 minutes they played, so a defense isn't judged on
+# how many of them it happened to face.
 VIEWS = (("total", "Total"), ("player", "Per player"), ("per36", "Per 36 min"))
 DVP_WINDOWS = (("szn", None), ("l15", 15), ("l10", 10), ("l5", 5))
 
 
-def season_dvp(payload: dict, specific: dict | None = None, split: bool = False, heights: dict | None = None,
-               place_from: dict | None = None) -> dict:
-    """One stored season's Defense vs position: {positions, specific,
-    placed, sources, games, teamCount, through, views: {view: position_table}} and,
-    for position_log, `_by_team` and `_places`. `specific` (player id -> PG,
-    SG...) is the rosters'; with `split` everyone else is placed by how he
-    plays and his height (split_positions, `heights`: id -> inches), read
-    from `place_from` when given (a young season with last season's games
-    joined, so five games don't decide who's a point guard). PG / SG / SF /
-    PF / C when that covers enough of the minutes played (SPECIFIC_SHARE),
-    else G / F / C. `placed`: each player's position as counted."""
+def season_dvp(payload: dict) -> dict:
+    """One stored season's Defense vs position: {positions, games,
+    teamCount, through, views: {view: position_table}} and, for
+    position_log, `_by_team`, `_places` and `_players`."""
     by_team = team_games(payload)
     players = payload.get("players") or {}
-    specific = {str(pid): pos for pid, pos in (specific or {}).items() if pos in SPECIFIC}
-    given = set(specific)
-    if split:
-        source = place_from or payload
-        specific = {**split_positions(team_games(source), {**(source.get("players") or {}), **players}, heights), **specific}
-    played = known = listed = 0.0
-    for games in by_team.values():
-        for game in games:
-            for row in game["own"]["p"]:
-                minutes = row[_I["min"]] or 0
-                played += minutes
-                known += minutes if str(row[0]) in specific else 0
-                listed += minutes if str(row[0]) in given else 0
-    detailed = bool(played) and known / played >= SPECIFIC_SHARE
-    if detailed:
-        positions = ("ALL",) + SPECIFIC
-        # A player the rosters don't place counts in ALL alone (a G could be
-        # either guard); centers from the box score count as centers.
-        bucket = lambda pid: ("ALL", specific.get(str(pid)) or ("C" if primary_position(players.get(pid)) == "C" else None))
-    else:
-        positions = ("ALL",) + POSITIONS
-        bucket = lambda pid: ("ALL", primary_position(players.get(pid)))
+    positions = ("ALL",) + POSITIONS
+    bucket = lambda pid: ("ALL", primary_position(players.get(pid)))
     spots = spot_games(by_team, positions, bucket)
     dates = [game.get("date") for game in (payload.get("games") or {}).values() if game.get("date")]
-    return {"season": payload.get("season"), "positions": list(positions), "specific": detailed,
+    return {"season": payload.get("season"), "positions": list(positions),
             "games": {team: len(games) for team, games in by_team.items()}, "teamCount": len(by_team),
             "through": max(dates) if dates else None,
-            # Share of the minutes played whose position was given (ESPN's) and estimated (split_positions).
-            "sources": {"listed": round(listed / played, 3) if played else 0,
-                        "estimated": round((known - listed) / played, 3) if played and detailed else 0},
             "views": {view: position_table(by_team, spots, positions, DVP_WINDOWS, view) for view, _ in VIEWS},
-            "placed": specific if detailed else {}, "_by_team": by_team, "_places": bucket, "_players": players}
+            "_by_team": by_team, "_places": bucket, "_players": players}
 
 
 # The game-by-game list's stats: the table's, in its order.

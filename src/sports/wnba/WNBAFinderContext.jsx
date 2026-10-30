@@ -72,13 +72,13 @@ const strength={good:'Weak',fair:'Average',poor:'Tough'};
 // One stored season at a time (api/wnba.py resource=dvp), picked from
 // small menus: Season, Position, the defense and the view (Oct 30, the
 // owner, with another app's: "same size dropdowns ... nice and small and
-// compact"). The NBA splits by PG, SG, SF, PF and C; "All" is every opposing
-// player. Views: Total (the position's players added up a game, the usual
+// compact"). Positions are ESPN's G, F and C (the owner went back to them
+// from a PG / SG / SF / PF / C split); "All" is every opposing player. Views: Total (the position's players added up a game, the usual
 // count), Per player, Per 36 min. A window the defense hasn't played in full
 // says how many games it has ("L10 (5)"); a stat opens the games behind it
 // one at a time, a game where nobody at the position played shown as left
 // out. Admins also see the box scores checked against the final scores.
-const POSITION_NAMES={ALL:'All',PG:'PG',SG:'SG',SF:'SF',PF:'PF',C:'C',G:'G',F:'F'};
+const POSITION_NAMES={ALL:'All',G:'G',F:'F',C:'C'};
 const VALUE_UNIT={total:'allowed/g',player:'per player',per36:'per 36 min'};
 const seasonName=year=>`${String(year-1).slice(-2)}/${String(year).slice(-2)}`;
 const dayName=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'':date.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
@@ -127,7 +127,7 @@ function DefenseVsPosition({row,stat}){
    </React.Fragment>;})}
   </tbody></table></div>:<Empty>No games recorded for this defense in {seasonName(data.season)}.</Empty>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
-  {admin&&audit&&<p className="wnba-dvp-audit" data-off={audit.offCount||audit.duplicates||audit.missing||(audit.positions&&data.positions.includes('PG')&&audit.positions.listed<.8)?'true':undefined}>Box scores: {audit.verified} of {audit.checked} games match ESPN's final scores{audit.offCount?` · ${audit.offCount} off`:''}{audit.duplicates?` · ${audit.duplicates} doubled`:''}{audit.missing?` · ${audit.missing} finished not stored yet`:''}{audit.positions&&data.positions.includes('PG')?` · positions: ESPN's for ${Math.round(audit.positions.listed*100)}% of minutes, estimated ${Math.round(audit.positions.estimated*100)}%`:''}</p>}
+  {admin&&audit&&<p className="wnba-dvp-audit" data-off={audit.offCount||audit.duplicates||audit.missing?'true':undefined}>Box scores: {audit.verified} of {audit.checked} games match ESPN's final scores{audit.offCount?` · ${audit.offCount} off`:''}{audit.duplicates?` · ${audit.duplicates} doubled`:''}{audit.missing?` · ${audit.missing} finished not stored yet`:''}</p>}
  </Card>;
 }
 // The games behind one stat, newest first: what the position put up in each,
