@@ -113,15 +113,70 @@ class ContextTests(unittest.TestCase):
         table = context.season_dvp(self.payload, specific)
         self.assertEqual(table["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
         self.assertTrue(table["specific"])
-        self.assertEqual(table["dvp"]["AAA"]["ALL"]["stats"]["pts"]["szn"][0], 25.0)
+        self.assertEqual(table["views"]["total"]["AAA"]["ALL"]["stats"]["pts"]["szn"][0], 25.0)
         # 25 from CCC's PG; BBB brought no PG, so that game is left out.
-        self.assertEqual(table["dvp"]["AAA"]["PG"]["stats"]["pts"]["szn"][0], 25.0)
-        self.assertEqual(table["dvp"]["AAA"]["SG"]["stats"]["pts"]["szn"][0], 5.0)
+        self.assertEqual(table["views"]["total"]["AAA"]["PG"]["stats"]["pts"]["szn"][0], 25.0)
+        self.assertEqual(table["views"]["total"]["AAA"]["SG"]["stats"]["pts"]["szn"][0], 5.0)
         self.assertEqual(table["games"]["AAA"], 2)
         # Rosters that name too few of the players: G / F / C, as the box scores say.
         plain = context.season_dvp(self.payload, {"star": "PG"})
         self.assertEqual((plain["positions"], plain["specific"]), (["ALL", "G", "F", "C"], False))
-        self.assertEqual(plain["dvp"]["AAA"]["G"]["stats"]["pts"]["szn"][0], 15.0)
+        self.assertEqual(plain["views"]["total"]["AAA"]["G"]["stats"]["pts"]["szn"][0], 15.0)
+
+    def test_views_windows_and_the_game_by_game_list(self):
+        # AAA allowed BBB 5 + 8 (game 1) and CCC 25 + 12 (game 2), every
+        # player 30 minutes: 25 a game added up, 12.5 a player, 15 per 36.
+        specific = {"star": "PG", "b_g": "SG", "c_g": "PG", "mate": "C", "b_c": "C", "c_c": "C"}
+        table = context.season_dvp(self.payload, specific)
+        views = {view: table["views"][view]["AAA"]["ALL"] for view, _ in context.VIEWS}
+        self.assertEqual({view: cell["stats"]["pts"]["szn"][0] for view, cell in views.items()}, {"total": 25.0, "player": 12.5, "per36": 15.0})
+        self.assertEqual(list(views["total"]["stats"]["pts"]), ["szn", "l15", "l10", "l5"])
+        self.assertEqual((views["total"]["g"]["l5"], views["total"]["n"]["l5"]), (2, 4))
+        # Each view ranks on its own. Added up, BBB allowed the most (25.5 a
+        # game); a player at a time and per 36 minutes it's CCC (41 points in
+        # 67 minutes: 13.7 a player, 22.0 per 36).
+        last = {view: max(("AAA", "BBB", "CCC"), key=lambda team: table["views"][view][team]["ALL"]["stats"]["pts"]["szn"][1]) for view, _ in context.VIEWS}
+        self.assertEqual(last, {"total": "BBB", "player": "CCC", "per36": "CCC"})
+        self.assertEqual(table["views"]["per36"]["CCC"]["ALL"]["stats"]["pts"]["szn"][0], 22.03)
+        self.assertEqual(table["through"], "2026-06-05")
+        # Game by game, newest first: BBB brought no point guard to AAA, so
+        # that game shows with nobody (and is left out of the table).
+        log = context.position_log(table, "AAA", "PG")
+        self.assertEqual([(game["date"], game["opponent"]) for game in log], [("2026-06-03", "CCC"), ("2026-06-01", "BBB")])
+        self.assertEqual(log[0]["players"][0][:2], ["C Guard", 30])
+        self.assertEqual(log[0]["players"][0][2][context.LOG_KEYS.index("pts")], 25)
+        self.assertEqual(log[1]["players"], [])
+
+    def test_box_scores_checked_against_the_final_score(self):
+        # Points are 2 a field goal, 1 more a three, 1 a free throw.
+        def line(pid, fgm, tpm, ftm, pts=None):
+            values = {"min": 30, "pts": 2 * fgm + tpm + ftm if pts is None else pts, "fgm": fgm, "tpm": tpm, "ftm": ftm}
+            return [pid, 1] + [values.get(field, 0) for field in league.FIELDS]
+        good = game("1", "2026-10-25", "AAA", "BBB", [line("a", 10, 2, 4)], [line("b", 8, 1, 2)])     # 26 - 19
+        short = game("2", "2026-10-27", "AAA", "CCC", [line("a", 10, 0, 0)], [line("c", 5, 0, 0, pts=11)])
+        twice = {**good, "id": "3"}
+        payload = {"games": {"1": good, "2": short, "3": twice}, "schedule": [
+            {"id": "1", "completed": True, "score": {"AAA": 26, "BBB": 19}},
+            {"id": "2", "completed": True, "score": {"AAA": 22, "CCC": 11}},
+            {"id": "3", "completed": True, "score": {"AAA": 26, "BBB": 19}},
+            {"id": "4", "completed": True}, {"id": "5", "completed": False}]}
+        audit = context.reconcile(payload)
+        self.assertEqual((audit["checked"], audit["verified"], audit["duplicates"], audit["missing"]), (3, 2, 1, 1))
+        # Game 2: AAA's box says 20 against a final of 22, and CCC's player
+        # has 11 points on 10 points' worth of shots.
+        self.assertEqual(sorted((item["team"], item.get("final"), item.get("shots")) for item in audit["off"]), [("AAA", 22, None), ("CCC", None, 10)])
+        self.assertEqual(audit["through"], "2026-10-27")
+
+    def test_the_schedule_keeps_final_scores(self):
+        teams = {"AAA": {"id": "1"}, "BBB": {"id": "2"}}
+        def event(eid, home, away, final):
+            return {"id": eid, "date": "2026-10-25T23:00Z", "season": {"type": 2}, "competitions": [{
+                "status": {"type": {"completed": final, "name": "STATUS_FINAL" if final else "STATUS_SCHEDULED"}},
+                "competitors": [{"homeAway": "home", "team": {"id": "1", "abbreviation": "AAA"}, "score": home},
+                                {"homeAway": "away", "team": {"id": "2", "abbreviation": "BBB"}, "score": away}]}]}
+        listing = league._listing([event("1", {"value": 112.0, "displayValue": "112"}, {"value": 99.0}, True),
+                                   event("2", "101", "98", True), event("3", "0", "0", False)], teams)
+        self.assertEqual([game.get("score") for game in listing], [{"AAA": 112, "BBB": 99}, {"AAA": 101, "BBB": 98}, None])
 
     def test_guards_and_forwards_placed_by_how_they_play(self):
         # Oct 30: ESPN says G, F or C for almost everyone, so the NBA's PG /
@@ -141,7 +196,7 @@ class ContextTests(unittest.TestCase):
         table = context.season_dvp(payload, {"sf": "PF"}, split=True)
         self.assertEqual((table["positions"], table["specific"]), (["ALL", "PG", "SG", "SF", "PF", "C"], True))
         self.assertEqual(table["placed"]["sf"], "PF")                         # a roster's own PG / SG... wins
-        self.assertEqual(table["dvp"]["AAA"]["PF"]["stats"]["pts"]["szn"][0], 27.0)   # Big 12 + Wing 15
+        self.assertEqual(table["views"]["total"]["AAA"]["PF"]["stats"]["pts"]["szn"][0], 27.0)   # Big 12 + Wing 15
         # The WNBA (no split): G / F / C, as before.
         self.assertEqual(context.season_dvp(payload)["positions"], ["ALL", "G", "F", "C"])
 

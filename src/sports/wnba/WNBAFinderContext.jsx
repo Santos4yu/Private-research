@@ -70,48 +70,77 @@ function Standings({matchup,team}){
 const DVP_ORDER=['pr','pts','reb','ast','pa','ra','pra','tpm','fgm','ftm','stl','blk','to','pf'];
 const strength={good:'Weak',fair:'Average',poor:'Tough'};
 // One stored season at a time (api/wnba.py resource=dvp), picked from
-// three small menus: Season, Position and the defense (Oct 30, the owner,
-// with another app's: "same size dropdowns ... nice and small and
-// compact"). The NBA splits by PG, SG, SF, PF and C from ESPN's rosters;
-// "All" is every opposing player. Before, the card read the league numbers
-// that take in last season early in a new one, under this season's name.
+// small menus: Season, Position, the defense and the view (Oct 30, the
+// owner, with another app's: "same size dropdowns ... nice and small and
+// compact"). The NBA splits by PG, SG, SF, PF and C; "All" is every opposing
+// player. Views: Total (the position's players added up a game, the usual
+// count), Per player, Per 36 min. A window the defense hasn't played in full
+// says how many games it has ("L10 (5)"); a stat opens the games behind it
+// one at a time, a game where nobody at the position played shown as left
+// out. Admins also see the box scores checked against the final scores.
 const POSITION_NAMES={ALL:'All',PG:'PG',SG:'SG',SF:'SF',PF:'PF',C:'C',G:'G',F:'F'};
+const VALUE_UNIT={total:'allowed/g',player:'per player',per36:'per 36 min'};
 const seasonName=year=>`${String(year-1).slice(-2)}/${String(year).slice(-2)}`;
+const dayName=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'':date.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+const lastName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
 function DefenseVsPosition({row,stat}){
- const opponent=opponentOf(row);
- const [season,setSeason]=useState(null),[position,setPosition]=useState(null),[team,setTeam]=useState(opponent);
+ const opponent=opponentOf(row),admin=useIsAdmin();
+ const [season,setSeason]=useState(null),[position,setPosition]=useState(null),[view,setView]=useState('total'),[team,setTeam]=useState(opponent),[open,setOpen]=useState(null);
  useEffect(()=>setTeam(opponent),[opponent]);
- useEffect(()=>{setSeason(null);setPosition(null);},[row.playerId]);
- const state=useWnba('dvp',{league:leagueOf(row),season,position,playerId:row.playerId});
- // The last table stays up while another season or position loads.
+ useEffect(()=>{setSeason(null);setPosition(null);setOpen(null);},[row.playerId]);
+ const state=useWnba('dvp',{league:leagueOf(row),season,position,playerId:row.playerId,view,team});
+ // The last table stays up while another season, position or view loads.
  const shown=useRef(null);
  if(state.data)shown.current=state.data;
  const data=state.data||shown.current;
  const focus=useMemo(()=>propFocus(row),[row]);
  if(!data)return <Card title="Defense vs position" icon={Shield}>{state.loading?<Skeleton/>:<Failed state={state} label="Defense data"/>}</Card>;
  const n=data.teamCount,labels=Object.fromEntries(data.stats),entry=data.dvp[team];
+ const statIndex=Object.fromEntries(data.stats.map(([key],index)=>[key,index]));
  const logos=Object.fromEntries(Object.entries(data.teams).map(([abbr,info])=>[abbr,info.logo]));
+ const windows=data.windows||[['szn',0],['l10',10],['l5',5]];
  // The line's own stat and what feeds it lead (prop-focus.js).
  const order=focus.order([stat,...DVP_ORDER.filter(key=>key!==stat)]).filter(key=>entry?.stats?.[key]);
  // Rank 1 allows the least. For someone taking the over that is the tough
  // end, so the tone reads from the highest rank down.
  const tone=rank=>rankTone(finite(rank)?n+1-rank:rank,n);
- const games=data.games?.[team];
- return <Card title="Defense vs position" note={`${seasonName(data.season)}${finite(games)?` · ${games} ${games===1?'game':'games'}`:''}`} icon={Shield} className="wnba-dvp">
+ const games=data.games?.[team],played=data.played?.[team],through=dayName(data.through);
+ const count=finite(played)&&finite(games)&&played>games?`${games} of ${played} games`:finite(games)?`${games} ${games===1?'game':'games'}`:'';
+ const short=([key,size])=>size>0&&finite(entry?.g?.[key])&&entry.g[key]<size;
+ const audit=data.audit;
+ return <Card title="Defense vs position" note={[seasonName(data.season),count,through&&`thru ${through}`].filter(Boolean).join(' · ')} icon={Shield} className="wnba-dvp">
   <div className="wnba-dvp-menus" data-loading={state.loading||undefined}>
-   <FinderDropdown aria-label="Season" value={data.season} onChange={e=>setSeason(Number(e.target.value))}>{data.seasons.map(year=><option key={year} value={year}>{`${seasonName(year)} Season`}</option>)}</FinderDropdown>
-   <FinderDropdown aria-label="Position" value={data.position} onChange={e=>setPosition(e.target.value)}>{data.positions.map(key=><option key={key} value={key}>{POSITION_NAMES[key]||key}</option>)}</FinderDropdown>
+   <FinderDropdown aria-label="Season" value={data.season} onChange={e=>{setSeason(Number(e.target.value));setOpen(null);}}>{data.seasons.map(year=><option key={year} value={year}>{`${seasonName(year)} Season`}</option>)}</FinderDropdown>
+   <FinderDropdown aria-label="Position" value={data.position} onChange={e=>{setPosition(e.target.value);setOpen(null);}}>{data.positions.map(key=><option key={key} value={key}>{POSITION_NAMES[key]||key}</option>)}</FinderDropdown>
    <span className="wnba-dvp-vs" aria-hidden="true">vs</span>
-   <FinderDropdownAssets.Provider value={{Defense:logos}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>setTeam(e.target.value)}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider>
+   <FinderDropdownAssets.Provider value={{Defense:logos}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>{setTeam(e.target.value);setOpen(null);}}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider>
+   {data.views&&<FinderDropdown aria-label="View" value={data.view} onChange={e=>setView(e.target.value)}>{data.views.map(([key,label])=><option key={key} value={key}>{label}</option>)}</FinderDropdown>}
   </div>
-  {entry?<div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Stat</th><th scope="col" className="wnba-bar-col">Allowed</th><th scope="col">SZN</th><th scope="col">L10</th><th scope="col">L5</th><th scope="col">Matchup</th></tr></thead><tbody>
-   {order.map(key=>{const cell=entry.stats[key],[value,rank]=cell.szn||[],f=focus.of(key)||(key===stat?'key':null);return <tr key={key} data-focus={f||undefined}><th scope="row"><span className="wnba-stat-name"><span className="prop-focus-label">{labels[key]}<PropFocusTag focus={f}/></span><small>{fmt(value)} allowed/g</small></span></th>
+  {entry?<div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Stat</th><th scope="col" className="wnba-bar-col">Allowed</th>
+   {windows.map(item=><th scope="col" key={item[0]}>{item[0].toUpperCase()}{short(item)?<small> ({entry.g[item[0]]})</small>:null}</th>)}<th scope="col" className="wnba-dvp-matchup">Matchup</th></tr></thead><tbody>
+   {order.map(key=>{const cell=entry.stats[key],[value,rank]=cell.szn||[],f=focus.of(key)||(key===stat?'key':null),isOpen=open===key;return <React.Fragment key={key}>
+    <tr data-focus={f||undefined} data-open={isOpen||undefined}><th scope="row"><button type="button" className="wnba-dvp-stat" aria-expanded={isOpen} onClick={()=>setOpen(isOpen?null:key)}><span className="wnba-stat-name"><span className="prop-focus-label">{labels[key]}<PropFocusTag focus={f}/></span><small>{fmt(value)} {VALUE_UNIT[data.view]||VALUE_UNIT.total}</small></span></button></th>
     <td className="wnba-bar-col"><span className="wnba-rank-bar" data-tone={tone(rank)} aria-hidden="true"><i style={{width:finite(rank)?`${rank/n*100}%`:'0%'}}/></span></td>
-    {['szn','l10','l5'].map(window=>{const r=cell[window]?.[1];return <td key={window} data-tone={tone(r)}>{ordinal(r)}</td>;})}
-    <td><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>;})}
+    {windows.map(item=>{const r=cell[item[0]]?.[1];return <td key={item[0]} data-tone={tone(r)} data-short={short(item)||undefined}>{ordinal(r)}</td>;})}
+    <td className="wnba-dvp-matchup"><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>
+    {isOpen&&<tr className="wnba-dvp-log-row"><td colSpan={windows.length+3}><DefenseGames log={data.log} index={statIndex[key]} position={POSITION_NAMES[data.position]||data.position} logos={logos}/></td></tr>}
+   </React.Fragment>;})}
   </tbody></table></div>:<Empty>No games recorded for this defense in {seasonName(data.season)}.</Empty>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
+  {admin&&audit&&<p className="wnba-dvp-audit" data-off={audit.offCount||audit.duplicates||audit.missing?'true':undefined}>Box scores: {audit.verified} of {audit.checked} games match ESPN's final scores{audit.offCount?` · ${audit.offCount} off`:''}{audit.duplicates?` · ${audit.duplicates} doubled`:''}{audit.missing?` · ${audit.missing} finished not stored yet`:''}</p>}
  </Card>;
+}
+// The games behind one stat, newest first: what the position put up in each,
+// player by player.
+function DefenseGames({log,index,position,logos}){
+ if(!log)return <div className="wnba-dvp-log" role="status"><span className="mlb-context-skeleton"><span/></span></div>;
+ if(!log.length)return <p className="wnba-dvp-log-empty">No games yet.</p>;
+ return <ol className="wnba-dvp-log">{log.map(game=>{const players=game.players.filter(player=>finite(player[2][index]));const total=players.reduce((sum,player)=>sum+player[2][index],0);
+  return <li key={game.id} data-out={!game.players.length||undefined}>
+   <span className="wnba-dvp-log-game"><b>{dayName(game.date)}</b><span>{game.home?'vs':'@'}</span>{logos[game.opponent]&&<img src={logos[game.opponent]} alt="" width="16" height="16" loading="lazy"/>}<span>{game.opponent}</span></span>
+   {game.players.length?<><strong>{fmt(total,total%1?1:0)}</strong><span className="wnba-dvp-log-players">{players.map(player=>`${lastName(player[0])} ${fmt(player[2][index],player[2][index]%1?1:0)}`).join(' · ')}</span></>
+    :<span className="wnba-dvp-log-players">No {position} played · left out</span>}
+  </li>;})}</ol>;
 }
 const OVD=[['pr','Pts+Rebs'],['pts','Points'],['reb','Rebounds'],['ast','Assists'],['tpm','3-PT Made'],['fgm','FG Made'],['ftm','FT Made'],['fgPct','FG%']];
 function OffenseVsDefense({league,row}){

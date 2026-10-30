@@ -167,13 +167,26 @@ def _listing(events, teams: dict) -> list[dict]:
         if not home or not away or {str(home["team"]["id"]), str(away["team"]["id"])} - known:
             continue
         status = (competition.get("status") or {}).get("type") or {}
-        games.append({
-            "id": str(event["id"]), "date": event.get("date"), "type": season_type,
-            "completed": bool(status.get("completed")) and status.get("name") == "STATUS_FINAL",
+        completed = bool(status.get("completed")) and status.get("name") == "STATUS_FINAL"
+        game = {
+            "id": str(event["id"]), "date": event.get("date"), "type": season_type, "completed": completed,
             "home": home["team"]["abbreviation"], "away": away["team"]["abbreviation"],
-        })
+        }
+        # The final score, for checking the stored box scores (context.reconcile).
+        finals = {side["team"]["abbreviation"]: _score(side.get("score")) for side in (home, away)}
+        if completed and None not in finals.values():
+            game["score"] = finals
+        games.append(game)
     games.sort(key=lambda game: game["date"] or "")
     return games
+
+
+def _score(value):
+    """A competitor's score: the scoreboard's "112", or a team schedule's
+    {"value": 112.0, "displayValue": "112"}."""
+    if isinstance(value, dict):
+        value = value.get("value", value.get("displayValue"))
+    return _number(value)
 
 
 def _number(value):

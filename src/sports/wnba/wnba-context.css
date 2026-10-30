@@ -89,6 +89,26 @@ html:root .unified-finder .wnba-dvp-menus .finder-custom-select .finder-select-t
 .wnba-dvp-menus .finder-option-label>img{flex:0 0 16px;width:16px;height:16px}
 .wnba-dvp-menus .finder-select-trigger svg{width:14px;height:14px;opacity:.7}
 .wnba-dvp-vs{padding:0 2px;opacity:.6;font-size:12px;font-weight:600}
+/* A stat opens the games behind it; a window the defense hasn't played in
+   full says how many games it has ("L10 (5)") and its ranks are dimmed. */
+.wnba-dvp-stat{display:block;width:100%;margin:0;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.wnba-dvp-stat:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:2px;border-radius:4px}
+.wnba-dvp tr[data-open] th,.wnba-dvp tr[data-open] td{background:rgba(255,255,255,.04)}
+.wnba-dvp thead th small{font-weight:500;opacity:.7}
+.wnba-dvp td[data-short]{opacity:.55}
+.wnba-dvp .wnba-dvp-log-row td{padding:0 0 8px!important;text-align:left}
+.wnba-dvp-log{display:grid;gap:2px;max-height:280px;margin:0;padding:6px 8px;overflow-y:auto;list-style:none;border-radius:10px;background:rgba(255,255,255,.035);font-size:12.5px;font-variant-numeric:tabular-nums}
+.wnba-dvp-log li{display:grid;grid-template-columns:auto 34px minmax(0,1fr);align-items:center;gap:10px;min-height:30px;padding:2px 4px}
+.wnba-dvp-log li+li{border-top:1px solid rgba(255,255,255,.05)}
+.wnba-dvp-log li[data-out]{opacity:.55}
+.wnba-dvp-log-game{display:inline-flex;align-items:center;gap:5px;min-width:96px;white-space:nowrap}
+.wnba-dvp-log-game b{font-weight:600}.wnba-dvp-log-game img{width:16px;height:16px;object-fit:contain}
+.wnba-dvp-log li strong{font-weight:700;text-align:right}
+.wnba-dvp-log li[data-out] .wnba-dvp-log-players{grid-column:2/-1}
+.wnba-dvp-log-players{min-width:0;overflow:hidden;color:#b8b8b8;text-overflow:ellipsis;white-space:nowrap}
+.wnba-dvp-log-empty{margin:0;padding:8px;color:#9a9a9a;font-size:12.5px}
+.wnba-dvp-audit{margin:10px 0 0;color:#8f8f8f;font-size:11.5px}
+.wnba-dvp-audit[data-off]{color:#E8B85A}
 .wnba-stat-name{display:grid;gap:3px}.wnba-stat-name small{font-weight:400;color:#afafaf;font-size:10px}
 .wnba-bar-col{width:26%;min-width:70px}
 .wnba-rank-bar{display:block;height:5px;border-radius:5px;background:#2f2f2f;overflow:hidden}.wnba-rank-bar i{display:block;height:100%;border-radius:inherit;background:#bfbfbf}
@@ -151,6 +171,10 @@ html:root .unified-finder .wnba-dvp-menus .finder-custom-select .finder-select-t
  .wnba-depth-actions{gap:4px}.wnba-depth-actions button{width:32px;height:32px}.wnba-depth-table tbody th{width:44px;padding-left:12px}
  .wnba-finder-context .mlb-context-table-wrap th,.wnba-finder-context .mlb-context-table-wrap td{padding:10px 6px}
  .wnba-dvp .wnba-bar-col{display:none}
+ /* Four windows fit a phone; the ranks' colors say what the Matchup pill does. */
+ .wnba-dvp .wnba-dvp-matchup{display:none}
+ .wnba-dvp-log li{grid-template-columns:auto 28px minmax(0,1fr);gap:8px}
+ .wnba-dvp-log-game{min-width:86px}
  .wnba-last-five-grid{grid-template-columns:minmax(0,1fr)}
  .wnba-similar-row{grid-template-columns:34px minmax(0,1fr) minmax(90px,38%)}.wnba-similar-min{display:none}
  .wnba-teammate{grid-template-columns:34px minmax(0,1fr);row-gap:6px}.wnba-teammate-splits,.wnba-teammate .wnba-filter-buttons{grid-column:1/-1}

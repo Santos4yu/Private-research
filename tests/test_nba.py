@@ -492,6 +492,13 @@ class DefenseBySeasonTests(unittest.TestCase):
         with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=payload), \
                 patch.object(league, "progress", return_value=None), patch.object(api, "_team_rosters", return_value=(rosters, 2)):
             found = api._dvp("nba", 2027, "", "g1")
+        # The card's extras: every view, the four windows, the games each team
+        # has finished (the schedule), the box-score check, and no game list
+        # unless a team is asked for.
+        self.assertEqual(found["view"], "total")
+        self.assertEqual([item[0] for item in found["views"]], ["total", "player", "per36"])
+        self.assertEqual(found["windows"], [["szn", 0], ["l15", 15], ["l10", 10], ["l5", 5]])
+        self.assertEqual((found["audit"]["checked"], found["log"]), (1, None))
         # The same guard at 6'7 who doesn't pass much reads as a wing (SF).
         api._dvp_memory.clear()
         payload["games"]["1"]["t"]["AAA"]["p"] = [line("g1", 20, ast=2)]
@@ -502,3 +509,41 @@ class DefenseBySeasonTests(unittest.TestCase):
         self.assertEqual(found["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
         self.assertEqual((found["position"], found["playerPosition"]), ("PG", "PG"))
         self.assertEqual(found["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)
+    def test_the_request_passes_the_view_and_team(self):
+        # GET /api/wnba?resource=dvp&...&view=per36&team=bbb reaches _dvp.
+        request = object.__new__(api.handler)
+        request.path, request.headers = "/api/wnba?resource=dvp&league=nba&season=2027&position=sg&playerId=1&view=per36&team=bbb", {}
+        sent, asked = [], []
+        import site_controls
+        with patch.object(api, "_send", side_effect=lambda _, status, payload: sent.append((status, payload))), \
+                patch.object(api, "session_with_live_access", return_value=True), \
+                patch.object(site_controls, "finder_sport_allowed", return_value=True), \
+                patch.object(league, "current_season", return_value=2027), \
+                patch.object(api, "_dvp", side_effect=lambda *args: asked.append(args) or {"ok": True}):
+            request.do_GET()
+        self.assertEqual(sent, [(200, {"ok": True})])
+        self.assertEqual(asked, [("nba", 2027, "SG", "1", "per36", "BBB")])
+
+    def test_a_young_season_places_players_on_last_seasons_games_too(self):
+        # Five games in, a point guard who has passed little this season is
+        # still read on last season's games as well (Oct 30: Kyrie Irving and
+        # Dennis Schroder read as SGs off five games).
+        line = lambda pid, pts, ast=0: [pid, 1] + [{"min": 36, "pts": pts, "ast": ast, "ftm": pts}.get(field, 0) for field in league.FIELDS]
+        def season(year, ast, gid, date):
+            return {"season": year, "builtAt": f"b{year}", "teams": {"AAA": {"name": "A"}, "BBB": {"name": "B"}},
+                    "players": {"g1": ["G One", "G", None, "AAA"], "f1": ["F One", "F", None, "BBB"]},
+                    "games": {gid: {"id": gid, "date": date, "type": 2, "home": "AAA", "away": "BBB",
+                                    "t": {"AAA": {"p": [line("g1", 20, ast)], "dnp": [], "z": []}, "BBB": {"p": [line("f1", 14)], "dnp": [], "z": []}}}},
+                    "schedule": [{"id": gid, "completed": True, "home": "AAA", "away": "BBB", "score": {"AAA": 20, "BBB": 14}}]}
+        this, last = season(2027, 2, "9", "2026-10-25"), season(2026, 12, "1", "2026-03-01")
+        last["games"].update({str(n): {**last["games"]["1"], "id": str(n)} for n in range(2, 8)})
+        with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=this), \
+                patch.object(league, "progress", return_value=None), patch.object(api, "_team_rosters", return_value=(None, 0)), \
+                patch.object(api, "_last_season", return_value=last):
+            found = api._dvp("nba", 2027, "", "g1", "per36", "BBB")
+        self.assertEqual((found["playerPosition"], found["view"]), ("PG", "per36"))
+        # Only this season's game counts in the table, and the list shows it.
+        self.assertEqual(found["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)
+        self.assertEqual([(game["opponent"], game["players"][0][0]) for game in found["log"]], [("AAA", "G One")])
+        self.assertEqual((found["played"], found["audit"]["verified"]), ({"AAA": 1, "BBB": 1}, 1))
+

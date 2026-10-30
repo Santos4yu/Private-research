@@ -76,6 +76,52 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: Defense vs position rebuilt (views, L15, game list, box-score check)
+
+- The owner pasted a ChatGPT spec (total / per-player / per-36 views,
+  Season/L15/L10/L5, sample labels, game-by-game audit, dedup, freshness,
+  reconciliation against ESPN, keep the frontend). Audit first:
+  - Already right: ESPN box scores, every player with minutes (bench too),
+    each stat and window ranked on its own, rank 1 = allows the least.
+  - Fixed earlier today: games with nobody at the position counted as 0.
+  - Was missing: L15; any way to see the games behind a number (Miami 30th
+    vs SGs = Anthony Edwards' 10 rebounds on Oct 21); a window shorter than
+    its name (L10 on 5 games) looked like a real L10; no "through" date;
+    no check that the stored box scores add up; positions read off five
+    games early in a season (Schroder as an SG).
+  - The prop analysis already has the spec's inputs (nba-matchup-score.js:
+    minutes, recent form, pace, rebound/assist chances, who's out or back),
+    so nothing was rebuilt there.
+- context.py: spot_games (one pass: each team-game as what the position
+  put up, None when nobody played) feeds position_table(view, windows).
+  defense_vs_position (league-context, the board's Defense column) is the
+  same numbers as before plus `g` (games counted). season_dvp builds VIEWS
+  total / player / per36 over DVP_WINDOWS szn / l15 / l10 / l5, `through`,
+  and `place_from` (a young NBA season places players on last season's
+  games too, opportunity.blend, under BLEND_GAMES a team).
+  position_log(table, team, position): the games newest first, each
+  counted player's line (LOG_KEYS = STAT_KEYS), [] when nobody played.
+  reconcile(payload): each player's points vs his shots, each team's
+  players' points vs the final score, the same game stored twice, a player
+  twice in a box, finished games not stored.
+- league.py: the schedule listing keeps each finished game's `score`
+  (_score reads the scoreboard's "112" and a team schedule's {value}), so
+  the check runs from the next build on; stored games get it then too.
+- api/wnba.py _dvp(league, season, position, playerId, view, team): adds
+  view / views / windows / played (finished games per team, from the
+  schedule) / through / log (the asked team's) / audit.
+- The card: a View menu (Total, Per player, Per 36 min), SZN L15 L10 L5,
+  a window the team hasn't filled reads "L10 (5)" and is dimmed, a stat
+  opens its games, the note says "5 games" or "5 of 6 games" and "thru
+  Oct 29"; the Matchup pill hides on phones so four windows fit (the ranks'
+  colors carry it). Admins see "Box scores: N of M games match ESPN's final
+  scores" (amber with anything off, doubled or not stored).
+- Checked on real ESPN data (sportsdataverse player_box / team_box): 2025-26
+  1,224 of 1,231 games match; the 7 are Bulls games where ESPN's box has a
+  blank player row (82 of 91 points, Feb 1), a real ESPN gap the check now
+  shows. 2026-27 so far: 71 of 71. Building a full season's tables takes
+  about 2 s, once per build (memoized on builtAt).
+
 ### Oct 30: Defense vs position, checked on real games and corrected
 
 - The owner asked whether the ranks are right for each stat. Run on the

@@ -231,14 +231,17 @@ _dvp_memory = {}
 DVP_SEASONS = 4
 
 
-def _dvp(league_name, season, position, player_id):
+def _dvp(league_name, season, position, player_id, view="total", team=""):
     """One stored season's Defense vs position for one position (ALL, PG...
-    or G / F / C), every team: {season, seasons, positions, position,
-    playerPosition, teamCount, games, teams, stats, dvp: {team: {stats, n}}}.
-    The NBA's PG / SG / SF / PF: ESPN's rosters where they say, how each
-    player plays otherwise (context.split_positions). None when that season
-    isn't stored."""
-    from backend.sports.wnba import context, league
+    or G / F / C) and view (context.VIEWS), every team: {season, seasons,
+    positions, position, playerPosition, view, views, windows, teamCount,
+    games, played, through, teams, stats, dvp: {team: {stats, n, g}},
+    log, audit}. `log`: `team`'s games one at a time (context.position_log);
+    `audit`: the box scores checked (context.reconcile; the card shows it to
+    admins). The NBA's PG / SG / SF / PF: ESPN's rosters where they say, how
+    each player plays otherwise (context.split_positions), early in a season
+    on last season's games too. None when that season isn't stored."""
+    from backend.sports.wnba import context, league, opportunity
     current = league.current_season(league=league_name)
     payload = league.ensure(current, league_name) if season == current else league.stored(season, league_name)
     if not payload or not payload.get("games"):
@@ -249,7 +252,14 @@ def _dvp(league_name, season, position, player_id):
     key = (payload.get("builtAt"), len(payload.get("games") or {}), roster_at)
     memory = _dvp_memory.get((league_name, season))
     if not memory or memory["key"] != key:
-        memory = {"key": key, "value": context.season_dvp(payload, specific, split=league_name == "nba", heights=heights)}
+        place_from = None
+        games = len(payload.get("games") or {})
+        teams_playing = len({side for game in payload["games"].values() for side in (game.get("t") or {})}) or 1
+        if league_name == "nba" and games * 2 / teams_playing < opportunity.BLEND_GAMES:
+            previous = _last_season(season, league_name)
+            place_from = opportunity.blend(previous, payload) if previous else None
+        memory = {"key": key, "value": context.season_dvp(payload, specific, split=league_name == "nba", heights=heights, place_from=place_from),
+                  "audit": context.reconcile(payload)}
         _dvp_memory[(league_name, season)] = memory
     table = memory["value"]
     players = payload.get("players") or {}
@@ -258,6 +268,7 @@ def _dvp(league_name, season, position, player_id):
     if table["specific"] and mine in ("G", "F"):
         mine = None
     chosen = position if position in table["positions"] else mine if mine in table["positions"] else "ALL"
+    view = view if view in table["views"] else "total"
     def stored(year):
         try:
             return bool(league.progress(year, league_name))
@@ -265,11 +276,22 @@ def _dvp(league_name, season, position, player_id):
             return False
     seasons = [year for year in range(current, current - DVP_SEASONS, -1) if year in (season, current) or stored(year)]
     teams = payload.get("teams") or {}
+    rows = table["views"][view]
+    # Finished games each team has played (ESPN's schedule), against those stored.
+    played = {}
+    for item in payload.get("schedule") or []:
+        if item.get("completed"):
+            for side in (item.get("home"), item.get("away")):
+                played[side] = played.get(side, 0) + 1
     return {"season": season, "seasons": seasons, "positions": table["positions"], "position": chosen, "playerPosition": mine,
-            "teamCount": table["teamCount"], "games": table["games"],
-            "teams": {abbr: {"name": (teams.get(abbr) or {}).get("name"), "logo": (teams.get(abbr) or {}).get("logo")} for abbr in table["dvp"]},
+            "view": view, "views": [list(item) for item in context.VIEWS],
+            "windows": [[name, size or 0] for name, size in context.DVP_WINDOWS],
+            "teamCount": table["teamCount"], "games": table["games"], "played": played, "through": table["through"],
+            "teams": {abbr: {"name": (teams.get(abbr) or {}).get("name"), "logo": (teams.get(abbr) or {}).get("logo")} for abbr in rows},
             "stats": [[key, label] for key, label, _ in context.STATS],
-            "dvp": {team: entry.get(chosen) for team, entry in table["dvp"].items()}}
+            "dvp": {abbr: entry.get(chosen) for abbr, entry in rows.items()},
+            "log": context.position_log(table, team, chosen) if team in rows else None,
+            "audit": memory["audit"]}
 
 
 def _last_season(season, league_name):
@@ -1425,7 +1447,7 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 400, {"error": "A valid season is required."})
                 if not current - DVP_SEASONS < season <= current:
                     return _send(self, 400, {"error": "A valid season is required."})
-                found = _dvp(league_name, season, arg("position").upper(), arg("playerId"))
+                found = _dvp(league_name, season, arg("position").upper(), arg("playerId"), arg("view"), team_code(arg("team")))
                 if not found:
                     return _send(self, 404, {"error": "That season isn't stored."})
                 return _send(self, 200, found)

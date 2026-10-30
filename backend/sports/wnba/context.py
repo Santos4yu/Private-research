@@ -132,43 +132,73 @@ def defense_vs_position(by_team: dict, players: dict, positions=POSITIONS, bucke
     as 0 allowed, about 1 game in 10 at PG, SF or C, it moved teams 1 to 4
     places on average and up to 16 on last season's games). Rank 1 allows
     the least (toughest); the highest rank allows the most. `n` is how many
-    opposing players at the position played in those games.
-    `bucket(player id)` names the positions a player counts at (by default
-    his G / F / C from the box scores)."""
-    averages = {}
-    samples = {}
-    seen_at = {}
+    opposing players at the position played in those games, `g` how many
+    games counted. `bucket(player id)` names the positions a player counts
+    at (by default his G / F / C from the box scores)."""
     if bucket is None:
         bucket = lambda pid: (primary_position(players.get(pid)),)
+    return position_table(by_team, spot_games(by_team, positions, bucket), positions)
+
+
+def spot_games(by_team: dict, positions, bucket) -> dict:
+    """(team, position) -> the team's games in order, each as what the
+    opponents at the position put up: None when nobody there played, else
+    {stat: (total, players, their minutes)} and "_n" players."""
+    seen_at = {}
     places = lambda pid: seen_at.setdefault(pid, set(bucket(pid)))
+    spots = {}
     for team, games in by_team.items():
-        for window, size in WINDOWS:
-            chosen = games[-size:] if size else games
-            for position in positions:
-                totals, seen = defaultdict(list), 0
-                for game in chosen:
-                    at_spot = [row for row in game["opp"]["p"]
-                               if row[_I["min"]] and position in places(row[0])]
-                    if not at_spot:
-                        continue
-                    seen += len(at_spot)
-                    for key in STAT_KEYS:
-                        values = [value for row in at_spot if (value := stat_value(row, key)) is not None]
-                        if values:
-                            totals[key].append(sum(values))
-                averages[(team, position, window)] = {key: sum(values) / len(values) for key, values in totals.items() if values}
-                samples[(team, position, window)] = seen
-    result = {team: {position: {"n": {}, "stats": {}} for position in positions} for team in by_team}
+        for position in positions:
+            cells = []
+            for game in games:
+                at_spot = [row for row in game["opp"]["p"] if row[_I["min"]] and position in places(row[0])]
+                if not at_spot:
+                    cells.append(None)
+                    continue
+                cell = {"_n": len(at_spot)}
+                for key in STAT_KEYS:
+                    values = [(value, row[_I["min"]]) for row in at_spot if (value := stat_value(row, key)) is not None]
+                    if values:
+                        cell[key] = (sum(value for value, _ in values), len(values), sum(minutes for _, minutes in values))
+                cells.append(cell)
+            spots[(team, position)] = cells
+    return spots
+
+
+def _view_value(cells: list, key: str, view: str):
+    rows = [cell[key] for cell in cells if key in cell]
+    if not rows:
+        return None
+    total = sum(row[0] for row in rows)
+    if view == "player":
+        return total / sum(row[1] for row in rows)
+    if view == "per36":
+        minutes = sum(row[2] for row in rows)
+        return total / minutes * 36 if minutes else None
+    return total / len(rows)
+
+
+def position_table(by_team: dict, spots: dict, positions, windows=WINDOWS, view: str = "total") -> dict:
+    """team -> position -> {stats: {stat: {window: [value, rank]}}, n, g}
+    from spot_games, each stat and window ranked on its own across the
+    teams (1 allows the least). `view` (VIEWS): total, the position's
+    players added up a game; player, a player-game at a time; per36, per
+    36 minutes they played."""
+    result = {team: {position: {"n": {}, "g": {}, "stats": {}} for position in positions} for team in by_team}
     for position in positions:
-        for window, _ in WINDOWS:
+        for window, size in windows:
+            chosen = {}
+            for team in by_team:
+                cells = spots[(team, position)]
+                chosen[team] = [cell for cell in (cells[-size:] if size else cells) if cell]
             for key in STAT_KEYS:
-                values = {team: averages[(team, position, window)].get(key) for team in by_team}
+                values = {team: _view_value(chosen[team], key, view) for team in by_team}
                 ranks = _rank(values, ascending=True)
                 for team in by_team:
-                    cell = result[team][position]["stats"].setdefault(key, {})
-                    cell[window] = [_round(values[team]), ranks.get(team)]
+                    result[team][position]["stats"].setdefault(key, {})[window] = [_round(values[team]), ranks.get(team)]
             for team in by_team:
-                result[team][position]["n"][window] = samples[(team, position, window)]
+                result[team][position]["n"][window] = sum(cell["_n"] for cell in chosen[team])
+                result[team][position]["g"][window] = len(chosen[team])
     return result
 
 
@@ -219,19 +249,31 @@ def split_positions(by_team: dict, players: dict, heights: dict | None = None) -
     return placed
 
 
-def season_dvp(payload: dict, specific: dict | None = None, split: bool = False, heights: dict | None = None) -> dict:
-    """{positions, dvp, games, teamCount, specific, placed} for one stored
-    season: what each team allows every position a game
-    (defense_vs_position). `specific` (player id -> PG, SG...) is the
-    rosters'; with `split` everyone else is placed by how he plays and
-    his height (split_positions, `heights`: id -> inches). PG / SG / SF / PF / C when that covers enough of the
-    minutes played (SPECIFIC_SHARE), else G / F / C. `placed`: each player's
-    position as counted."""
+# The Finder's Defense vs position views and windows (resource=dvp). Total
+# (the default, the usual way it's counted): the position's players added up
+# a game. Per player: a player-game at a time. Per 36: per 36 minutes they
+# played, so a defense isn't judged on how many of them it happened to face.
+VIEWS = (("total", "Total"), ("player", "Per player"), ("per36", "Per 36 min"))
+DVP_WINDOWS = (("szn", None), ("l15", 15), ("l10", 10), ("l5", 5))
+
+
+def season_dvp(payload: dict, specific: dict | None = None, split: bool = False, heights: dict | None = None,
+               place_from: dict | None = None) -> dict:
+    """One stored season's Defense vs position: {positions, specific,
+    placed, games, teamCount, through, views: {view: position_table}} and,
+    for position_log, `_by_team` and `_places`. `specific` (player id -> PG,
+    SG...) is the rosters'; with `split` everyone else is placed by how he
+    plays and his height (split_positions, `heights`: id -> inches), read
+    from `place_from` when given (a young season with last season's games
+    joined, so five games don't decide who's a point guard). PG / SG / SF /
+    PF / C when that covers enough of the minutes played (SPECIFIC_SHARE),
+    else G / F / C. `placed`: each player's position as counted."""
     by_team = team_games(payload)
     players = payload.get("players") or {}
     specific = {str(pid): pos for pid, pos in (specific or {}).items() if pos in SPECIFIC}
     if split:
-        specific = {**split_positions(by_team, players, heights), **specific}
+        source = place_from or payload
+        specific = {**split_positions(team_games(source), {**(source.get("players") or {}), **players}, heights), **specific}
     played = known = 0.0
     for games in by_team.values():
         for game in games:
@@ -248,9 +290,76 @@ def season_dvp(payload: dict, specific: dict | None = None, split: bool = False,
     else:
         positions = ("ALL",) + POSITIONS
         bucket = lambda pid: ("ALL", primary_position(players.get(pid)))
+    spots = spot_games(by_team, positions, bucket)
+    dates = [game.get("date") for game in (payload.get("games") or {}).values() if game.get("date")]
     return {"season": payload.get("season"), "positions": list(positions), "specific": detailed,
             "games": {team: len(games) for team, games in by_team.items()}, "teamCount": len(by_team),
-            "dvp": defense_vs_position(by_team, players, positions, bucket), "placed": specific if detailed else {}}
+            "through": max(dates) if dates else None,
+            "views": {view: position_table(by_team, spots, positions, DVP_WINDOWS, view) for view, _ in VIEWS},
+            "placed": specific if detailed else {}, "_by_team": by_team, "_places": bucket, "_players": players}
+
+
+# The game-by-game list's stats: the table's, in its order.
+LOG_KEYS = STAT_KEYS
+
+
+def position_log(table: dict, team: str, position: str) -> list:
+    """`team`'s games in season_dvp's `table`, newest first, as the
+    opponents at `position` played them: {id, date, opponent, home,
+    players: [[name, minutes, [each LOG_KEYS stat]]]}. players [] when
+    nobody there played (that game is left out of the table)."""
+    places = table["_places"]
+    log = []
+    for game in reversed(table["_by_team"].get(team) or []):
+        rows = [row for row in game["opp"]["p"] if row[_I["min"]] and position in places(row[0])]
+        log.append({"id": game["id"], "date": game["date"], "opponent": game["opponent"], "home": game["home"],
+                    "players": [[_player_name(row[0], table), row[_I["min"]], [stat_value(row, key) for key in LOG_KEYS]]
+                                for row in sorted(rows, key=lambda row: -(row[_I["min"]] or 0))]})
+    return log
+
+
+def _player_name(pid, table: dict) -> str:
+    return (table.get("_players") or {}).get(pid, [""])[0] or ""
+
+
+def reconcile(payload: dict) -> dict:
+    """The stored box scores checked against themselves and ESPN's
+    schedule: each player's points against his shots (2 a field goal, 1
+    more a three, 1 a free throw); each team's players' points against
+    its final score (the schedule's, when it carries one); no game stored
+    twice (same day and teams) and no player twice in a box; and the
+    finished games not stored yet. {checked, verified, off: [{id, date,
+    team, box, final}], duplicates, missing, through}."""
+    games = payload.get("games") or {}
+    finals = {str(item.get("id")): item.get("score") or {} for item in payload.get("schedule") or []}
+    checked = verified = duplicates = 0
+    off, matchups = [], set()
+    for game in sorted(games.values(), key=lambda game: game.get("date") or ""):
+        matchup = (str(game.get("date") or "")[:10], game.get("home"), game.get("away"))
+        duplicates += matchup in matchups
+        matchups.add(matchup)
+        checked += 1
+        final = finals.get(str(game.get("id"))) or {}
+        good = True
+        for team, side in (game.get("t") or {}).items():
+            rows = side.get("p") or []
+            ids = [row[0] for row in rows]
+            duplicates += len(ids) - len(set(ids))
+            box = 0
+            for row in rows:
+                pts, fgm, tpm, ftm = (row[_I[key]] for key in ("pts", "fgm", "tpm", "ftm"))
+                box += pts or 0
+                if None not in (pts, fgm, tpm, ftm) and pts != 2 * fgm + tpm + ftm:
+                    good = False
+                    off.append({"id": game["id"], "date": game.get("date"), "team": team, "player": row[0], "box": pts, "shots": 2 * fgm + tpm + ftm})
+            if final.get(team) is not None and box != final[team]:
+                good = False
+                off.append({"id": game["id"], "date": game.get("date"), "team": team, "box": box, "final": final[team]})
+        verified += bool(good and len(final) == 2)
+    missing = [item["id"] for item in payload.get("schedule") or [] if item.get("completed") and str(item.get("id")) not in games]
+    dates = [game.get("date") for game in games.values() if game.get("date")]
+    return {"checked": checked, "verified": verified, "off": off[:20], "offCount": len(off), "duplicates": duplicates,
+            "missing": len(missing), "through": max(dates) if dates else None}
 
 
 def defense_vs_each(by_team: dict, players: dict) -> dict:
