@@ -10,7 +10,9 @@ import {HeartPulse} from 'lucide-react';
 import {useIsAdmin,QUIET} from './admin-notice.js';
 
 const request=createMLBContextClient();
-const tabs=[['matchup','Matchup',Trophy],['lineups','Lineups',Users],['arsenal','Pitch arsenal',ChartPie],['injuries','Injuries',HeartPulse],['rankings','Rankings',ListOrdered],['weather','Weather',CloudSun]];
+// The research tabs; the Finder's player page (FinderPlayerLayout) draws
+// their row and hands the picked one back as `tab`.
+export const MLB_TABS=[['matchup','Matchup',Trophy],['lineups','Lineups',Users],['arsenal','Pitch arsenal',ChartPie],['injuries','Injuries',HeartPulse],['rankings','Rankings',ListOrdered],['weather','Weather',CloudSun]];
 const palette=['#28cb98','#ff5869','#5cf8b2','#f4b847','#5cf8b2','#55d8df'];
 function Card({title,note,children,icon:Icon=Activity}){return <section className="mlb-context-card"><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
@@ -56,10 +58,11 @@ function Averages({data,row}){
  const max=Math.max(1,...metrics.map(([,v])=>Number(v)||0),Number(row.line)||0);
  return <Card title="Prop averages" note={row.market} icon={Activity}><div className="mlb-average-grid">{metrics.map(([label,value])=><div key={label}><span>{label}</span><strong>{statText(value,2)}</strong><div className="mlb-average-track" aria-hidden="true"><i style={{width:value==null?'0%':`${Math.max(0,Number(value))/max*100}%`}}/></div></div>)}</div>{data.seasonLine&&<Empty>{data.seasonLine}</Empty>}</Card>;
 }
-export default function MLBFinderContext({row}){
+export default function MLBFinderContext({row,tab:shownTab}){
  const admin=useIsAdmin();
  const params=useMemo(()=>researchParams(row),[row.player,row.playerId,row.teamId,row.market,row.line,row.direction]);
- const [tab,setTab]=useState('matchup'),[retry,setRetry]=useState(0),[state,setState]=useState({}),[lineup,setLineup]=useState({}),[splits,setSplits]=useState({}),[split,setSplit]=useState('season');
+ const [ownTab,setTab]=useState('matchup'),[retry,setRetry]=useState(0),[state,setState]=useState({}),[lineup,setLineup]=useState({}),[splits,setSplits]=useState({}),[split,setSplit]=useState('season');
+ const tab=shownTab||ownTab;
  useEffect(()=>{let active=true;setState({loading:true});setLineup({});setSplits({});setSplit('season');request('/api/prediction',params).then(data=>{if(active)setState({data});}).catch(()=>{if(active)setState({error:'Research is temporarily unavailable. Please retry.'});});return()=>{active=false;};},[params,retry]);
  const teamParams=state.data?.teamInsightsParams;
  // Preload season stats without waiting on arsenal, arm-slot or career work.
@@ -67,7 +70,7 @@ export default function MLBFinderContext({row}){
  // Warm splits on opening Lineups; the season table stays interactive.
  useEffect(()=>{if(!teamParams||(tab!=='lineups'&&!(state.data?.isPitcherProp&&tab==='matchup'&&split!=='season')))return;let active=true;setSplits({loading:true});request('/api/team-insights',{...teamParams,detail:'filters'}).then(data=>{if(active)setSplits({data});}).catch(()=>{if(active)setSplits({error:'Batting splits are temporarily unavailable.'});});return()=>{active=false;};},[tab,teamParams,retry,split,state.data?.isPitcherProp]);
  const data=state.data,merged=useMemo(()=>mergeLineupSplits(lineup.data,splits.data),[lineup.data,splits.data]);
- return <aside className="mlb-finder-context" data-tab={tab} aria-label="MLB matchup research"><nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
+ return <aside className="mlb-finder-context" data-tab={tab} aria-label="MLB matchup research">{!shownTab&&<nav className="mlb-context-tabs" aria-label="Research sections">{MLB_TABS.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>}
  {tab==='injuries'?<MLBInjuries row={row} data={data}/>:state.loading?<Card title="MLB research"><Skeleton/></Card>:state.error?admin?<Card title="Research unavailable"><Empty>{state.error}</Empty><button type="button" className="mlb-context-retry" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={15}/>Retry</button></Card>:<Card title="MLB research"><Empty>{QUIET}</Empty></Card>:data?<>
   {tab==='matchup'&&<><MLBStarterComparison data={data} row={row}/>{!data.isPitcherProp&&<Card title="Batter matchup" note={data.matchup?.opponent} icon={Trophy}><Empty>{data.matchup?.pitcher}</Empty><Empty>{data.matchup?.handedness||data.matchup?.leash}</Empty><Empty>{data.vsMatchup?.career}</Empty></Card>}</>}
   {(tab==='lineups'||(data.isPitcherProp&&tab==='matchup'))&&(teamParams?<Lineup data={merged} team={data.teamInsightsTeamName} loading={lineup.loading||(split!=='season'&&splits.loading)} error={lineup.error||(split!=='season'&&splits.error)} split={split} setSplit={setSplit} onRetry={()=>setRetry(n=>n+1)}/>:<Card title="Batting order"><Empty>Team or opposing starter has not been resolved yet.</Empty></Card>)}

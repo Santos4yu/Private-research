@@ -1,14 +1,14 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Database } from 'lucide-react';
-import MLBFinderContext from './MLBFinderContext';
+import MLBFinderContext, { MLB_TABS } from './MLBFinderContext';
 import MLBSupportingStats from './MLBSupportingStats';
 import MLBPlayerGameLog from './MLBPlayerGameLog';
-import { FinderPlayerBanner } from './FinderPlayerBanner';
+import { FinderPlayerLayout } from './FinderPlayerLayout';
 import { NFLPlayerPage } from './sports/nfl/NFLPlayerPage';
 import {CS2PlayerPage} from './sports/cs2/CS2PlayerPage';
 import {loadTennisHistory,loadTennisContext,loadTennisLines,tennisOpponentMatches} from './unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from './sports/wnba/trend-data';
-import TennisFinderContext from './sports/tennis/TennisFinderContext';
+import TennisFinderContext,{TENNIS_TABS} from './sports/tennis/TennisFinderContext';
 import {TENNIS_MARKET_TABS,tennisPostedSelection} from './sports/tennis/tennis-research';
 import './sports/wnba/wnba-context.css';
 import {useIsAdmin} from './admin-notice.js';
@@ -42,21 +42,19 @@ function TennisTrends({row,playerRows,onBack}) {
     odds:wnbaOdds(offers,selected.marketKey),linesStatus:'ready',loading,filters:['opponent'],researchOnly:String(selected.id).startsWith('research:'),
     onStat:key=>{const next=tennisPostedSelection(offers,key);if(next)setSelected(next);else{const stat=TENNIS_MARKET_TABS.find(item=>item.key===key),values=games.map(game=>game.values?.[key]).filter(Number.isFinite);if(stat)setSelected({...row,id:`research:${key}`,marketKey:key,market:stat.label,line:values.length?Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10:0,apps:[],modifier:null});}}}),[row,selected,offers,data,context,loading,opponent]);
   useTrendPanel(host,config);
-  return <section className="finder-trend-view wnba-trend-page wnba-player-page">
-    <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
-    <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-      <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
-      {error&&admin&&<p className="mlb-context-note" role="status">{error}</p>}
-      {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">No posted line.</p>}
-      <section className="mlb-context-card mlb-supporting"><header><h2>Supporting stats</h2><small>Last 10 matches</small></header>
+  const supporting=<section className="mlb-context-card mlb-supporting"><header><h2>Supporting stats</h2><small>Last 10 matches</small></header>
         <div className="mlb-support-tabs">{[['totalgames','Total Games'],['totalsets','Total Sets'],['aces','Aces'],['doublefaults','Double Faults']].map(([key,label])=>{const sample=games.slice(-10).map(g=>g.values[key]).filter(Number.isFinite);return <button type="button" key={key} aria-pressed={support===key} onClick={()=>setSupport(key)}>{label}<strong>{sample.length?(sample.reduce((a,b)=>a+b,0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong></button>;})}</div>
         <div className="mlb-support-chart">{games.slice(-10).map(game=>{const value=game.values[support],max=Math.max(1,...games.slice(-10).map(g=>g.values[support]).filter(Number.isFinite));return <div key={game.gameId}><div className="mlb-support-track"><div style={{height:Number.isFinite(value)?`${value/max*100}%`:'0%'}}><span>{value??'—'}</span></div></div><small>{new Date(game.date).toLocaleDateString([],{month:'numeric',day:'numeric'})}<br/>{game.opponent}</small></div>;})}</div>
-      </section>
-      <section className="mlb-context-card mlb-player-gamelog"><header><h2>Game log · Last 15 matches</h2><small>{data?.updatedAt?'Updated '+new Date(data.updatedAt).toLocaleDateString():row.player}</small></header>
+      </section>;
+  const gamelog=<section className="mlb-context-card mlb-player-gamelog"><header><h2>Game log · Last 15 matches</h2><small>{data?.updatedAt?'Updated '+new Date(data.updatedAt).toLocaleDateString():row.player}</small></header>
         <div className="mlb-player-log-scroll" tabIndex={0} role="region" aria-label="Tennis match statistics; scroll for more columns"><table><thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>Score</th><th>Surface</th>{[['totalgameswon','GW'],['totalgames','Games'],['aces','Aces'],['doublefaults','DF'],['fantasyscore','FP']].map(([key,label])=><th key={key}>{label}</th>)}</tr></thead><tbody>{games.slice(-15).reverse().map(game=><tr key={game.gameId}><td>{new Date(game.date).toLocaleDateString()}</td><td>{game.opponent}</td><td>{game.result}</td><td>{game.score}</td><td>{game.surface||'—'}</td>{['totalgameswon','totalgames','aces','doublefaults','fantasyscore'].map(key=><td key={key}>{game.values[key]??'—'}</td>)}</tr>)}</tbody></table></div>
-      </section>
-    </div><TennisFinderContext row={selected} games={games} playerRows={playerRows} loading={loading} context={context}/></div>
-  </section>;
+      </section>;
+  return <FinderPlayerLayout row={selected} playerRows={offers} onBack={onBack} className="tennis-player-page"
+    chart={<><div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
+      {error&&admin&&<p className="mlb-context-note" role="status">{error}</p>}
+      {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">No posted line.</p>}</>}
+    his={[['log','Match log',gamelog],['stats','Stats',supporting]]}
+    research={TENNIS_TABS} renderResearch={tab=><TennisFinderContext row={selected} games={games} playerRows={playerRows} loading={loading} context={context} tab={tab}/>}/>;
 }
 
 function MLBTrends({ row, playerRows, onBack }) {
@@ -68,16 +66,16 @@ function MLBTrends({ row, playerRows, onBack }) {
     // Only if this page still holds it (trend-panel.js).
     return () => panel?.unmount(node);
   }, [row]);
-  return <section className="finder-trend-view wnba-trend-page">
-    <FinderPlayerBanner row={row} playerRows={playerRows} onBack={onBack} />
-    {!available && <div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true" /><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}
-    <div className="mlb-finder-workspace"><div className="mlb-trend-main"><div className="wnba-trend-host finder-mlb-trend-host" ref={host} /><MLBSupportingStats key={row.id} row={row}/><MLBPlayerGameLog key={`log-${row.id}`} row={row}/></div><MLBFinderContext key={row.id} row={row}/></div>
-  </section>;
+  return <FinderPlayerLayout row={row} playerRows={playerRows} onBack={onBack} className="mlb-player-page"
+    notice={!available && <div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true" /><strong>Trends could not open</strong><span>Refresh the page to reload player research.</span></div>}
+    chart={<div className="wnba-trend-host finder-mlb-trend-host" ref={host} />}
+    his={[['log', 'Game log', <MLBPlayerGameLog key={`log-${row.id}`} row={row} />], ['stats', 'Stats', <MLBSupportingStats key={row.id} row={row} />]]}
+    research={MLB_TABS} renderResearch={tab => <MLBFinderContext key={row.id} row={row} tab={tab} />} />;
 }
 
 // This host never dispatches navigation events or changes the URL. Closing
 // it returns to the same sport, filters and page in the unified Finder.
-// NFL uses the WNBA/MLB player page layout (sports/nfl/NFLPlayerPage.jsx).
+// Every sport's page is the Finder's shared player layout (FinderPlayerLayout.jsx).
 export function FinderTrendView({ row, playerRows, onBack }) {
   if(row.sport==='cs2')return <CS2PlayerPage row={row} playerRows={playerRows} onBack={onBack}/>;
   if (row.sport === 'tennis') return <TennisTrends row={row} playerRows={playerRows} onBack={onBack}/>;

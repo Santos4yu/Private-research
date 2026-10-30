@@ -11,7 +11,9 @@ import {useIsAdmin,QUIET} from '../../admin-notice.js';
 // The NHL page's matchup panel: the NFL and WNBA panels' cards and styling
 // filled from the NHL's own feed and ESPN -- Matchup, Defense, Similar,
 // Injuries, Odds and Rankings, with the averages underneath.
-const tabs=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['odds','Odds',ChartColumn],['rankings','Rankings',ListOrdered]];
+// The research tabs; the Finder's player page (FinderPlayerLayout) draws
+// their row and hands the picked one back as `tab`.
+export const NHL_TABS=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['odds','Odds',ChartColumn],['rankings','Rankings',ListOrdered]];
 const POSITION={L:'LW',R:'RW',LW:'LW',RW:'RW',C:'C',D:'D',G:'G'};
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
@@ -225,12 +227,13 @@ function Averages({row,rows,position,playerRows}){
  </Card>;
 }
 
-export default function NHLFinderContext({row,playerRows,rows,log,position,filters,onToggleFilter}){
- const [tab,setTab]=useState('matchup');
+export default function NHLFinderContext({row,playerRows,rows,log,position,filters,onToggleFilter,tab:shownTab}){
+ const [ownTab,setTab]=useState('matchup');
+ const tab=shownTab||ownTab;
  const matchup=useNhl('matchup',{game:row.gameId,home:row.homeTeamAbbr,away:row.awayTeamAbbr,start:row.startsAt},Boolean(row.gameId));
  const league=useNhl('league',{},['defense','rankings'].includes(tab));
  return <aside className="mlb-finder-context wnba-finder-context nfl-finder-context nhl-finder-context" data-tab={tab} aria-label="NHL matchup research">
-  <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
+  {!shownTab&&<nav className="mlb-context-tabs" aria-label="Research sections">{NHL_TABS.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>}
   {tab==='matchup'&&<><CurrentLine row={row} playerRows={playerRows}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} row={row}/></>}
   {tab==='defense'&&<><DefenseVsPosition league={league} row={row} position={position}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='similar'&&<SimilarPlayers row={row} position={position}/>}

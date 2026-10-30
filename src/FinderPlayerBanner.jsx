@@ -207,8 +207,8 @@ export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
      <span className="fpb-avatar fp2-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
       {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
      <span className="fp2-name"><h1>{row.player}</h1>
-      <small>{row.position&&<><b>{row.position}</b><i aria-hidden="true">·</i></>}{row.teamLogo&&<img src={row.teamLogo} alt="" width="14" height="14" onError={e=>{e.currentTarget.hidden=true;}}/>}<span>{gameLabel(row)}</span>
-       {time&&<><i aria-hidden="true">·</i><span>{time}</span></>}</small></span>
+      <small>{row.position&&<><b>{row.position}</b><i aria-hidden="true">·</i></>}{row.teamLogo&&<img src={row.teamLogo} alt="" width="14" height="14" onError={e=>{e.currentTarget.hidden=true;}}/>}{gameLabel(row)&&<span>{gameLabel(row)}</span>}
+       {time&&<>{gameLabel(row)&&<i aria-hidden="true">·</i>}<span>{time}</span></>}</small></span>
     </span>
     <span className="fp2-actions">
      <button type="button" className="fpb-account fp2-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button></span>

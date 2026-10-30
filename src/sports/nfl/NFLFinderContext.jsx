@@ -12,7 +12,9 @@ import {useIsAdmin,QUIET} from '../../admin-notice.js';
 // The NFL page's matchup panel: the WNBA panel's cards and styling
 // (WNBAFinderContext.jsx) filled from nflverse -- Matchup, Defense, Similar,
 // Injuries, Odds and Rankings, with the season averages underneath.
-const tabs=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['odds','Odds',ChartColumn],['rankings','Rankings',ListOrdered]];
+// The research tabs; the Finder's player page (FinderPlayerLayout) draws
+// their row and hands the picked one back as `tab`.
+export const NFL_TABS=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['odds','Odds',ChartColumn],['rankings','Rankings',ListOrdered]];
 const LOGO=abbr=>abbr?`https://static.www.nfl.com/t_q-best/league/api/clubs/logos/${abbr}.svg`:'';
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
@@ -234,10 +236,11 @@ function Averages({row,rows,position,playerRows,season}){
  </Card>;
 }
 
-export default function NFLFinderContext({row,playerRows,season,rows,position,league,matchup,weather,context,pbp,filters,onToggleFilter}){
- const [tab,setTab]=useState('matchup');
+export default function NFLFinderContext({row,playerRows,season,rows,position,league,matchup,weather,context,pbp,filters,onToggleFilter,tab:shownTab}){
+ const [ownTab,setTab]=useState('matchup');
+ const tab=shownTab||ownTab;
  return <aside className="mlb-finder-context wnba-finder-context nfl-finder-context" data-tab={tab} aria-label="NFL matchup research">
-  <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
+  {!shownTab&&<nav className="mlb-context-tabs" aria-label="Research sections">{NFL_TABS.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>}
   {tab==='matchup'&&<><CurrentLine row={row} playerRows={playerRows}/><QBRushing row={row} season={season} position={position}/><WinPredictor matchup={matchup}/><FootballWeather state={weather} gameId={row.raw?.gameId||row.gameId} team={row.teamAbbr}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings league={league} row={row}/></>}
   {tab==='defense'&&<><DefenseVsPosition row={row} position={position}/><OffenseVsDefense league={league} pbp={pbp} row={row}/></>}
   {tab==='similar'&&<SimilarPlayers context={context} row={row} position={position}/>}

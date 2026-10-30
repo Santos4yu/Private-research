@@ -176,6 +176,17 @@ class PlayerContextTests(unittest.TestCase):
         self.assertEqual((teammate["without"]["games"], teammate["without"]["hits"], teammate["without"]["misses"]), (1, 0, 1))
         self.assertEqual(teammate["without"]["gameIds"], ["2026_02_PIT_X2"])
 
+    def test_without_a_teammate_starts_when_he_joined(self):
+        # A signing first plays week 3: weeks 1 and 2 weren't "without" him.
+        schedule = [game(f"2026_0{w}_PIT_X{w}", 2026, w, f"2026-09-{10 + w}", "PIT", f"X{w}", 20, 10) for w in range(1, 5)]
+        rows = [stat("me", f"2026_0{w}_PIT_X{w}", "PIT", f"X{w}", targets=5, receiving_yards=40) for w in range(1, 5)]
+        rows += [stat("new", "2026_03_PIT_X3", "PIT", "X3", position="WR", group="WR", targets=4)]
+        with NoCache(), patch.object(finder, "schedule_rows", return_value=schedule), \
+                patch.object(finder, "player_rows", side_effect=lambda year: rows if year == 2026 else []):
+            context = finder.player_context(2026, "me", "PIT", "CLE", "receiving_yards", 50.5)
+        signing = next(item for item in context["withWithout"] if item["id"] == "new")
+        self.assertEqual((signing["with"]["gameIds"], signing["without"]["gameIds"]), (["2026_03_PIT_X3"], ["2026_04_PIT_X4"]))
+
 
 class RouteTests(unittest.TestCase):
     def call(self, path):

@@ -100,3 +100,11 @@ test('a goalie\'s row says how often he gets the net, never that tonight is conf
  assert.match(usual.text,/^Started 6 of CAR's last 8 games, including the last one; tonight's starter isn't confirmed here$/);
  assert.equal(usual.impact,0);
 });
+
+test('without a teammate counts only from his first game with the team',()=>{
+ // A signing ('3') first plays game d: Staal's game b came before he joined.
+ const joined={...log,players:{...log.players,'3':{name:'New Signing',pos:'D'}},games:log.games.map(item=>item.gameId==='d'?{...item,players:{...item.players,'3':{sog:1}}}:item)};
+ const split=withWithout(joined,'1','sog')['3'];
+ assert.deepEqual(split.with.gameIds,['d']);
+ assert.deepEqual(split.without.gameIds,['e']);
+});

@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page, with a Team filter; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (every sport's Finder player page on the NBA page's layout; with / without filters fixed; NBA Defense tab order; before that the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page, with a Team filter; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -76,12 +76,44 @@ Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt, then laid ou
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: every sport's Finder player page on the NBA page's layout
+
+- The owner, with screenshots of the rebuilt NBA page: "grab the same exact
+  code layout ... and apply it for all the sports". `src/FinderPlayerLayout.jsx`
+  is that layout, lifted out of WNBAPlayerPage: the v2 top bar, the chart with
+  his own sections under it on tabs, the sport's research panel on the right
+  with one tab row (one row of every tab on a phone). Every page uses it:
+  NBA / WNBA, MLB and tennis (FinderTrendView.jsx), NFL, CFB, NHL, soccer,
+  CS2. His sections: Game log / Stats (all), Depth (NBA, NHL, NFL, CFB), Usage
+  (NFL, CFB). Each research panel (MLB/NFL/CFB/NHL/Soccer/Tennis
+  FinderContext) takes `tab` from the page and exports its tab list
+  (`MLB_TABS`...); without `tab` it keeps its own row. The sport classes stay
+  on the page (`nfl-player-page`...) for their cards' styles. CS2's "recorded
+  results" note is a plain line under the chart now. Checked in the browser
+  with made-up data for every sport, phone and computer.
+- NBA Defense tab: Defense vs position first, Who guards him under it (the
+  owner: "put it under the defense vs position ... flipped").
+- With / without (the owner: "make sure when i use a filter with/out player
+  it gives the actual games"): the NBA filter itself was right (Gordon's
+  "W/O Braun" games line up with Braun's ankle and Gordon's own hamstring
+  absences), but the game card's "Sat out" only named players ESPN listed as
+  DNP; an injured player left off the box score never showed, so the card
+  looked like it contradicted the filter. `context.game_notes` now counts a
+  teammate absent from a game during his time with the team (first to last
+  game listed there, open-ended while the directory still has him there),
+  the way the splits do. The NBA splits now always read last season too
+  (`player_context(history=...)`, the two seasons the chart shows; before,
+  past a team's 15th game they dropped last season). NHL, CFB, soccer
+  (client) and NFL (server) no longer count games from before a teammate
+  joined as "without" him; soccer's unused subs aren't "with".
+
 ### Oct 30: the NBA / WNBA Finder player page, rebuilt
 
 - The owner: "new buttons new everything ... new placements ... nice and
   mobile friendly and user friendly easy to navigate and see data nothing
   complex". All the data stays; only this page (`.fp2`, WNBAPlayerPage.jsx
-  + `src/finder-player-v2.css`); other sports' Finder pages are unchanged.
+  + `src/finder-player-v2.css`); every other sport took this layout the
+  same day (see above).
 - Top bar (FinderPlayerBanner `layout="v2"`): back, photo, name, position,
   team logo, game and time; account button on a phone. No brand logo, no
   team watermark, no Trends / Matchup / Depth switch.

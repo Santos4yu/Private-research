@@ -13,7 +13,9 @@ import {useIsAdmin,QUIET} from '../../admin-notice.js';
 // (NFLFinderContext.jsx) filled from ESPN's college football feed --
 // Matchup, Defense, Similar, Injuries, Odds and Rankings, with the season
 // averages underneath. Data: /api/board?view=cfb (cfb_research.py).
-const tabs=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['odds','Odds',ChartColumn],['rankings','Rankings',ListOrdered]];
+// The research tabs; the Finder's player page (FinderPlayerLayout) draws
+// their row and hands the picked one back as `tab`.
+export const CFB_TABS=[['matchup','Matchup',Trophy],['defense','Defense',Shield],['similar','Similar',Users],['injuries','Injuries',HeartPulse],['odds','Odds',ChartColumn],['rankings','Rankings',ListOrdered]];
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -245,10 +247,11 @@ function Averages({row,rows,position,playerRows,season}){
  </Card>;
 }
 
-export default function CFBFinderContext({row,playerRows,season,rows,position,league,matchup,weather,impact,filters,onToggleFilter}){
- const [tab,setTab]=useState('matchup');
+export default function CFBFinderContext({row,playerRows,season,rows,position,league,matchup,weather,impact,filters,onToggleFilter,tab:shownTab}){
+ const [ownTab,setTab]=useState('matchup');
+ const tab=shownTab||ownTab;
  return <aside className="mlb-finder-context wnba-finder-context nfl-finder-context" data-tab={tab} aria-label="College football matchup research">
-  <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
+  {!shownTab&&<nav className="mlb-context-tabs" aria-label="Research sections">{CFB_TABS.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>}
   {tab==='matchup'&&<><CurrentLine row={row} playerRows={playerRows}/><WinPredictor matchup={matchup}/><FootballWeather state={weather} gameId={row.gameId} team={row.teamAbbr||row.team}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings league={league} row={row}/></>}
   {tab==='defense'&&<><DefenseVsPosition row={row} position={position}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='similar'&&<SimilarPlayers row={row} position={position}/>}

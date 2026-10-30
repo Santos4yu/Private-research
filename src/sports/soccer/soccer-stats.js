@@ -133,9 +133,16 @@ export const applySplits=(games,filters)=>filters.length?(games||[]).filter(game
 // A teammate's with / without split over the player's own matches for his
 // team: which of them the teammate played in.
 export function teammateSplit(log,games,teammate){
- const played=new Set((log?.games||[]).filter(game=>findPlayer(game.players||[],teammate.name)).map(game=>String(game.id)));
- const own=(games||[]).filter(game=>(log?.games||[]).some(item=>String(item.id)===String(game.gameId)));
- const ids=kind=>own.filter(game=>played.has(String(game.gameId))===(kind==='with')).map(game=>String(game.gameId));
+ const logged=log?.games||[];
+ // With: he got on the pitch (an unused sub on the bench wasn't "with").
+ // Without: from his first match listed with the team on; before he
+ // joined, the player wasn't playing "without" him.
+ const listed=logged.map(game=>[game,findPlayer(game.players||[],teammate.name)]).filter(([,line])=>line);
+ const played=new Set(listed.filter(([,line])=>!finite(line.min)||line.min>0).map(([game])=>String(game.id)));
+ const joined=listed.reduce((first,[game])=>!first||String(game.date)<first?String(game.date):first,null);
+ const dateOf=new Map(logged.map(game=>[String(game.id),String(game.date)]));
+ const own=(games||[]).filter(game=>dateOf.has(String(game.gameId)));
+ const ids=kind=>own.filter(game=>kind==='with'?played.has(String(game.gameId)):!played.has(String(game.gameId))&&joined!=null&&dateOf.get(String(game.gameId))>=joined).map(game=>String(game.gameId));
  return {with:ids('with'),without:ids('without')};
 }
 // Everyone who has played for the team in its logged matches, most

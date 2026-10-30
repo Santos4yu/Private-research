@@ -1,8 +1,8 @@
 import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,Database,ListOrdered,RefreshCw,Shield} from 'lucide-react';
-import {FinderPlayerBanner} from '../../FinderPlayerBanner';
+import {FinderPlayerLayout} from '../../FinderPlayerLayout';
 import {wnbaLines,wnbaOdds} from '../wnba/trend-data';
-import SoccerFinderContext from './SoccerFinderContext';
+import SoccerFinderContext,{SOCCER_TABS} from './SoccerFinderContext';
 import {SOCCER_STATS,applySplits,average,finite,fmt,mergeGames,playerGames,shortDate,soccerChart,splitKey,statKeyOf,statOf,teamLogParams,toggleSplit,useSoccer,valueOf} from './soccer-finder';
 import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
@@ -12,9 +12,9 @@ import {Failure} from '../../AdminNotice';
 import {useTrendPanel} from '../../trend-panel.js';
 
 
-// The soccer player page, on the WNBA / NFL / MLB Finder pages' layout: the
-// shared trend chart, supporting stats and game log on the left, the tabbed
-// matchup panel on the right. Data: /api/board?view=soccer (ESPN match
+// The soccer player page, on the Finder's shared player layout
+// (FinderPlayerLayout.jsx, the NBA page's): the shared trend chart with his
+// Match log and Stats under it, the tabbed matchup panel beside it. Data: /api/board?view=soccer (ESPN match
 // summaries, soccer_research.py).
 
 // One tab per stat this player has a line on, in the catalog's order, named
@@ -103,16 +103,13 @@ export function SoccerPlayerPage({row,playerRows,onBack}){
  const chips=useMemo(()=>filters.map(filter=>({key:splitKey(filter),kind:filter.kind,label:`${filter.kind==='without'?'W/O':'W/'} ${filter.name}${filter.pos?` (${filter.pos})`:''}`,
   title:`${filter.ids.length} of ${row.player}'s matches ${filter.kind} ${filter.name}`})),[filters,row.player]);
  const chipsNote=filters.length?`${chartGames.length} ${chartGames.length===1?'match':'matches'}`:'';
- return <section className="finder-trend-view wnba-trend-page wnba-player-page soccer-player-page">
-  <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
-  {!matched?<div className="soccer-history-empty" role="status"><Database size={26} aria-hidden="true"/><strong>Match history not available yet</strong><p>We haven't linked this prop to its fixture yet. Stats will appear once a match is found.</p><button type="button" onClick={onBack}>Back to Finder</button></div>:<>
-  {log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
-  <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-   <TrendChart row={selected} playerRows={playerRows} games={chartGames} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
-   {filters.length>0&&!chartGames.length&&!loading&&<p className="wnba-filter-empty" role="status">No matches fit all of these together. Remove a filter to see more.</p>}
-   <SupportingStats row={selected} games={games} loading={loading}/>
-   <PlayerGameLog row={selected} games={games} loading={loading} error={Boolean(log.error)} onRetry={log.retry}/>
-  </div>
-  <SoccerFinderContext row={selected} games={games} teamGames={teamGames} log={log} playerRows={playerRows} filters={filters} onToggleFilter={toggleFilter}/></div></>}
- </section>;
+ const his=[['log','Match log',<PlayerGameLog row={selected} games={games} loading={loading} error={Boolean(log.error)} onRetry={log.retry}/>],
+  ['stats','Stats',<SupportingStats row={selected} games={games} loading={loading}/>]];
+ return <FinderPlayerLayout row={selected} playerRows={playerRows} onBack={onBack} className="soccer-player-page" blocked={!matched}
+  notice={!matched?<div className="soccer-history-empty" role="status"><Database size={26} aria-hidden="true"/><strong>Match history not available yet</strong><p>We haven't linked this prop to its fixture yet. Stats will appear once a match is found.</p><button type="button" onClick={onBack}>Back to Finder</button></div>
+   :log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
+  chart={<><TrendChart row={selected} playerRows={playerRows} games={chartGames} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
+   {filters.length>0&&!chartGames.length&&!loading&&<p className="wnba-filter-empty" role="status">No matches fit all of these together. Remove a filter to see more.</p>}</>}
+  his={his} research={SOCCER_TABS}
+  renderResearch={tab=><SoccerFinderContext row={selected} games={games} teamGames={teamGames} log={log} playerRows={playerRows} filters={filters} onToggleFilter={toggleFilter} tab={tab}/>}/>;
 }

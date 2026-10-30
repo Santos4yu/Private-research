@@ -74,11 +74,16 @@ export function nhlChart(rows,valueKey,opponent){
  * with the games and his average in each, for the depth chart's buttons. */
 export function withWithout(log,playerId,valueKey){
  const mine=playedGames(playerGames(log,playerId));
+ // Each game's place in the team's log, and each teammate's first game in
+ // it: before he joined, the player wasn't playing "without" him.
+ const games=log?.games||[],at=new Map(games.map((game,index)=>[game.gameId,index])),first=new Map();
+ games.forEach((game,index)=>{for(const pid of Object.keys(game.players||{}))if(!first.has(pid))first.set(pid,index);});
  const out={};
  for(const [pid,info] of Object.entries(log?.players||{})){
   if(pid===String(playerId))continue;
   const split={with:[],without:[]};
-  for(const game of mine){const source=(log.games||[]).find(item=>item.gameId===game.gameId);split[source?.players?.[pid]?'with':'without'].push(game);}
+  for(const game of mine){const index=at.get(game.gameId),source=games[index];
+   if(source?.players?.[pid])split.with.push(game);else if(first.has(pid)&&index>=first.get(pid))split.without.push(game);}
   const summary=games=>{const values=games.map(game=>statValue(game,valueKey)).filter(finite);return {games:games.length,gameIds:games.map(game=>game.gameId),avg:values.length?values.reduce((a,b)=>a+b,0)/values.length:null};};
   out[pid]={id:pid,name:info.name,with:summary(split.with),without:summary(split.without)};
  }

@@ -1,7 +1,7 @@
 import React,{useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {Trophy,Map as MapIcon,User,ChartPie,ListOrdered} from 'lucide-react';
-import {FinderPlayerBanner} from '../../FinderPlayerBanner';
-import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
+import {FinderPlayerLayout} from '../../FinderPlayerLayout';
+import {FinderResearchCard as Card} from '../../FinderResearchSections';
 import {finderPlayerRows,normalizeFinderRows,patientRequest} from '../../unified-finder-data';
 import {wnbaChart,wnbaLines,wnbaOdds} from '../wnba/trend-data';
 import '../wnba/wnba-context.css';
@@ -40,7 +40,7 @@ export function cs2Stats(rows){
 }
 
 export function CS2PlayerPage({row,playerRows,onBack}){
- const [selected,setSelected]=useState(row),[fresh,setFresh]=useState(null),[tab,setTab]=useState('matchup');
+ const [selected,setSelected]=useState(row),[fresh,setFresh]=useState(null);
  const host=useRef(null);
  useEffect(()=>{const controller=new AbortController();let cancelled=false;
   const refresh=()=>patientRequest('/api/board?view=cs2',{signal:controller.signal}).then(payload=>{
@@ -63,22 +63,18 @@ export function CS2PlayerPage({row,playerRows,onBack}){
   onStat:key=>{const next=cs2Selection(offers,key,row,games);if(next)setSelected(next);}
  }),[row,selected,offers,stats,history]);
  useTrendPanel(host,config);
- return <section className="finder-trend-view wnba-trend-page wnba-player-page cs2-player-page">
-  <FinderPlayerBanner row={selected} playerRows={offers} onBack={onBack}/>
-  <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-   <div className="cs2-coverage" role="status" aria-live="polite" aria-atomic="true"><strong>{coverage.recorded} / {coverage.played} recorded results</strong><span>{coverage.missing?`${coverage.missing} missing · Rates use recorded results only`:'In saved history · Only played maps count'}{history?.coverage?.listingComplete===false?' · Older history incomplete':''}</span></div>
-   <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
-   {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">Research only · No posted line · Comparison based on recent average.</p>}
-   <Card title="Supporting stats" note="Last 10 matches" className="mlb-supporting"><div className="mlb-support-tabs">{stats.map(stat=>{
+ const supporting=<Card title="Supporting stats" note="Last 10 matches" className="mlb-supporting"><div className="mlb-support-tabs">{stats.map(stat=>{
     const played=cs2Sample(games,stat.key,10),sample=played.filter(g=>Number.isFinite(g.values?.[stat.key]));
     return <button type="button" key={stat.key} aria-pressed={selected.marketKey===stat.key} onClick={()=>config.onStat(stat.key)}>{stat.label}<strong>{sample.length?(sample.reduce((sum,g)=>sum+g.values[stat.key],0)/sample.length).toFixed(1):'—'} <small>avg.</small></strong><small>{sample.length} / {played.length} recorded</small></button>;
-   })}</div></Card>
-   <Card title="Game log" className="mlb-player-gamelog"><Results games={researchData(games,selected.marketKey,selected.line,row.opponent,row.startsAt).results} statKey={selected.marketKey} label={selected.market}/>
+   })}</div></Card>;
+ const gamelog=<Card title="Game log" className="mlb-player-gamelog"><Results games={researchData(games,selected.marketKey,selected.line,row.opponent,row.startsAt).results} statKey={selected.marketKey} label={selected.market}/>
     {history?.source==='bo3'&&<a href="https://bo3.gg" target="_blank" rel="noreferrer" className="mlb-context-note">BO3</a>}
-   </Card>
-  </div><aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label="CS2 matchup research">
-   <FinderResearchTabs tab={tab} onChange={setTab} tabs={CS2_TABS}/>
-   <CS2Research tab={tab} row={row} selected={selected} games={games} offers={offers}/>
-  </aside></div>
- </section>;
+   </Card>;
+ return <FinderPlayerLayout row={selected} playerRows={offers} onBack={onBack} className="cs2-player-page"
+  chart={<>   <div className="wnba-trend-host finder-mlb-trend-host" ref={host}/>
+   <div className="cs2-coverage" role="status" aria-live="polite" aria-atomic="true"><strong>{coverage.recorded} / {coverage.played} recorded results</strong><span>{coverage.missing?`${coverage.missing} missing · Rates use recorded results only`:'In saved history · Only played maps count'}{history?.coverage?.listingComplete===false?' · Older history incomplete':''}</span></div>
+   {String(selected.id).startsWith('research:')&&<p className="mlb-context-note">Research only · No posted line · Comparison based on recent average.</p>}</>}
+  his={[['log','Game log',gamelog],['stats','Stats',supporting]]}
+  research={CS2_TABS} renderResearch={tab=><aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label="CS2 matchup research">
+   <CS2Research tab={tab} row={row} selected={selected} games={games} offers={offers}/></aside>}/>;
 }

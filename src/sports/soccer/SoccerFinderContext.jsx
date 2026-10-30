@@ -9,7 +9,9 @@ import {useIsAdmin,QUIET} from '../../admin-notice.js';
 // Form read the match's own ESPN summary; Team Comparison and Similar read
 // both teams' recent matches (soccer_research.py).
 // Four across the top, three below (soccer-player.css).
-const tabs=[['matchup','Matchup',Trophy],['similar','Similar',Users],['lineups','Lineups',Shirt],['injuries','Injuries',HeartPulse],['odds','Odds',ChartPie],['stats','Stats',ChartColumn],['form','Form',CalendarClock]];
+// The research tabs; the Finder's player page (FinderPlayerLayout) draws
+// their row and hands the picked one back as `tab`.
+export const SOCCER_TABS=[['matchup','Matchup',Trophy],['similar','Similar',Users],['lineups','Lineups',Shirt],['injuries','Injuries',HeartPulse],['odds','Odds',ChartPie],['stats','Stats',ChartColumn],['form','Form',CalendarClock]];
 function Card({title,note,children,icon:Icon=Activity,className=''}){return <section className={'mlb-context-card '+className}><header><h2><Icon size={16} aria-hidden="true"/>{title}</h2>{note&&<small>{note}</small>}</header>{children}</section>;}
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
@@ -268,15 +270,16 @@ function Averages({row,games}){
  </Card>;
 }
 
-export default function SoccerFinderContext({row,games,teamGames,log,playerRows,filters=[],onToggleFilter}){
- const [tab,setTab]=useState('matchup');
+export default function SoccerFinderContext({row,games,teamGames,log,playerRows,filters=[],onToggleFilter,tab:shownTab}){
+ const [ownTab,setTab]=useState('matchup');
+ const tab=shownTab||ownTab;
  const matched=Boolean(row.eventId);
  const match=useSoccer('match',{league:row.competition,event:row.eventId},matched);
  const opponentLog=useSoccer('log',teamLogParams(row,row.opponentId),Boolean(matched&&row.opponentId));
  const stat=useMemo(()=>statKeyOf(row.marketKey),[row.marketKey]);
  return <aside className="mlb-finder-context wnba-finder-context soccer-finder-context" data-tab={tab} aria-label="Soccer matchup research">
   <Lines row={row} playerRows={playerRows}/>
-  <nav className="mlb-context-tabs" aria-label="Research sections">{tabs.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>
+  {!shownTab&&<nav className="mlb-context-tabs" aria-label="Research sections">{SOCCER_TABS.map(([key,label,Icon])=><button key={key} data-section={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)}><Icon size={18} aria-hidden="true"/>{label}</button>)}</nav>}
   {tab==='matchup'&&<><WinPredictor row={row} match={match}/><TeamComparison row={row} match={match} own={log} opponentLog={opponentLog}/></>}
   {tab==='similar'&&<SimilarPlayers row={row} games={games} opponentLog={opponentLog}/>}
   {tab==='lineups'&&<Lineups row={row} match={match} own={log} opponentLog={opponentLog}/>}

@@ -219,7 +219,8 @@ test('NHL: every skater stat gets the defense table, shots allowed, penalties an
   const league = {dvp, teams, teamCount: 32};
   const toi = [17, 17.5, 16.8, 17.2, 17, 16.9, 17.1, 17.3, 17, 16.8, 20.5, 21, 20.8];
   const row = withMatchups({sport: 'nhl', player: 'Auston Matthews', position: 'C', opponent: 'EDM', valueKey: 'attempts', market: 'Shot Attempts', line: 6.5,
-    gameLog: toi.map((usage, index) => ({value: 6, usage, date: `2026-10-${String(index + 1).padStart(2, '0')}`, opponent: 'X'}))}, {nhl: league});
+    // Every other day up to now: no layoff to read as a return.
+    gameLog: toi.map((usage, index) => ({value: 6, usage, date: new Date(Date.now() - (toi.length - index) * 2 * 864e5).toISOString().slice(0, 10), opponent: 'X'}))}, {nhl: league});
   assert.equal(row.defenseValue, 9.6);
   assert.equal(row.defenseRecent, 10.4);
   assert.equal(row.defensePosition, 'C');

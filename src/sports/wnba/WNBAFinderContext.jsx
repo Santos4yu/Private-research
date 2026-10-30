@@ -327,7 +327,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
   {!shownTab&&<FinderResearchTabs tab={tab} onChange={setTab}/>}
   {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
-  {tab==='defense'&&<>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
+  {tab==='defense'&&<><DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}
   {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filters={filters} onToggleFilter={onToggleFilter}/>}

@@ -235,6 +235,10 @@ test('a teammate\'s with / without split covers the player\'s own matches for hi
  const filters=toggleSplit([], {id:'3',kind:'without',name:'Martin Odegaard',ids:split.without});
  assert.deepEqual(applySplits(games,filters).map(game=>game.gameId),['2']);
  assert.deepEqual(toggleSplit(filters,{id:'3',kind:'without',ids:[]}),[]);
+ // An unused sub (0 minutes) wasn't with him; a signing first listed in
+ // match 3 wasn't "missing" from 1 and 2.
+ const bench={games:[game('1',['Bukayo Saka']),game('2',['Bukayo Saka']),{...game('3',['Bukayo Saka','Martin Odegaard']),players:[{id:'2',name:'Bukayo Saka',min:90},{id:'3',name:'Martin Odegaard',min:0}]}]};
+ assert.deepEqual(teammateSplit(bench,games,{name:'Martin Odegaard'}),{with:[],without:['3']});
 });
 
 test('NBA lines share the basketball row, history and defense ranks',async()=>{

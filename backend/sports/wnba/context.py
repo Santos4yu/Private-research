@@ -559,9 +559,28 @@ def game_notes(payloads: list, player_id: str) -> dict:
                         scored[row[0]][1] += 1
                         scored[row[0]][2] += 1 if row[1] else 0
 
-        def missing(side: dict) -> list:
+        # Each player's time with each team: his first and last game listed
+        # there (played or not), open-ended while the directory still has
+        # him there. A teammate absent from a game in that time sat it out,
+        # listed DNP or not in the box score at all (ESPN leaves many
+        # injured players off), the way the with / without splits count.
+        spans = {}
+        for game in games:
+            for code, side in (game.get("t") or {}).items():
+                for pid in [row[0] for row in side.get("p", [])] + list(side.get("dnp", [])):
+                    first, last = spans.get((code, pid), (game["date"], game["date"]))
+                    spans[(code, pid)] = (min(first, game["date"]), max(last, game["date"]))
+        roster = defaultdict(list)
+        for (code, pid), (first, last) in spans.items():
+            open_ended = (players.get(pid) or [None, None, None, None])[3] == code
+            roster[code].append((pid, first, None if open_ended else last))
+
+        def missing(code: str, side: dict, date: str) -> list:
             out = []
-            for pid in side.get("dnp", []):
+            played_now = {row[0] for row in side.get("p", [])}
+            absent = [pid for pid, first, last in roster.get(code, [])
+                      if pid not in played_now and first <= date and (last is None or date <= last)]
+            for pid in absent:
                 points, played, starts = scored.get(pid, (0.0, 0, 0))
                 if played >= OUT_GAMES and points / played >= OUT_PPG:
                     person = players.get(pid) or ["", ""]
@@ -576,13 +595,16 @@ def game_notes(payloads: list, player_id: str) -> dict:
                 mine = next((row for row in side.get("p", []) if row[0] == player_id), None)
                 if not mine:
                     continue
-                other = next((theirs for code, theirs in sides.items() if code != team), {})
+                other = next(((code, theirs) for code, theirs in sides.items() if code != team), (None, {}))
                 notes[str(game["id"])] = {"usage": usage_rate(mine, side["p"]), "started": bool(mine[1]),
-                                          "out": missing(side), "oppOut": missing(other)}
+                                          "out": missing(team, side, game["date"]), "oppOut": missing(other[0], other[1], game["date"])}
     return notes
 
 
-def player_context(payload: dict, player_id: str, team: str, opponent: str, market: str, line: float | None) -> dict:
+def player_context(payload: dict, player_id: str, team: str, opponent: str, market: str, line: float | None,
+                   history: dict | None = None) -> dict:
+    """`history`: the seasons the with / without splits read (this one and
+    last, the two the chart shows), when `payload` holds only this one."""
     by_team = team_games(payload)
     players = payload.get("players", {})
     stat = MARKET_STAT.get(market, "pts")
@@ -600,13 +622,18 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
                             table[ZONES[zone_index]][0] += made
                             table[ZONES[zone_index]][1] += attempts
 
-    # With / without each teammate, over this player's games for `team`.
-    team_log = [game for game in by_team.get(team, [])
+    # With / without each teammate, over this player's games for `team`
+    # (both seasons the chart shows): with, the games the teammate played
+    # too; without, the ones he didn't, from his first game listed with the
+    # team (before he joined, the player wasn't playing "without" him).
+    split_by_team = team_games(history) if history else by_team
+    split_players = {**players, **((history or {}).get("players") or {}), **players}
+    team_log = [game for game in split_by_team.get(team, [])
                 if any(row[0] == player_id for row in game["own"]["p"])]
     mine = {game["id"]: stat_value(next(row for row in game["own"]["p"] if row[0] == player_id), stat)
             for game in team_log}
     first_seen, teammate_minutes, teammate_games = {}, defaultdict(float), defaultdict(int)
-    for game in by_team.get(team, []):
+    for game in split_by_team.get(team, []):
         for row in game["own"]["p"]:
             first_seen.setdefault(row[0], game["date"])
             teammate_minutes[row[0]] += row[_I["min"]] or 0
@@ -623,9 +650,10 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
 
     # His opportunity (opportunity.py): over his games, and in each split.
     his_games = opportunity.games_of(by_team, player_id)
+    split_games = opportunity.games_of(split_by_team, player_id) if history else his_games
     impact = []
     for pid, since in first_seen.items():
-        player = players.get(pid) or ["", "", None, None]
+        player = split_players.get(pid) or ["", "", None, None]
         if pid == player_id or (player[3] and player[3] != team):
             continue
         with_ids, without_ids = [], []
@@ -634,11 +662,11 @@ def player_context(payload: dict, player_id: str, team: str, opponent: str, mark
                 continue
             played = any(row[0] == pid for row in game["own"]["p"])
             (with_ids if played else without_ids).append(game["id"])
-        impact.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player, payload.get("league") or "wnba"),
+        impact.append({"id": pid, "name": player[0], "pos": player[1], "headshot": headshot(pid, player, payload.get("league") or (history or {}).get("league") or "wnba"),
                        "min": _round(teammate_minutes[pid] / teammate_games[pid], 1) if teammate_games[pid] else 0,
-                       "with": {**split([mine[g] for g in with_ids]), "gameIds": with_ids, "chances": opportunity.split(his_games, with_ids)},
+                       "with": {**split([mine[g] for g in with_ids]), "gameIds": with_ids, "chances": opportunity.split(split_games, with_ids)},
                        "without": {**split([mine[g] for g in without_ids]), "gameIds": without_ids,
-                                   "chances": opportunity.split(his_games, without_ids)}})
+                                   "chances": opportunity.split(split_games, without_ids)}})
     impact.sort(key=lambda item: -(item["min"] or 0))
 
     # Players like this one against the opponent: every opposing player at a

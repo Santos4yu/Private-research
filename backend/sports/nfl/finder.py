@@ -1189,9 +1189,14 @@ def player_context(season, player_id, team, opponent, market, line):
             return {"games": len(values), "avg": sum(values) / len(values) if values else None,
                     "hits": hits if line is not None else None, "misses": len(decided) - hits if line is not None else None,
                     "gameIds": sorted(game_ids)}
+        # nflverse game ids start with the season and week ("2025_07_..."):
+        # without a teammate counts from his first game with the team on (the
+        # weeks before he joined weren't "without" him).
+        week_of = lambda game_id: str(game_id)[:7]
         with_without = []
         for teammate, seasons in teammates.items():
-            base = {game_id for game_id, (year, _value_) in mine.items() if year in seasons}
+            joined = min(week_of(game_id) for ids in seasons.values() for game_id in ids)
+            base = {game_id for game_id, (year, _value_) in mine.items() if year in seasons and week_of(game_id) >= joined}
             if not base:
                 continue
             together = {game_id for game_id in base if game_id in seasons[mine[game_id][0]]}

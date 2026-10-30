@@ -348,6 +348,24 @@ class GameNoteTests(unittest.TestCase):
         self.assertEqual(notes["g4"]["oppOut"], [{"id": "x", "name": "Their Star", "pos": "G", "ppg": 10.0, "starter": True},
                                                  {"id": "y", "name": "Their Sixth", "pos": "F", "ppg": 9.0, "starter": False}])
 
+    def test_left_off_the_box_score_still_sat(self):
+        # ESPN leaves many injured players out of the box score entirely:
+        # the star missing from the fifth game (not even listed DNP) sat it,
+        # as the with / without splits count it. A scorer who joined for the
+        # third game didn't "sit" the first two.
+        season = self.season()
+        season["games"]["g4"]["t"]["AAA"]["dnp"] = []
+        for index in (1, 2, 3):
+            season["games"][f"g{index}"]["t"]["AAA"]["p"].append(row("n", 30, 15, starter=0))
+        season["players"]["n"] = ["New Signing", "G", None, "AAA"]
+        notes = context.game_notes([None, season], "me")
+        self.assertEqual([item["id"] for item in notes["g4"]["out"]], ["s", "n"])
+        self.assertEqual(notes["g0"]["out"], [])
+        # Traded away after the fourth game (the directory has him elsewhere): not out after.
+        season["players"]["n"] = ["New Signing", "G", None, "ZZZ"]
+        notes = context.game_notes([None, season], "me")
+        self.assertEqual([item["id"] for item in notes["g4"]["out"]], ["s"])
+
     def test_no_minutes_no_usage(self):
         self.assertIsNone(context.usage_rate(row("me", 0, 0), [row("me", 0, 0)]))
         self.assertEqual(context.game_notes([None, None], "me"), {})
@@ -422,6 +440,24 @@ class OpportunityTests(unittest.TestCase):
         self.assertEqual(ctx["opportunity"]["seasons"], [2025, 2026])
         self.assertEqual(ctx["seasons"], [2025, 2026])
         self.assertIs(self.opportunity.blend(None, self.payload), self.payload)
+
+    def test_splits_read_both_seasons_the_chart_shows(self):
+        # Past a season's first weeks the page's numbers are this season's,
+        # but with / without reads last season's games too (the chart's).
+        previous = {"season": 2025, "players": {"mate": ["Mate", "C", None, "AAA"]},
+                    "games": {"0": game("0", "2025-03-01", "AAA", "BBB", [box("star", min=30, pts=9, fga=12, fgm=4)], [box("opp", min=240)])}}
+        history = self.opportunity.blend(previous, self.payload)
+        ctx = context.player_context(self.payload, "star", "AAA", "BBB", "player_points", 12.5, history=history)
+        mate = next(item for item in ctx["withWithout"] if item["id"] == "mate")
+        # "mate" was listed for AAA only from this season's game: last season's isn't "without" him.
+        self.assertEqual((mate["with"]["gameIds"], mate["without"]["gameIds"]), (["1"], []))
+        self.assertEqual(ctx["opportunity"]["games"], 1)   # the page's own numbers stay this season's
+        # Once he's on last season's box too, that game is a real "without".
+        previous["games"]["0"]["t"]["AAA"]["dnp"] = ["mate"]
+        ctx = context.player_context(self.payload, "star", "AAA", "BBB", "player_points", 12.5, history=self.opportunity.blend(previous, self.payload))
+        mate = next(item for item in ctx["withWithout"] if item["id"] == "mate")
+        self.assertEqual((mate["with"]["gameIds"], mate["without"]["gameIds"]), (["1"], ["0"]))
+        self.assertEqual(mate["without"]["avg"], 9)
 
 
 class FakeStore:

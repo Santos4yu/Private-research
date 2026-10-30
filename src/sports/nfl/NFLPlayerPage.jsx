@@ -1,10 +1,10 @@
 import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
 import {CalendarDays,Database,ListOrdered,PieChart,RefreshCw,Shield,UserCheck,UserRound,Users,UserX} from 'lucide-react';
-import {FinderPlayerBanner} from '../../FinderPlayerBanner';
+import {FinderPlayerLayout} from '../../FinderPlayerLayout';
 import {nflLineLadder,nflOddsRows,nflStatCode} from './trend-bridge';
 import {INJURY_LEGEND,MARKET_ORDER,PBP_MARKETS,STATS,family,gameIdOf,injuryCode,mergePlayByPlay,nflFinderChart,nflSeason,opponentOf,playedGames,positionOf,seedGames,teamColor,useNfl} from './nfl-finder';
 import {applySplits,finite,fmt,splitKey,toggleSplit} from '../wnba/wnba-research';
-import NFLFinderContext from './NFLFinderContext';
+import NFLFinderContext,{NFL_TABS} from './NFLFinderContext';
 import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './nfl-finder.css';
@@ -13,9 +13,10 @@ import {Failure} from '../../AdminNotice';
 import {useTrendPanel} from '../../trend-panel.js';
 
 
-// The NFL player page, on the WNBA and MLB Finder pages' exact layout: the
-// shared trend chart, supporting stats, depth chart, team usage and game log
-// on the left, the tabbed matchup panel on the right. Data: /api/nfl's
+// The NFL player page, on the Finder's shared player layout
+// (FinderPlayerLayout.jsx, the NBA page's): the shared trend chart with his
+// Game log, Stats, Depth and team Usage under it, the tabbed matchup panel
+// beside it. Data: /api/nfl's
 // finder-* resources (backend/sports/nfl/finder.py).
 
 // Markets the player page can research: the context resources (similar
@@ -177,18 +178,15 @@ export function NFLPlayerPage({row,playerRows,onBack}){
  const shown=chartRows.length,chipsNote=filters.length?`${shown} ${shown===1?'game':'games'}`:'';
  const loading=log.loading;
  const chartLoading=!seeded&&(log.loading||(needsPbp&&pbp.loading));
- return <section className="finder-trend-view wnba-trend-page wnba-player-page nfl-player-page" style={{'--nfl-team':teamColor(selected.teamAbbr)}}>
-  <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
-  {!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to nflverse's roster yet, so trends and matchup research are not available.</span></div>:<>
-  {log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
-  <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-   <TrendChart row={selected} playerRows={playerRows} rows={chartRows} loading={chartLoading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
-   {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}
-   <SupportingStats rows={rows} position={position} loading={loading}/>
-   <DepthChart row={selected} season={season} context={context} filters={filters} onToggleFilter={toggleFilter}/>
-   <TeamUsage row={selected} league={league}/>
-   <PlayerGameLog row={selected} rows={rows} loading={loading} error={Boolean(log.error)} onRetry={log.retry} position={position}/>
-  </div>
-  <NFLFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup} weather={weather} context={context} pbp={pbp} filters={filters} onToggleFilter={toggleFilter}/></div></>}
- </section>;
+ const his=[['log','Game log',<PlayerGameLog row={selected} rows={rows} loading={loading} error={Boolean(log.error)} onRetry={log.retry} position={position}/>],
+  ['stats','Stats',<SupportingStats rows={rows} position={position} loading={loading}/>],
+  ['depth','Depth',<DepthChart row={selected} season={season} context={context} filters={filters} onToggleFilter={toggleFilter}/>],
+  ['usage','Usage',<TeamUsage row={selected} league={league}/>]];
+ return <FinderPlayerLayout row={selected} playerRows={playerRows} onBack={onBack} className="nfl-player-page" style={{'--nfl-team':teamColor(selected.teamAbbr)}} blocked={!row.playerId}
+  notice={!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to nflverse's roster yet, so trends and matchup research are not available.</span></div>
+   :log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
+  chart={<><TrendChart row={selected} playerRows={playerRows} rows={chartRows} loading={chartLoading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
+   {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}</>}
+  his={his} research={NFL_TABS}
+  renderResearch={tab=><NFLFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup} weather={weather} context={context} pbp={pbp} filters={filters} onToggleFilter={toggleFilter} tab={tab}/>}/>;
 }

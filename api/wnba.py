@@ -1405,6 +1405,9 @@ class handler(BaseHTTPRequestHandler):
             played = sum(1 for game in payload["games"].values() if team in (game.get("t") or {}))
             if played < opportunity.BLEND_GAMES:
                 payload = opportunity.blend(_last_season(season, league_name), payload)
-            return _send(self, 200, context.player_context(payload, player_id, team, opponent, market, line))
+            # The with / without splits read both seasons the chart shows.
+            history = None if payload.get("blended") else opportunity.blend(_last_season(season, league_name), payload)
+            return _send(self, 200, context.player_context(payload, player_id, team, opponent, market, line,
+                                                           history=history if history and history.get("blended") else None))
         except Exception:
             return _send(self, 503, {"error": "Matchup research is temporarily unavailable."})
