@@ -127,7 +127,7 @@ function DefenseVsPosition({row,stat}){
    </React.Fragment>;})}
   </tbody></table></div>:<Empty>No games recorded for this defense in {seasonName(data.season)}.</Empty>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
-  {admin&&audit&&<p className="wnba-dvp-audit" data-off={audit.offCount||audit.duplicates||audit.missing?'true':undefined}>Box scores: {audit.verified} of {audit.checked} games match ESPN's final scores{audit.offCount?` · ${audit.offCount} off`:''}{audit.duplicates?` · ${audit.duplicates} doubled`:''}{audit.missing?` · ${audit.missing} finished not stored yet`:''}</p>}
+  {admin&&audit&&<p className="wnba-dvp-audit" data-off={audit.offCount||audit.duplicates||audit.missing||(audit.positions&&data.positions.includes('PG')&&audit.positions.listed<.8)?'true':undefined}>Box scores: {audit.verified} of {audit.checked} games match ESPN's final scores{audit.offCount?` · ${audit.offCount} off`:''}{audit.duplicates?` · ${audit.duplicates} doubled`:''}{audit.missing?` · ${audit.missing} finished not stored yet`:''}{audit.positions&&data.positions.includes('PG')?` · positions: ESPN's for ${Math.round(audit.positions.listed*100)}% of minutes, estimated ${Math.round(audit.positions.estimated*100)}%`:''}</p>}
  </Card>;
 }
 // The games behind one stat, newest first: what the position put up in each,

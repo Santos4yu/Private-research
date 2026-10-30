@@ -76,6 +76,29 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: ESPN's own positions for Defense vs position
+
+- The owner compared Miami vs SGs (ours 11.0 rebounds, 29th; PropsEdge 7.8,
+  22nd), asked for an audit (every player, ESPN position, rebounds, date;
+  PGs or SFs counted as SGs; double counting; total or per player), then:
+  "it's just not accurate". The audit: no double counting; the rank is the
+  total a game (all SGs added up); every player counted was ESPN "G", and
+  our SG label was a guess (Kyrie Irving at 5.0 assists a 36 read as SG;
+  6'5" wings Javonte Green, Sion James, Dort, Wiggins too).
+- api/wnba.py _espn_positions(season): ESPN's fantasy player list
+  (lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/{season}/players,
+  view players_wl, x-fantasy-filter filterActive), defaultPositionId 1-5 =
+  PG SG SF PF C, same ids as the box scores. Kept a day in the store
+  (krazy_data:nba:espn_positions:{season}); a failure retries after 30 min
+  and the card falls back to split_positions (the estimate). It is passed
+  as `specific`, so it wins over the estimate; season_dvp's `sources` says
+  the share of minutes ESPN placed vs estimated, and admins see it on the
+  card's check line (amber under 80% ESPN).
+- .github/workflows/espn-positions-check.yml (run by hand) prints the list
+  from GitHub's machines (`POS,<season>,<id>,<position>,<name>`) -- the
+  container can't reach ESPN. Not yet confirmed that Vercel reaches the
+  fantasy host: the admin line shows it (0% ESPN = not reached).
+
 ### Oct 30: Defense vs position rebuilt (views, L15, game list, box-score check)
 
 - The owner pasted a ChatGPT spec (total / per-player / per-36 views,

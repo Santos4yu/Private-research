@@ -457,6 +457,10 @@ class DefenseBySeasonTests(unittest.TestCase):
 
     def setUp(self):
         api._dvp_memory.clear()
+        # ESPN's fantasy list is off by default here (no network in tests).
+        stub = patch.object(api, "_espn_positions", return_value=({}, 0))
+        stub.start()
+        self.addCleanup(stub.stop)
 
     def test_a_season_alone_split_by_roster_positions(self):
         line = lambda pid, pts: [pid, 1] + [{"min": 30, "pts": pts}.get(field, 0) for field in league.FIELDS]
@@ -509,6 +513,46 @@ class DefenseBySeasonTests(unittest.TestCase):
         self.assertEqual(found["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
         self.assertEqual((found["position"], found["playerPosition"]), ("PG", "PG"))
         self.assertEqual(found["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)
+    def test_espn_positions_come_first(self):
+        # Oct 30: ESPN's fantasy list says PG / SG / SF / PF / C for every
+        # player. A guard who passes little (an SG by the estimate) that
+        # ESPN lists at PG counts at PG, and the admins' line says how much
+        # of the minutes ESPN placed.
+        line = lambda pid, pts: [pid, 1] + [{"min": 36, "pts": pts, "ftm": pts}.get(field, 0) for field in league.FIELDS]
+        payload = {"season": 2027, "builtAt": "z", "teams": {"AAA": {"name": "A"}, "BBB": {"name": "B"}},
+                   "players": {"g1": ["G One", "G", None, "AAA"], "f1": ["F One", "F", None, "BBB"]},
+                   "games": {"1": {"id": "1", "date": "2026-10-25", "type": 2, "home": "AAA", "away": "BBB",
+                                   "t": {"AAA": {"p": [line("g1", 20)], "dnp": [], "z": []}, "BBB": {"p": [line("f1", 14)], "dnp": [], "z": []}}}}}
+        with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=payload), \
+                patch.object(league, "progress", return_value=None), patch.object(api, "_team_rosters", return_value=(None, 0)), \
+                patch.object(api, "_espn_positions", return_value=({"g1": "PG"}, 5.0)):
+            found = api._dvp("nba", 2027, "", "g1")
+        self.assertEqual(found["playerPosition"], "PG")
+        self.assertEqual(found["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)
+        self.assertEqual(found["audit"]["positions"], {"listed": 0.5, "estimated": 0.5})
+
+    def test_reading_espns_fantasy_list(self):
+        listing = [{"id": 1, "fullName": "A", "defaultPositionId": 1}, {"id": 2, "defaultPositionId": 5},
+                   {"id": 3, "defaultPositionId": 9}, {"player": {"id": 4, "defaultPositionId": 3}}, "junk", {"defaultPositionId": 2}]
+        self.assertEqual(api._fantasy_positions(listing), {"1": "PG", "2": "C", "4": "SF"})
+        self.assertEqual(api._fantasy_positions({"players": listing[:1]}), {"1": "PG"})
+        reply = type("Reply", (), {"raise_for_status": lambda self: None, "json": lambda self: listing})()
+        api._positions_memory.clear()
+        with patch.object(api.requests, "get", return_value=reply) as get, patch.object(api, "store") as kept:
+            kept.get.return_value = None
+            first, at = self.real(2027)
+            again, _ = self.real(2027)            # the second read comes from memory
+        self.assertEqual((first, again, get.call_count), ({"1": "PG", "2": "C", "4": "SF"}, first, 1))
+        self.assertTrue(at)
+        # Can't be read: nothing, and the estimate is used.
+        api._positions_memory.clear()
+        with patch.object(api.requests, "get", side_effect=OSError("refused")), patch.object(api, "store") as kept:
+            kept.get.return_value = None
+            self.assertEqual(self.real(2026), ({}, 0))
+
+    # The real reader (setUp stubs api._espn_positions for the other tests).
+    real = staticmethod(api._espn_positions)
+
     def test_the_request_passes_the_view_and_team(self):
         # GET /api/wnba?resource=dvp&...&view=per36&team=bbb reaches _dvp.
         request = object.__new__(api.handler)

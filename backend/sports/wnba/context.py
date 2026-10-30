@@ -260,7 +260,7 @@ DVP_WINDOWS = (("szn", None), ("l15", 15), ("l10", 10), ("l5", 5))
 def season_dvp(payload: dict, specific: dict | None = None, split: bool = False, heights: dict | None = None,
                place_from: dict | None = None) -> dict:
     """One stored season's Defense vs position: {positions, specific,
-    placed, games, teamCount, through, views: {view: position_table}} and,
+    placed, sources, games, teamCount, through, views: {view: position_table}} and,
     for position_log, `_by_team` and `_places`. `specific` (player id -> PG,
     SG...) is the rosters'; with `split` everyone else is placed by how he
     plays and his height (split_positions, `heights`: id -> inches), read
@@ -271,16 +271,18 @@ def season_dvp(payload: dict, specific: dict | None = None, split: bool = False,
     by_team = team_games(payload)
     players = payload.get("players") or {}
     specific = {str(pid): pos for pid, pos in (specific or {}).items() if pos in SPECIFIC}
+    given = set(specific)
     if split:
         source = place_from or payload
         specific = {**split_positions(team_games(source), {**(source.get("players") or {}), **players}, heights), **specific}
-    played = known = 0.0
+    played = known = listed = 0.0
     for games in by_team.values():
         for game in games:
             for row in game["own"]["p"]:
                 minutes = row[_I["min"]] or 0
                 played += minutes
                 known += minutes if str(row[0]) in specific else 0
+                listed += minutes if str(row[0]) in given else 0
     detailed = bool(played) and known / played >= SPECIFIC_SHARE
     if detailed:
         positions = ("ALL",) + SPECIFIC
@@ -295,6 +297,9 @@ def season_dvp(payload: dict, specific: dict | None = None, split: bool = False,
     return {"season": payload.get("season"), "positions": list(positions), "specific": detailed,
             "games": {team: len(games) for team, games in by_team.items()}, "teamCount": len(by_team),
             "through": max(dates) if dates else None,
+            # Share of the minutes played whose position was given (ESPN's) and estimated (split_positions).
+            "sources": {"listed": round(listed / played, 3) if played else 0,
+                        "estimated": round((known - listed) / played, 3) if played and detailed else 0},
             "views": {view: position_table(by_team, spots, positions, DVP_WINDOWS, view) for view, _ in VIEWS},
             "placed": specific if detailed else {}, "_by_team": by_team, "_places": bucket, "_players": players}
 
