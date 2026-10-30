@@ -114,8 +114,9 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(table["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
         self.assertTrue(table["specific"])
         self.assertEqual(table["dvp"]["AAA"]["ALL"]["stats"]["pts"]["szn"][0], 25.0)
-        self.assertEqual(table["dvp"]["AAA"]["PG"]["stats"]["pts"]["szn"][0], 12.5)   # 25 from CCC's PG, none from BBB's
-        self.assertEqual(table["dvp"]["AAA"]["SG"]["stats"]["pts"]["szn"][0], 2.5)
+        # 25 from CCC's PG; BBB brought no PG, so that game is left out.
+        self.assertEqual(table["dvp"]["AAA"]["PG"]["stats"]["pts"]["szn"][0], 25.0)
+        self.assertEqual(table["dvp"]["AAA"]["SG"]["stats"]["pts"]["szn"][0], 5.0)
         self.assertEqual(table["games"]["AAA"], 2)
         # Rosters that name too few of the players: G / F / C, as the box scores say.
         plain = context.season_dvp(self.payload, {"star": "PG"})
@@ -133,6 +134,10 @@ class ContextTests(unittest.TestCase):
             [row("pf", 36, 12, reb=8), row("sf", 36, 15, reb=7), row("c", 20, 8, reb=9)])}}
         placed = context.split_positions(context.team_games(payload), players)
         self.assertEqual(placed, {"pg": "PG", "sg": "SG", "pf": "PF", "sf": "SF", "c": "C"})
+        # A guard who isn't the passer and stands 6'6" or more plays the wing.
+        tall = context.split_positions(context.team_games(payload), players, {"sg": context.inches("6' 6\""), "pg": 80})
+        self.assertEqual((tall["sg"], tall["pg"]), ("SF", "PG"))
+        self.assertEqual(context.split_positions(context.team_games(payload), players, {"sg": 77})["sg"], "SG")
         table = context.season_dvp(payload, {"sf": "PF"}, split=True)
         self.assertEqual((table["positions"], table["specific"]), (["ALL", "PG", "SG", "SF", "PF", "C"], True))
         self.assertEqual(table["placed"]["sf"], "PF")                         # a roster's own PG / SG... wins
@@ -140,12 +145,18 @@ class ContextTests(unittest.TestCase):
         # The WNBA (no split): G / F / C, as before.
         self.assertEqual(context.season_dvp(payload)["positions"], ["ALL", "G", "F", "C"])
 
-    def test_position_defense_counts_the_whole_game(self):
+    def test_position_defense_leaves_out_games_without_the_position(self):
         ctx = context.league_context(self.payload)
         # BBB's center scored 2 in 5 minutes against CCC: they count, since CCC
-        # allowed them. AAA brought no center against CCC: a zero that game.
-        self.assertEqual(ctx["dvp"]["CCC"]["C"]["stats"]["pts"]["szn"][0], 1.0)
+        # allowed them. AAA brought no center against CCC: that game says
+        # nothing about CCC's defense of centers, so it's left out (Oct 30;
+        # it used to count as 0 allowed).
+        self.assertEqual(ctx["dvp"]["CCC"]["C"]["stats"]["pts"]["szn"][0], 2.0)
         self.assertEqual(ctx["dvp"]["CCC"]["C"]["n"]["szn"], 1)
+        # A team that never faced the position has no number, and no rank.
+        payload = {**self.payload, "games": {gid: g for gid, g in self.payload["games"].items() if gid == "2"}}
+        alone = context.league_context(payload)
+        self.assertEqual(alone["dvp"]["CCC"]["C"]["stats"]["pts"]["szn"], [None, None])
 
     def test_position_defense_adds_up_every_player_at_the_spot(self):
         # A fourth game: AAA plays two guards against CCC, 8 and 12 points -- 20 to guards that game.

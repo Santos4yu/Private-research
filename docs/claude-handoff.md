@@ -76,6 +76,26 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: Defense vs position, checked on real games and corrected
+
+- The owner asked whether the ranks are right for each stat. Run on the
+  2025-26 regular season's ESPN box scores (hoopR's player_box files): every
+  team's ALL points allowed matched the real scoreboard (biggest gap 0.14),
+  and every stat ranks on its own. Two fixes, both in context.py:
+- defense_vs_position leaves out a game where the opponent played nobody at
+  the position. It counted as 0 allowed: about 1 game in 10 at PG, SF and C,
+  moving teams 1-4 places on average and up to 16. A team that never faced
+  the position has no number and no rank. This is also the G / F / C table
+  in league-context (the Finder board's Defense column, slip-matchup).
+- split_positions reads height too: a guard under 5.5 assists a 36 who
+  stands 6'6" or more is an SF (Mikal Bridges). `inches()` reads "6'5" and
+  ESPN's 6' 5"; heights come from the roster directory (_team_rosters now
+  carries `height`). Guards placed as known 67% -> 74%; forwards unchanged
+  (height doesn't split SF from PF). Minutes by position last season now
+  PG 18%, SG 21%, SF 28%, PF 18%, C 14% (SG was 32%, SF 17%).
+- The heights for checking came from sportsdataverse-data's release
+  `espn_nba_rosters/rosters_{year}.csv` (ESPN itself is blocked here).
+
 ### Oct 30: the player page's back arrow was under the phone's clock
 
 - "I can't get out the prop page the back arrow and the header are all the

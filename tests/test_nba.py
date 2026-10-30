@@ -473,8 +473,10 @@ class DefenseBySeasonTests(unittest.TestCase):
         # This season, and last season where stored; his own position first.
         self.assertEqual((found["seasons"], found["position"], found["playerPosition"]), ([2027, 2026], "PF", "PF"))
         self.assertEqual(found["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
-        # AAA allowed BBB's power forward 14; one position, every team.
-        self.assertEqual(found["dvp"]["AAA"]["stats"]["pts"]["szn"], [14.0, 2])
+        # AAA allowed BBB's power forward 14; one position, every team. BBB
+        # faced no power forward, so it has no number (not a 0 that ranks first).
+        self.assertEqual(found["dvp"]["AAA"]["stats"]["pts"]["szn"], [14.0, 1])
+        self.assertEqual(found["dvp"]["BBB"]["stats"]["pts"]["szn"], [None, None])
         self.assertEqual(picked["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)
         self.assertEqual(found["teams"]["AAA"], {"name": "A", "logo": "a.png"})
 
@@ -486,10 +488,17 @@ class DefenseBySeasonTests(unittest.TestCase):
                    "players": {"g1": ["G One", "G", None, "AAA"], "f1": ["F One", "F", None, "BBB"]},
                    "games": {"1": {"id": "1", "date": "2026-10-25", "type": 2, "home": "AAA", "away": "BBB",
                                    "t": {"AAA": {"p": [line("g1", 20, ast=8)], "dnp": [], "z": []}, "BBB": {"p": [line("f1", 14, reb=4)], "dnp": [], "z": []}}}}}
-        rosters = {"AAA": {"g1": {"name": "G One", "pos": "G"}}, "BBB": {"f1": {"name": "F One", "pos": "F"}}}
+        rosters = {"AAA": {"g1": {"name": "G One", "pos": "G", "height": "6'3"}}, "BBB": {"f1": {"name": "F One", "pos": "F"}}}
         with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=payload), \
                 patch.object(league, "progress", return_value=None), patch.object(api, "_team_rosters", return_value=(rosters, 2)):
             found = api._dvp("nba", 2027, "", "g1")
+        # The same guard at 6'7 who doesn't pass much reads as a wing (SF).
+        api._dvp_memory.clear()
+        payload["games"]["1"]["t"]["AAA"]["p"] = [line("g1", 20, ast=2)]
+        rosters["AAA"]["g1"]["height"] = "6'7"
+        with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=payload), \
+                patch.object(league, "progress", return_value=None), patch.object(api, "_team_rosters", return_value=(rosters, 3)):
+            self.assertEqual(api._dvp("nba", 2027, "", "g1")["playerPosition"], "SF")
         self.assertEqual(found["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
         self.assertEqual((found["position"], found["playerPosition"]), ("PG", "PG"))
         self.assertEqual(found["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)

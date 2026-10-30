@@ -245,10 +245,11 @@ def _dvp(league_name, season, position, player_id):
         return None
     rosters, roster_at = _team_rosters(league_name) if league_name == "nba" else (None, 0)
     specific = {str(pid): str(info.get("pos") or "").upper() for team in (rosters or {}).values() for pid, info in team.items()}
+    heights = {str(pid): context.inches(info.get("height")) for team in (rosters or {}).values() for pid, info in team.items()}
     key = (payload.get("builtAt"), len(payload.get("games") or {}), roster_at)
     memory = _dvp_memory.get((league_name, season))
     if not memory or memory["key"] != key:
-        memory = {"key": key, "value": context.season_dvp(payload, specific, split=league_name == "nba")}
+        memory = {"key": key, "value": context.season_dvp(payload, specific, split=league_name == "nba", heights=heights)}
         _dvp_memory[(league_name, season)] = memory
     table = memory["value"]
     players = payload.get("players") or {}
@@ -360,7 +361,8 @@ def _team_rosters(league="wnba"):
         for entry in entries:
             if entry.get("id") and entry.get("teamAbbr"):
                 rosters.setdefault(entry["teamAbbr"], {})[str(entry["id"])] = {
-                    "name": entry.get("name"), "pos": entry.get("position"), "headshot": entry.get("headshot")}
+                    "name": entry.get("name"), "pos": entry.get("position"), "headshot": entry.get("headshot"),
+                    "height": entry.get("height")}
     return rosters, (_roster_memory.get(league) or (0,))[0]
 
 

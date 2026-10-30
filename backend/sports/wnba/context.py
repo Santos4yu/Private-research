@@ -7,6 +7,7 @@ written down next to it and repeated to the viewer in the page's notes.
 """
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -126,10 +127,14 @@ def defense_vs_position(by_team: dict, players: dict, positions=POSITIONS, bucke
     """What each team allows a position a game: everything the opposing
     guards (forwards, centers) put up in a game added together, averaged
     over the team's games -- the usual way it's counted, so the ranks match
-    other research sites. Rank 1 allows the least (toughest); the highest
-    rank allows the most. `n` is how many opposing players at the position
-    played in those games. `bucket(player id)` names the positions a player
-    counts at (by default his G / F / C from the box scores)."""
+    other research sites. A game where the opponent played nobody at the
+    position is left out: it says nothing about the defense (Oct 30: counted
+    as 0 allowed, about 1 game in 10 at PG, SF or C, it moved teams 1 to 4
+    places on average and up to 16 on last season's games). Rank 1 allows
+    the least (toughest); the highest rank allows the most. `n` is how many
+    opposing players at the position played in those games.
+    `bucket(player id)` names the positions a player counts at (by default
+    his G / F / C from the box scores)."""
     averages = {}
     samples = {}
     seen_at = {}
@@ -144,11 +149,12 @@ def defense_vs_position(by_team: dict, players: dict, positions=POSITIONS, bucke
                 for game in chosen:
                     at_spot = [row for row in game["opp"]["p"]
                                if row[_I["min"]] and position in places(row[0])]
+                    if not at_spot:
+                        continue
                     seen += len(at_spot)
                     for key in STAT_KEYS:
                         values = [value for row in at_spot if (value := stat_value(row, key)) is not None]
-                        # Nobody at the position played: nothing allowed to it that game.
-                        if values or not at_spot:
+                        if values:
                             totals[key].append(sum(values))
                 averages[(team, position, window)] = {key: sum(values) / len(values) for key, values in totals.items() if values}
                 samples[(team, position, window)] = seen
@@ -175,15 +181,26 @@ def defense_vs_position(by_team: dict, players: dict, positions=POSITIONS, bucke
 SPECIFIC = ("PG", "SG", "SF", "PF", "C")
 SPECIFIC_SHARE = 0.6
 # A 36 minutes: a guard with 5.5 assists or more is the point guard, a
-# forward with 7.5 rebounds and blocks or more the power forward. Checked on
-# the 2025 and 2026 seasons' box scores against players whose position is
-# well known: about 4 in 5 guards and forwards placed as they're known.
-PG_ASSISTS, PF_INSIDE = 5.5, 7.5
+# forward with 7.5 rebounds and blocks or more the power forward. A guard
+# who isn't the passer and stands 6'6" or more (ESPN's rosters) plays the
+# wing: small forward (Mikal Bridges). Checked on the 2025
+# and 2026 seasons' box scores against players whose position is well
+# known: guards 67% placed as known on assists alone, 74% with the height;
+# a forward's height didn't help (SFs and PFs there both stand about 6'8").
+PG_ASSISTS, PF_INSIDE, WING_INCHES = 5.5, 7.5, 78
 
 
-def split_positions(by_team: dict, players: dict) -> dict:
+def inches(height) -> int | None:
+    """6'5 (or ESPN's 6' 5") in inches; None when it can't be read."""
+    match = re.match(r"\s*(\d+)\s*'\s*(\d+)", str(height or ""))
+    return int(match[1]) * 12 + int(match[2]) if match else None
+
+
+def split_positions(by_team: dict, players: dict, heights: dict | None = None) -> dict:
     """player id -> PG, SG, SF, PF or C, from his own games in `by_team`:
-    a G by his assists, an F by his rebounds and blocks, a C stays C."""
+    a G by his assists (and his height, `heights`: id -> inches), an F by
+    his rebounds and blocks, a C stays C."""
+    heights = heights or {}
     totals = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
     for games in by_team.values():
         for game in games:
@@ -197,24 +214,24 @@ def split_positions(by_team: dict, players: dict) -> dict:
         if not minutes or not broad:
             continue
         per = 36 / minutes
-        placed[str(pid)] = {"G": "PG" if ast * per >= PG_ASSISTS else "SG",
-                            "F": "PF" if (reb + blk) * per >= PF_INSIDE else "SF", "C": "C"}[broad]
+        guard = "PG" if ast * per >= PG_ASSISTS else "SF" if (heights.get(str(pid)) or 0) >= WING_INCHES else "SG"
+        placed[str(pid)] = {"G": guard, "F": "PF" if (reb + blk) * per >= PF_INSIDE else "SF", "C": "C"}[broad]
     return placed
 
 
-def season_dvp(payload: dict, specific: dict | None = None, split: bool = False) -> dict:
+def season_dvp(payload: dict, specific: dict | None = None, split: bool = False, heights: dict | None = None) -> dict:
     """{positions, dvp, games, teamCount, specific, placed} for one stored
     season: what each team allows every position a game
     (defense_vs_position). `specific` (player id -> PG, SG...) is the
-    rosters'; with `split` everyone else is placed by how he plays
-    (split_positions). PG / SG / SF / PF / C when that covers enough of the
+    rosters'; with `split` everyone else is placed by how he plays and
+    his height (split_positions, `heights`: id -> inches). PG / SG / SF / PF / C when that covers enough of the
     minutes played (SPECIFIC_SHARE), else G / F / C. `placed`: each player's
     position as counted."""
     by_team = team_games(payload)
     players = payload.get("players") or {}
     specific = {str(pid): pos for pid, pos in (specific or {}).items() if pos in SPECIFIC}
     if split:
-        specific = {**split_positions(by_team, players), **specific}
+        specific = {**split_positions(by_team, players, heights), **specific}
     played = known = 0.0
     for games in by_team.values():
         for game in games:
