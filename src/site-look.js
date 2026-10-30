@@ -15,12 +15,24 @@
 //    same layer, which under the flip works as a multiply.
 // lookOf works out that layer's color so the page ends up on exactly the
 // color picked; the brightness moves the picked color toward white or black.
+//
+// A gradient (Oct 30, the owner: "gradient colors with animations like that
+// discord gradient look where the color like sways"): two colors, each a
+// deep shade on a dark site or a pale one on a light site (the background
+// picked says which), drawn as a band on a layer twice the screen's size
+// that slowly sways (site-look.css). The member's name takes the two
+// colors themselves, moving the same way.
 
 export const DEFAULT_BASE = '#0a0a0a';
 // [color, name]: the dark ones first, then the light ones.
 export const LOOKS = [
   ['#0a0a0a', 'Black'], ['#1c1d21', 'Graphite'], ['#0d1a33', 'Navy'], ['#0e2118', 'Forest'], ['#221230', 'Plum'],
   ['#2b0f1f', 'Pink'], ['#ffffff', 'White'], ['#e7e8eb', 'Light grey'], ['#fbe2eb', 'Blush'], ['#e1ecf8', 'Sky'],
+];
+// [from, to, name]
+export const GRADIENTS = [
+  ['#2dd4bf', '#8b5cf6', 'Aurora'], ['#7dd3fc', '#f9a8d4', 'Candy'], ['#fb923c', '#f472b6', 'Sunset'], ['#3b82f6', '#22d3ee', 'Ocean'],
+  ['#a855f7', '#ec4899', 'Grape'], ['#34d399', '#60a5fa', 'Mint'], ['#a3e635', '#14b8a6', 'Lime'], ['#f43f5e', '#facc15', 'Ember'],
 ];
 export const BRIGHT = {min: -30, max: 30};
 // The site's own page color, #0A0A0A, every channel.
@@ -30,11 +42,22 @@ const NATIVE = 10 / 255;
 const DARKEST_LIGHT = 0.56, LIGHTEST_DARK = 0.072;
 // A light color is one closer to white than black.
 const LIGHT_FROM = 0.3;
+// How much of a gradient's color shows on the page: the rest is the dark
+// page (or white, on a light site).
+const GRAD_SHARE = 0.3;
+// A tap on a color in the account sheet: the background a tint of it.
+const TINT_SHARE = 0.16;
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 export const normalizeBase = value => {
   const hex = String(value || '').trim().toLowerCase();
   return /^#[0-9a-f]{6}$/.test(hex) ? hex : DEFAULT_BASE;
+};
+const isHex = value => /^#[0-9a-f]{6}$/.test(String(value || '').toLowerCase());
+/** Two colors, or null. */
+export const normalizeGrad = value => {
+  const pair = Array.isArray(value) ? value.map(item => String(item).toLowerCase()) : null;
+  return pair && pair.length === 2 && pair.every(isHex) ? pair : null;
 };
 export const normalizeBright = value => {
   const number = Math.round(Number(value));
@@ -60,21 +83,45 @@ function nudge(rgb, toward, ok) {
   return mix(rgb, toward, high);
 }
 
-/**
- * The look for a picked color and brightness: dark or light, the page's
- * color, and the layer's color (null when the page needs none).
- */
-export function lookOf(base, bright = 0) {
-  const picked = channels(normalizeBase(base)), shift = normalizeBright(bright) / 100;
-  const light = luminance(picked) > LIGHT_FROM;
-  let page = shift > 0 ? mix(picked, [1, 1, 1], shift) : mix(picked, [0, 0, 0], -shift);
-  page = light ? nudge(page, [1, 1, 1], rgb => luminance(rgb) >= DARKEST_LIGHT) : nudge(page, [0, 0, 0], rgb => luminance(rgb) <= LIGHTEST_DARK);
+// One color of the page: brightened, held readable, and the layer that draws it.
+function drawn(rgb, light, shift) {
+  let page = shift > 0 ? mix(rgb, [1, 1, 1], shift) : mix(rgb, [0, 0, 0], -shift);
+  page = light ? nudge(page, [1, 1, 1], color => luminance(color) >= DARKEST_LIGHT) : nudge(page, [0, 0, 0], color => luminance(color) <= LIGHTEST_DARK);
   // Dark: screen(native, lift) = page, a channel at a time.
   // Light: the flip takes the page's own color to 1 - native (brightened
   // back to white in site-look.css); a layer under it multiplies by
   // turn(1 - lift), so lift = 1 - turn(page).
   const lift = light ? turn(page).map(value => clamp(1 - value, 0, 1)) : page.map(value => clamp((value - NATIVE) / (1 - NATIVE), 0, 1));
-  return {mode: light ? 'light' : 'dark', page: hexOf(page), lift: Math.max(...lift) < 0.004 ? null : hexOf(lift)};
+  // A strong color on a light site can ask for more than the layer can
+  // give (it was held at 0): the page is then the nearest it draws.
+  if (light) page = turn(lift.map(value => 1 - value));
+  return {page: hexOf(page), lift: Math.max(...lift) < 0.004 ? null : hexOf(lift)};
+}
+
+/**
+ * The look for a picked color, brightness and gradient: dark or light, the
+ * page's color, and the layer's color (null when the page needs none);
+ * with a gradient its second color too, the two colors picked and whether
+ * it stays still.
+ */
+export function lookOf(base, bright = 0, grad = null, sway = true) {
+  const picked = channels(normalizeBase(base)), shift = normalizeBright(bright) / 100;
+  const light = luminance(picked) > LIGHT_FROM, pair = normalizeGrad(grad);
+  if (!pair) return {mode: light ? 'light' : 'dark', ...drawn(picked, light, shift)};
+  const behind = light ? [1, 1, 1] : [NATIVE, NATIVE, NATIVE];
+  const [from, to] = pair.map(hex => drawn(mix(channels(hex), behind, 1 - GRAD_SHARE), light, shift));
+  return {mode: light ? 'light' : 'dark', page: from.page, lift: from.lift || '#000000', page2: to.page, lift2: to.lift || '#000000',
+    grad: pair, ...(sway === false ? {still: true} : {})};
+}
+
+/** The background a color tap in the account sheet gives: a tint of it, dark or light as the site is. */
+export function tintOf(hex, base) {
+  const light = luminance(channels(normalizeBase(base))) > LIGHT_FROM;
+  if (!isHex(hex)) return light ? '#ffffff' : DEFAULT_BASE;
+  const rgb = channels(hex.toLowerCase());
+  // White (or near it) is no tint: the plain page.
+  if (Math.max(...rgb) - Math.min(...rgb) < 0.08) return light ? '#ffffff' : DEFAULT_BASE;
+  return hexOf(mix(rgb, light ? [1, 1, 1] : [NATIVE, NATIVE, NATIVE], 1 - TINT_SHARE));
 }
 
 /** Puts a look on the page (site-look.css reads these). */
@@ -83,6 +130,16 @@ export function applyLook(look, root = document.documentElement) {
   if (look.lift) { root.setAttribute('data-look-lift', ''); root.style.setProperty('--look-lift', look.lift); }
   else { root.removeAttribute('data-look-lift'); root.style.removeProperty('--look-lift'); }
   root.style.setProperty('--look-page', look.page);
+  if (look.grad) {
+    root.setAttribute('data-look-grad', '');
+    root.style.setProperty('--look-lift-2', look.lift2);
+    root.style.setProperty('--grad-a', look.grad[0]);
+    root.style.setProperty('--grad-b', look.grad[1]);
+  } else {
+    root.removeAttribute('data-look-grad');
+    ['--look-lift-2', '--grad-a', '--grad-b'].forEach(name => root.style.removeProperty(name));
+  }
+  if (look.still) root.setAttribute('data-look-still', ''); else root.removeAttribute('data-look-still');
   // The phone's status bar and toolbar take the page's color.
   document.getElementById('theme-color-meta')?.setAttribute('content', look.page);
 }

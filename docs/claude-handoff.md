@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (a Background color for the whole site in Settings; the computer Finder board redesigned). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (swaying gradients and account-sheet colors that tint the whole site; Background colors; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,33 @@ Last updated 2026-10-30 (a Background color for the whole site in Settings; the 
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Oct 30: account-sheet colors tint the site; swaying gradients
+
+- The owner: "make it so those colors on the account setting can also
+  change the website colors and add like a gradient color option ...
+  like that discord gradient look where the color like sways".
+- Account sheet (AccountSheet.jsx): a Color dot is the accent AND a tint
+  of the whole site (`tintOf`: 16% of the color on the dark page, or on
+  white when the site is light; White is the plain page). A new Gradient
+  row (site-look.js `GRADIENTS`: Aurora, Candy, Sunset, Ocean, Grape,
+  Mint, Lime, Ember; + opens Settings). The sheet talks to app.js through
+  `window.propscoutColors` (`current`, `pickColor`, `pickGradient`) and
+  listens for `propscout:colors`, so it saves and syncs like Settings.
+- Settings: Gradient chips (Off first), From / To pickers, a Sway switch.
+  The accent object carries `grad: [from, to] | null` and `sway`; a
+  Background swatch turns the gradient off; the gradient follows the
+  background's dark or light (30% of each color on the page).
+- How: `data-look-grad` makes the `html::after` layer twice the screen's
+  size with a 115deg band of the two colors' layers, swaying on a 16s
+  transform (no repaint); the name (`.vortex-sidebar-me-text > b`,
+  `.as-name`) gets the raw colors as moving gradient text. Still with
+  Sway off (`data-look-still`) or reduced motion. The head script applies
+  gradients before the first paint too.
+- A strong color on a light site can't always be drawn exactly (the flip
+  clips it): `lookOf` then reports the nearest color it draws. Very
+  bright yellows look duller in the light-mode color pickers (flipped
+  twice).
 
 ### Oct 30: a Background color for the whole site (Settings)
 

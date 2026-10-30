@@ -13,6 +13,37 @@
   mix-blend-mode: screen;
   pointer-events: none;
 }
+/* A gradient: the band of its two colors on a layer twice the screen's
+   size, swaying slowly from side to side (a transform, so the browser
+   moves it without repainting the page). Still when the member turns Sway
+   off or asks their device for less motion. */
+:root[data-look-grad]::after {
+  inset: -50%;
+  background: linear-gradient(115deg, var(--look-lift) 22%, var(--look-lift-2) 50%, var(--look-lift) 78%);
+  animation: look-sway 16s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes look-sway {
+  from { transform: translate3d(-17%, -5%, 0) rotate(-5deg); }
+  to { transform: translate3d(17%, 5%, 0) rotate(5deg); }
+}
+/* The member's name in the two colors themselves, the same slow sway
+   (the sidebar and the account sheet), like a Discord gradient name. */
+:root[data-look-grad] :is(.vortex-sidebar-me-text > b, .as-name) {
+  background: linear-gradient(90deg, var(--grad-a), var(--grad-b), var(--grad-a)) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: look-name 6s ease-in-out infinite alternate;
+}
+@keyframes look-name { to { background-position: 100% 0; } }
+:root[data-look-still]::after,
+:root[data-look-still] :is(.vortex-sidebar-me-text > b, .as-name) { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-look-grad]::after,
+  :root[data-look-grad] :is(.vortex-sidebar-me-text > b, .as-name) { animation: none; }
+}
 
 /* The site's own page is #0A0A0A, so the flip leaves it at 96% white;
    brightness brings it to white (the layer then tints it). */
@@ -28,4 +59,4 @@
 :root[data-look=light] img:is([src*="/brand/propscout-logo"], [src*="/brand/propscout-mark"]) { filter: none !important; }
 /* The color pickers show the colors picked: the swatches, the accent
    pickers and the saved presets flip back too. */
-:root[data-look=light] :is(.look-swatch > i, input[type=color], .accent-preset-preview, .as-colors > button) { filter: invert(1) hue-rotate(180deg); }
+:root[data-look=light] :is(.look-swatch > i, .look-grad-chip > i, input[type=color], .accent-preset-preview, .as-colors > button:not(.as-custom)) { filter: invert(1) hue-rotate(180deg); }

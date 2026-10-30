@@ -31,6 +31,15 @@
       if (/^#[0-9a-f]{6}$/.test(look.lift || "")) { root.setAttribute("data-look-lift", ""); root.style.setProperty("--look-lift", look.lift); }
       root.style.setProperty("--look-page", look.page);
       document.getElementById("theme-color-meta").setAttribute("content", look.page);
+      var grad = look.grad || [];
+      var hex = /^#[0-9a-f]{6}$/;
+      if (grad.length === 2 && hex.test(grad[0]) && hex.test(grad[1]) && hex.test(look.lift2 || "")) {
+        root.setAttribute("data-look-grad", "");
+        root.style.setProperty("--look-lift-2", look.lift2);
+        root.style.setProperty("--grad-a", grad[0]);
+        root.style.setProperty("--grad-b", grad[1]);
+        if (look.still) root.setAttribute("data-look-still", "");
+      }
     }
   } catch (_) { /* private mode or a bad value: the default black */ }
 </script>
@@ -194,6 +203,13 @@
       <span class="look-label">Background</span>
       <div class="look-swatches" id="look-swatches" role="radiogroup" aria-label="Background color"></div>
       <label class="accent-tint-control look-bright"><span>Brightness</span><input type="range" id="look-bright" min="-30" max="30" step="1" value="0" aria-label="Background brightness" /><output id="look-bright-value">0</output></label>
+      <span class="look-label">Gradient</span>
+      <div class="look-grads" id="look-grads" role="group" aria-label="Gradient"></div>
+      <div class="look-grad-own">
+        <label class="look-grad-pick"><input type="color" id="look-grad-a" value="#2dd4bf" aria-label="Gradient's first color" /><span>From</span></label>
+        <label class="look-grad-pick"><input type="color" id="look-grad-b" value="#8b5cf6" aria-label="Gradient's second color" /><span>To</span></label>
+        <label class="look-sway"><input type="checkbox" id="look-sway" checked /><span>Sway</span></label>
+      </div>
     </div>
     <div class="accent-save-row"><label for="accent-preset-name">Preset name</label><div><input type="text" id="accent-preset-name" maxlength="24" placeholder="Game night" autocomplete="off" /><button type="button" id="accent-preset-save">Save</button></div></div>
     <div class="accent-presets" id="accent-presets" aria-label="Saved accent presets"></div>

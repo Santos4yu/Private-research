@@ -5,6 +5,7 @@ import {accountProfile,accountSynced,saveAccountProfile} from './account-sync.js
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
 import {loadHistory} from './slip-history.js';
 import {canInstall,shareInvite} from './install-guide.js';
+import {GRADIENTS} from './site-look.js';
 import './account-sheet.css';
 
 // The account sheet (site-access.js accountDialog): who you are, your
@@ -15,7 +16,10 @@ import './account-sheet.css';
 // row, the accent studio's color input), so there's one way each thing
 // happens.
 
-// The accent colors offered here; any other is a tap on Custom away.
+// The colors offered here; any other is a tap on Custom away. Oct 30, the
+// owner: "make it so those colors on the account setting can also change
+// the website colors": a color is the accent and a tint of the whole site
+// (app.js propscoutColors), a gradient sways across it (site-look.js).
 const SWATCHES=[['#FFFFFF','White'],['#00F58A','Green'],['#2DD4BF','Teal'],['#8B5CF6','Violet'],['#F472B6','Pink'],['#FB923C','Orange'],['#FACC15','Gold'],['#F43F5E','Red']];
 const CLOSE_MS=260;
 
@@ -114,7 +118,7 @@ function AccountSheet({status,badge,signOut,onDone,handle}){
  const [profile,setProfile]=useState(accountProfile);
  const [since,setSince]=useState(()=>accountSynced()?.memberSince||'');
  const [history,setHistory]=useState(null);
- const [accent,setAccent]=useState(()=>(document.getElementById('primary-accent')?.value||'').toUpperCase());
+ const [colors,setColors]=useState(()=>window.propscoutColors?.current()||{});
  const [leaving,setLeaving]=useState(false);
  const [alerts,toggleAlerts]=useAlerts();
  const picks=usePickBuilder().legs.length;
@@ -139,22 +143,22 @@ function AccountSheet({status,badge,signOut,onDone,handle}){
   const onProfile=()=>setProfile(accountProfile());
   const onSynced=event=>setSince(event.detail?.memberSince||'');
   window.addEventListener('vortex:account-profile',onProfile);
+  const onColors=()=>setColors(window.propscoutColors?.current()||{});
+  window.addEventListener('propscout:colors',onColors);
   window.addEventListener('vortex:account-synced',onSynced);
   const controller=new AbortController();
   if(account)loadHistory({signal:controller.signal}).then(data=>setHistory(data.slips||[])).catch(()=>setHistory(false));
   else setHistory([]);
-  return()=>{cancelAnimationFrame(frame);node.removeEventListener('cancel',cancel);window.removeEventListener('vortex:account-profile',onProfile);window.removeEventListener('vortex:account-synced',onSynced);controller.abort();};
+  return()=>{cancelAnimationFrame(frame);node.removeEventListener('cancel',cancel);window.removeEventListener('vortex:account-profile',onProfile);window.removeEventListener('vortex:account-synced',onSynced);window.removeEventListener('propscout:colors',onColors);controller.abort();};
  },[]);
 
  const graded=history?history.length:null,won=history?history.filter(slip=>slip.status==='won').length:null;
  const live=history?history.filter(slip=>slip.status==='pending').length:0;
  const count=value=>value==null?'—':value.toLocaleString();
  const go=tab=>window.dispatchEvent(new CustomEvent('vortex:switch-tab',{detail:{tab}}));
- const pickColor=hex=>{
-  const input=document.getElementById('primary-accent');if(!input)return;
-  input.value=hex.toLowerCase();input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
-  setAccent(hex);
- };
+ const pickColor=hex=>window.propscoutColors?.pickColor(hex.toLowerCase());
+ const pickGradient=pair=>window.propscoutColors?.pickGradient(pair);
+ const accent=String(colors.primary||'').toUpperCase(),gradient=colors.grad?colors.grad.join(','):'';
  const openSettings=()=>close(()=>document.getElementById('settings-btn')?.click());
 
  return <dialog ref={dialog} className={'account-sheet'+(open?' is-open':'')} aria-label="Your account"
@@ -168,7 +172,7 @@ function AccountSheet({status,badge,signOut,onDone,handle}){
      <section className="as-who">
       <Avatar name={name} photo={profile?.avatarUrl} size={64}/>
       <div className="as-who-text">
-       <h3>{name}{badge&&<span className="member-badge" data-badge={badge.key}>{badge.label}</span>}</h3>
+       <h3><span className="as-name">{name}</span>{badge&&<span className="member-badge" data-badge={badge.key}>{badge.label}</span>}</h3>
        <p>{since?`Member since ${monthYear(since)}`:account?'PropScout member':'Signed in as the site admin'}</p>
       </div>
       {account&&<button type="button" className="as-edit-button" onClick={()=>setView('edit')}>Edit</button>}
@@ -198,9 +202,15 @@ function AccountSheet({status,badge,signOut,onDone,handle}){
 
      <h4 className="as-label">Color</h4>
      <div className="as-colors" role="radiogroup" aria-label="Site color">
-      {SWATCHES.map(([hex,label])=>{const on=accent===hex;return <button type="button" key={hex} role="radio" aria-checked={on} aria-label={label}
+      {SWATCHES.map(([hex,label])=>{const on=!gradient&&accent===hex;return <button type="button" key={hex} role="radio" aria-checked={on} aria-label={label}
        style={{'--swatch':hex}} onClick={()=>pickColor(hex)}>{on&&<Check size={15} strokeWidth={3} aria-hidden="true"/>}</button>;})}
-      <button type="button" className="as-custom" aria-label="Custom color" title="Custom color" data-on={!SWATCHES.some(([hex])=>hex===accent)||undefined} onClick={openSettings}><Plus size={16} aria-hidden="true"/></button>
+      <button type="button" className="as-custom" aria-label="Custom color" title="Custom color" data-on={(!gradient&&!SWATCHES.some(([hex])=>hex===accent))||undefined} onClick={openSettings}><Plus size={16} aria-hidden="true"/></button>
+     </div>
+     <h4 className="as-label">Gradient</h4>
+     <div className="as-colors as-gradients" role="radiogroup" aria-label="Site gradient">
+      {GRADIENTS.map(([from,to,label])=>{const on=gradient===`${from},${to}`;return <button type="button" key={label} role="radio" aria-checked={on} aria-label={`${label} gradient`}
+       style={{'--swatch':`linear-gradient(135deg,${from},${to})`}} onClick={()=>pickGradient([from,to])}>{on&&<Check size={15} strokeWidth={3} aria-hidden="true"/>}</button>;})}
+      <button type="button" className="as-custom" aria-label="Your own gradient" title="Your own gradient" data-on={(gradient&&!GRADIENTS.some(([from,to])=>gradient===`${from},${to}`))||undefined} onClick={openSettings}><Plus size={16} aria-hidden="true"/></button>
      </div>
 
      <h4 className="as-label">App</h4>

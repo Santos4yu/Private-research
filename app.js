@@ -2,7 +2,7 @@ import {dockState} from './src/mobile-nav-core.js';
 import {initSiteAccess,siteTabAllowed,siteIsAdmin,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
 import {ADMIN_TABS} from './src/site-access-core.js';
 import {isOldBrandTheme} from './src/brand-colors.js';
-import {LOOKS,DEFAULT_BASE,lookOf,applyLook,normalizeBase,normalizeBright} from './src/site-look.js';
+import {LOOKS,GRADIENTS,DEFAULT_BASE,lookOf,applyLook,normalizeBase,normalizeBright,normalizeGrad,tintOf} from './src/site-look.js';
 /* =========================================================
    PropScout research — client-side renderer
    No backend, no database, no odds API. Reads a single JSON
@@ -156,7 +156,9 @@ const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
 const BG_IMAGE_KEY = "vortex_bg_image";
-const DEFAULT_ACCENTS = Object.freeze({ primary: "#ffffff", secondary: "#a3a3a3", tint: 0, base: DEFAULT_BASE, bright: 0 });
+const DEFAULT_ACCENTS = Object.freeze({ primary: "#ffffff", secondary: "#a3a3a3", tint: 0, base: DEFAULT_BASE, bright: 0, grad: null, sway: true });
+// What's on the page now (applyAccentTheme): the account sheet's colors read it.
+let appliedTheme = { ...DEFAULT_ACCENTS };
 // The old blue brand colours give way to the new default (src/brand-colors.js).
 const isLegacyAccent = isOldBrandTheme;
 try {
@@ -439,9 +441,13 @@ function cacheEls() {
   els.lookSwatches = document.getElementById("look-swatches");
   els.lookBright = document.getElementById("look-bright");
   els.lookBrightValue = document.getElementById("look-bright-value");
+  els.lookGrads = document.getElementById("look-grads");
+  els.lookGradA = document.getElementById("look-grad-a");
+  els.lookGradB = document.getElementById("look-grad-b");
+  els.lookSway = document.getElementById("look-sway");
   renderLookSwatches();
   const shown = loadAccentTheme();
-  syncLookControls(shown.base, shown.bright);
+  syncLookControls(shown.base, shown.bright, shown.grad, shown.sway);
   els.primaryAccentValue = document.getElementById("primary-accent-value");
   els.secondaryAccentValue = document.getElementById("secondary-accent-value");
   els.accentTintValue = document.getElementById("accent-tint-value");
@@ -535,7 +541,7 @@ function loadAccentTheme() {
       primary: normalizeAccentHex(saved?.primary, DEFAULT_ACCENTS.primary),
       secondary: normalizeAccentHex(saved?.secondary, DEFAULT_ACCENTS.secondary),
       tint: normalizeTint(saved?.tint),
-      base: saved?.base, bright: saved?.bright,
+      base: saved?.base, bright: saved?.bright, grad: saved?.grad, sway: saved?.sway,
     });
   } catch (_) {
     return { ...DEFAULT_ACCENTS };
@@ -549,9 +555,10 @@ function withBackground(theme) {
   if (theme.base == null && normalizeTint(theme.tint) > 0) {
     const share = normalizeTint(theme.tint) / 100, from = normalizeAccentHex(theme.secondary, DEFAULT_ACCENTS.secondary);
     const base = "#" + [1, 3, 5].map((at) => Math.round(parseInt(from.slice(at, at + 2), 16) * share + 10 * (1 - share)).toString(16).padStart(2, "0")).join("");
-    return { ...theme, tint: 0, base, bright: 0 };
+    return { ...theme, tint: 0, base, bright: 0, grad: null, sway: true };
   }
-  return { ...theme, tint: normalizeTint(theme.tint), base: normalizeBase(theme.base), bright: normalizeBright(theme.bright) };
+  return { ...theme, tint: normalizeTint(theme.tint), base: normalizeBase(theme.base), bright: normalizeBright(theme.bright),
+    grad: normalizeGrad(theme.grad), sway: theme.sway !== false };
 }
 
 function accentTextColor(hex) {
@@ -566,9 +573,10 @@ function accentTextColor(hex) {
 function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   const primary = normalizeAccentHex(theme?.primary, DEFAULT_ACCENTS.primary);
   const secondary = normalizeAccentHex(theme?.secondary, DEFAULT_ACCENTS.secondary);
-  const { tint, base, bright } = withBackground({ secondary, tint: theme?.tint, base: theme?.base, bright: theme?.bright });
-  const look = lookOf(base, bright);
+  const { tint, base, bright, grad, sway } = withBackground({ secondary, tint: theme?.tint, base: theme?.base, bright: theme?.bright, grad: theme?.grad, sway: theme?.sway });
+  const look = lookOf(base, bright, grad, sway);
   applyLook(look);
+  appliedTheme = { primary, secondary, tint, base, bright, grad, sway };
   const root = document.documentElement;
   root.setAttribute("data-theme", "obsidian");
   root.setAttribute("data-custom-accents", "true");
@@ -583,8 +591,9 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   root.style.setProperty("--theme-accent-dim", `color-mix(in srgb, ${primary} 14%, transparent)`);
   root.style.setProperty("--theme-on-accent", accentTextColor(primary));
   localStorage.removeItem(THEME_KEY);
-  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, base, bright, look, scout: true, mono: true }));
-  if (syncControls) syncLookControls(base, bright);
+  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, base, bright, grad, sway, look, scout: true, mono: true }));
+  if (syncControls) syncLookControls(base, bright, grad, sway);
+  window.dispatchEvent(new CustomEvent("propscout:colors"));
   if (syncControls && els.primaryAccent) {
     els.primaryAccent.value = primary;
     els.secondaryAccent.value = secondary;
@@ -618,8 +627,30 @@ function renderLookSwatches() {
   els.lookSwatches.innerHTML = LOOKS.map(([color, name]) => `<button type="button" class="look-swatch" data-base="${color}" aria-pressed="false" style="--swatch:${color}"><i aria-hidden="true"></i><span>${name}</span></button>`).join("")
     + `<label class="look-swatch look-custom" data-base="custom"><i aria-hidden="true"></i><input type="color" id="look-custom" value="#3a3a3a" aria-label="Pick your own background color" /><span>Custom</span></label>`;
   els.lookCustom = document.getElementById("look-custom");
+  if (els.lookGrads) els.lookGrads.innerHTML = `<button type="button" class="look-grad-chip" data-grad="" aria-pressed="false"><i aria-hidden="true"></i><span>Off</span></button>`
+    + GRADIENTS.map(([from, to, name]) => `<button type="button" class="look-grad-chip" data-grad="${from},${to}" aria-pressed="false"><i aria-hidden="true" style="--a:${from};--b:${to}"></i><span>${name}</span></button>`).join("");
 }
-function syncLookControls(base, bright) {
+// The account sheet (AccountSheet.jsx) changes the colors through here, so
+// they save and sync like the settings panel's.
+window.propscoutColors = {
+  current: () => ({ ...appliedTheme }),
+  // A color: the accent, and the background a tint of it (no gradient).
+  pickColor(hex) {
+    applyAccentTheme({ ...appliedTheme, primary: hex, base: tintOf(hex, appliedTheme.base), bright: 0, grad: null });
+  },
+  // A gradient: its first color the accent.
+  pickGradient(pair) {
+    applyAccentTheme({ ...appliedTheme, primary: pair[0], grad: pair });
+  },
+};
+function syncLookControls(base, bright, grad = null, sway = true) {
+  if (els.lookGrads) {
+    const key = grad ? grad.join(",") : "";
+    els.lookGrads.dataset.grad = key;
+    els.lookGrads.querySelectorAll(".look-grad-chip").forEach((chip) => chip.setAttribute("aria-pressed", String(chip.dataset.grad === key)));
+    if (grad && els.lookGradA) { els.lookGradA.value = grad[0]; els.lookGradB.value = grad[1]; }
+    if (els.lookSway) els.lookSway.checked = sway !== false;
+  }
   if (!els.lookSwatches) return;
   const known = LOOKS.some(([color]) => color === base);
   els.lookSwatches.dataset.base = base;
@@ -709,7 +740,7 @@ function renderAccentPresets() {
     const row = document.createElement("div");
     row.className = "accent-preset";
     const presetTint = normalizeTint(preset.tint);
-    const presetPage = lookOf(withBackground(preset).base, withBackground(preset).bright).page;
+    const presetLook = withBackground(preset), presetPage = lookOf(presetLook.base, presetLook.bright).page;
     row.innerHTML = `<span class="accent-preset-preview" style="--preset-primary:${normalizeAccentHex(preset.primary, DEFAULT_ACCENTS.primary)};--preset-secondary:${normalizeAccentHex(preset.secondary, DEFAULT_ACCENTS.secondary)};--preset-tint:${presetTint}%;--preset-base:${presetPage}"><i></i><i></i></span><span class="accent-preset-name">${escapeHtml(preset.name)}</span><button type="button" aria-label="Delete ${escapeHtml(preset.name)} preset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><span class="accent-preset-apply" role="button" tabindex="0" aria-label="Apply ${escapeHtml(preset.name)} preset"></span>`;
     const apply = () => {
       applyAccentTheme(preset);
@@ -1185,17 +1216,19 @@ function wireSettingsPanel() {
   let accentFrame = 0;
   let accentSaveTimer = 0;
   const updateAccents = ({ saveNow = false } = {}) => {
-    const theme = { primary: els.primaryAccent.value, secondary: els.secondaryAccent.value, tint: 0, base: currentBase(), bright: normalizeBright(els.lookBright?.value) };
+    const theme = { primary: els.primaryAccent.value, secondary: els.secondaryAccent.value, tint: 0, base: currentBase(), bright: normalizeBright(els.lookBright?.value), grad: currentGrad(), sway: els.lookSway?.checked !== false };
     clearTimeout(accentSaveTimer);
     cancelAnimationFrame(accentFrame);
     accentFrame = requestAnimationFrame(() => {
       applyAccentTheme(theme, { persist: false, syncControls: false });
-      syncLookControls(theme.base, theme.bright);
+      syncLookControls(theme.base, theme.bright, theme.grad, theme.sway);
       els.primaryAccentValue.textContent = theme.primary.toUpperCase();
       els.secondaryAccentValue.textContent = theme.secondary.toUpperCase();
     });
     const save = () => {
-      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, look: lookOf(theme.base, theme.bright), scout: true, mono: true }));
+      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, look: lookOf(theme.base, theme.bright, theme.grad, theme.sway), scout: true, mono: true }));
+      appliedTheme = { ...theme, tint: 0 };
+      window.dispatchEvent(new CustomEvent("propscout:colors"));
       els.accentStatus.textContent = "Colors saved automatically on this device.";
     };
     if (saveNow) save();
@@ -1209,10 +1242,13 @@ function wireSettingsPanel() {
   els.accentTint?.addEventListener("change", () => updateAccents({ saveNow: true }));
   // The background: a swatch, the member's own color, the brightness.
   const currentBase = () => normalizeBase(els.lookSwatches?.dataset.base);
+  const currentGrad = () => normalizeGrad(String(els.lookGrads?.dataset.grad || "").split(","));
   els.lookSwatches?.addEventListener("click", (event) => {
     const swatch = event.target.closest("button.look-swatch");
     if (!swatch) return;
     els.lookSwatches.dataset.base = swatch.dataset.base;
+    // A plain color in place of a gradient.
+    if (els.lookGrads) els.lookGrads.dataset.grad = "";
     // A new color starts at its own brightness.
     if (els.lookBright) els.lookBright.value = "0";
     updateAccents({ saveNow: true });
@@ -1221,6 +1257,19 @@ function wireSettingsPanel() {
   els.lookCustom?.addEventListener("change", () => { els.lookSwatches.dataset.base = els.lookCustom.value; updateAccents({ saveNow: true }); });
   els.lookBright?.addEventListener("input", () => updateAccents());
   els.lookBright?.addEventListener("change", () => updateAccents({ saveNow: true }));
+  // The gradient: a ready-made one (or Off), two colors of the member's own, Sway.
+  els.lookGrads?.addEventListener("click", (event) => {
+    const chip = event.target.closest(".look-grad-chip");
+    if (!chip) return;
+    els.lookGrads.dataset.grad = chip.dataset.grad;
+    updateAccents({ saveNow: true });
+  });
+  const ownGrad = (saveNow) => { els.lookGrads.dataset.grad = `${els.lookGradA.value},${els.lookGradB.value}`; updateAccents({ saveNow }); };
+  [els.lookGradA, els.lookGradB].forEach((input) => {
+    input?.addEventListener("input", () => ownGrad(false));
+    input?.addEventListener("change", () => ownGrad(true));
+  });
+  els.lookSway?.addEventListener("change", () => updateAccents({ saveNow: true }));
   els.accentReset.addEventListener("click", () => {
     localStorage.removeItem(ACCENT_THEME_KEY);
     applyEffectiveAccentTheme();
@@ -1234,7 +1283,7 @@ function wireSettingsPanel() {
       return;
     }
     const presets = loadAccentPresets();
-    const preset = { name, primary: els.primaryAccent.value, secondary: els.secondaryAccent.value, tint: 0, base: normalizeBase(els.lookSwatches?.dataset.base), bright: normalizeBright(els.lookBright?.value) };
+    const preset = { name, primary: els.primaryAccent.value, secondary: els.secondaryAccent.value, tint: 0, base: normalizeBase(els.lookSwatches?.dataset.base), bright: normalizeBright(els.lookBright?.value), grad: normalizeGrad(String(els.lookGrads?.dataset.grad || "").split(",")), sway: els.lookSway?.checked !== false };
     const existing = presets.findIndex((item) => item.name.toLowerCase() === name.toLowerCase());
     if (existing >= 0) presets[existing] = preset;
     else presets.unshift(preset);
