@@ -122,23 +122,28 @@ def _round(value, digits=2):
     return None if value is None else round(value, digits)
 
 
-def defense_vs_position(by_team: dict, players: dict) -> dict:
+def defense_vs_position(by_team: dict, players: dict, positions=POSITIONS, bucket=None) -> dict:
     """What each team allows a position a game: everything the opposing
     guards (forwards, centers) put up in a game added together, averaged
     over the team's games -- the usual way it's counted, so the ranks match
     other research sites. Rank 1 allows the least (toughest); the highest
     rank allows the most. `n` is how many opposing players at the position
-    played in those games."""
+    played in those games. `bucket(player id)` names the positions a player
+    counts at (by default his G / F / C from the box scores)."""
     averages = {}
     samples = {}
+    seen_at = {}
+    if bucket is None:
+        bucket = lambda pid: (primary_position(players.get(pid)),)
+    places = lambda pid: seen_at.setdefault(pid, set(bucket(pid)))
     for team, games in by_team.items():
         for window, size in WINDOWS:
             chosen = games[-size:] if size else games
-            for position in POSITIONS:
+            for position in positions:
                 totals, seen = defaultdict(list), 0
                 for game in chosen:
                     at_spot = [row for row in game["opp"]["p"]
-                               if row[_I["min"]] and primary_position(players.get(row[0])) == position]
+                               if row[_I["min"]] and position in places(row[0])]
                     seen += len(at_spot)
                     for key in STAT_KEYS:
                         values = [value for row in at_spot if (value := stat_value(row, key)) is not None]
@@ -147,8 +152,8 @@ def defense_vs_position(by_team: dict, players: dict) -> dict:
                             totals[key].append(sum(values))
                 averages[(team, position, window)] = {key: sum(values) / len(values) for key, values in totals.items() if values}
                 samples[(team, position, window)] = seen
-    result = {team: {position: {"n": {}, "stats": {}} for position in POSITIONS} for team in by_team}
-    for position in POSITIONS:
+    result = {team: {position: {"n": {}, "stats": {}} for position in positions} for team in by_team}
+    for position in positions:
         for window, _ in WINDOWS:
             for key in STAT_KEYS:
                 values = {team: averages[(team, position, window)].get(key) for team in by_team}
@@ -159,6 +164,43 @@ def defense_vs_position(by_team: dict, players: dict) -> dict:
             for team in by_team:
                 result[team][position]["n"][window] = samples[(team, position, window)]
     return result
+
+
+# The Finder's Defense vs position, one season at a time (resource=dvp). The
+# NBA's box scores say only G, F or C; its team rosters (and injury reports)
+# say PG, SG, SF, PF or C, so the NBA is split that way where the rosters
+# name most of the players who faced each team. ALL: every opposing player.
+SPECIFIC = ("PG", "SG", "SF", "PF", "C")
+SPECIFIC_SHARE = 0.6
+
+
+def season_dvp(payload: dict, specific: dict | None = None) -> dict:
+    """{positions, dvp, games, teamCount, specific} for one stored season:
+    what each team allows every position a game (defense_vs_position),
+    `specific` (player id -> PG, SG...) from the rosters when it covers
+    enough of the minutes played (SPECIFIC_SHARE), else G / F / C."""
+    by_team = team_games(payload)
+    players = payload.get("players") or {}
+    specific = {str(pid): pos for pid, pos in (specific or {}).items() if pos in SPECIFIC}
+    played = known = 0.0
+    for games in by_team.values():
+        for game in games:
+            for row in game["own"]["p"]:
+                minutes = row[_I["min"]] or 0
+                played += minutes
+                known += minutes if str(row[0]) in specific else 0
+    detailed = bool(played) and known / played >= SPECIFIC_SHARE
+    if detailed:
+        positions = ("ALL",) + SPECIFIC
+        # A player the rosters don't place counts in ALL alone (a G could be
+        # either guard); centers from the box score count as centers.
+        bucket = lambda pid: ("ALL", specific.get(str(pid)) or ("C" if primary_position(players.get(pid)) == "C" else None))
+    else:
+        positions = ("ALL",) + POSITIONS
+        bucket = lambda pid: ("ALL", primary_position(players.get(pid)))
+    return {"season": payload.get("season"), "positions": list(positions), "specific": detailed,
+            "games": {team: len(games) for team, games in by_team.items()}, "teamCount": len(by_team),
+            "dvp": defense_vs_position(by_team, players, positions, bucket)}
 
 
 def defense_vs_each(by_team: dict, players: dict) -> dict:

@@ -3534,7 +3534,11 @@ function trendTeamLogo(abbr, game = {}) {
 function trendDateParts(iso) {
   const d = new Date(iso || "");
   if (Number.isNaN(d.getTime())) return null;
-  return [d.toLocaleString("en-US", { month: "short", timeZone: "UTC" }), String(d.getUTCDate())];
+  // A start time (an NBA game's, the next game's) reads as the day it was
+  // played where the viewer is, like the game card: in UTC a 7:30 pm
+  // Eastern tip is already the next day. A bare date is that date.
+  const zone = /T\d{2}:\d{2}/.test(String(iso)) ? undefined : "UTC";
+  return [d.toLocaleString("en-US", { month: "short", timeZone: zone }), d.toLocaleString("en-US", { day: "numeric", timeZone: zone })];
 }
 function trendMedian(values) {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);

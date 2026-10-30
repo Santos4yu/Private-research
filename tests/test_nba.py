@@ -261,6 +261,23 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class DeepGamelogTests(unittest.TestCase):
+    def test_the_player_page_reaches_back_two_more_seasons(self):
+        # Head to head on the Finder's page: two seasons before the two every
+        # history holds; the board's batches stay at two.
+        game = lambda gid, date: {"gameId": gid, "date": date, "opponent": "MIA", "values": {"player_rebounds": 5}}
+        logs = {2024: [game("a", "2023-12-01T00:30Z")], 2025: [game("b", "2025-04-08T00:00Z")]}
+        recent = {"rows": [game("c", "2025-12-28T00:30Z"), game("d", "2026-10-25T23:00Z")]}
+        with patch.object(api, "_nba_seasons", return_value=[2026, 2027]), \
+                patch.object(api, "_game_logs", side_effect=lambda pid, year, name: {"rows": logs.get(year, [])}), \
+                patch.object(api, "_saved_history", return_value=recent):
+            deep = api._nba_gamelog("1", fill_dunks=True, deep=True)
+            plain = api._nba_gamelog("1", fill_dunks=True)
+        self.assertEqual([row["gameId"] for row in deep["rows"]], ["a", "b", "c", "d"])
+        self.assertEqual(deep["seasons"], [2024, 2025, 2026, 2027])
+        self.assertEqual(([row["gameId"] for row in plain["rows"]], plain["seasons"]), (["c", "d"], [2026, 2027]))
+
+
 class GamelogBatchTests(unittest.TestCase):
     def ask(self, path):
         request = object.__new__(api.handler)
@@ -433,3 +450,30 @@ class NameSuffixTests(unittest.TestCase):
         self.assertEqual(api._norm("De’Aaron Fox"), api._norm("De'Aaron Fox"))
         # A two-word name keeps its words (no first name is dropped).
         self.assertEqual(api._norm("V Jr"), "v jr")
+
+
+class DefenseBySeasonTests(unittest.TestCase):
+    """The Finder's Defense vs position, one stored season at a time (api/wnba.py _dvp)."""
+
+    def setUp(self):
+        api._dvp_memory.clear()
+
+    def test_a_season_alone_split_by_roster_positions(self):
+        line = lambda pid, pts: [pid, 1] + [{"min": 30, "pts": pts}.get(field, 0) for field in league.FIELDS]
+        payload = {"season": 2027, "builtAt": "x", "teams": {"AAA": {"name": "A", "logo": "a.png"}, "BBB": {"name": "B", "logo": "b.png"}},
+                   "players": {"g1": ["G One", "G", None, "AAA"], "f1": ["F One", "F", None, "BBB"]},
+                   "games": {"1": {"id": "1", "date": "2026-10-25", "type": 2, "home": "AAA", "away": "BBB",
+                                   "t": {"AAA": {"p": [line("g1", 20)], "dnp": [], "z": []}, "BBB": {"p": [line("f1", 14)], "dnp": [], "z": []}}}}}
+        rosters = {"AAA": {"g1": {"name": "G One", "pos": "SG"}}, "BBB": {"f1": {"name": "F One", "pos": "PF"}}}
+        with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=payload), \
+                patch.object(league, "progress", side_effect=lambda year, name: {"partial": False} if year == 2026 else None), \
+                patch.object(api, "_team_rosters", return_value=(rosters, 1)):
+            found = api._dvp("nba", 2027, "", "f1")
+            picked = api._dvp("nba", 2027, "SG", "f1")
+        # This season, and last season where stored; his own position first.
+        self.assertEqual((found["seasons"], found["position"], found["playerPosition"]), ([2027, 2026], "PF", "PF"))
+        self.assertEqual(found["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
+        # AAA allowed BBB's power forward 14; one position, every team.
+        self.assertEqual(found["dvp"]["AAA"]["stats"]["pts"]["szn"], [14.0, 2])
+        self.assertEqual(picked["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)
+        self.assertEqual(found["teams"]["AAA"], {"name": "A", "logo": "a.png"})

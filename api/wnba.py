@@ -224,6 +224,52 @@ def _scout(payload, season, player_id, opponent, league_name):
             "me": {key: _round_or_none((table.get(player_id) or {}).get(key)) for key in ("usage", "pts", "ast", "gp")}}
 
 
+# The Finder's Defense vs position, per (league, season): the stored
+# season's tables (context.season_dvp) and what they were built from.
+_dvp_memory = {}
+# How many seasons the card offers, this one and back, where stored.
+DVP_SEASONS = 4
+
+
+def _dvp(league_name, season, position, player_id):
+    """One stored season's Defense vs position for one position (ALL, PG...
+    or G / F / C), every team: {season, seasons, positions, position,
+    playerPosition, teamCount, games, teams, stats, dvp: {team: {stats, n}}}.
+    The NBA's PG / SG / SF / PF come from ESPN's rosters. None when that
+    season isn't stored."""
+    from backend.sports.wnba import context, league
+    current = league.current_season(league=league_name)
+    payload = league.ensure(current, league_name) if season == current else league.stored(season, league_name)
+    if not payload or not payload.get("games"):
+        return None
+    rosters, roster_at = _team_rosters(league_name) if league_name == "nba" else (None, 0)
+    specific = {str(pid): str(info.get("pos") or "").upper() for team in (rosters or {}).values() for pid, info in team.items()}
+    key = (payload.get("builtAt"), len(payload.get("games") or {}), roster_at)
+    memory = _dvp_memory.get((league_name, season))
+    if not memory or memory["key"] != key:
+        memory = {"key": key, "value": context.season_dvp(payload, specific)}
+        _dvp_memory[(league_name, season)] = memory
+    table = memory["value"]
+    players = payload.get("players") or {}
+    mine = specific.get(str(player_id)) if table["specific"] else None
+    mine = mine if mine in table["positions"] else context.primary_position(players.get(str(player_id)))
+    if table["specific"] and mine in ("G", "F"):
+        mine = None
+    chosen = position if position in table["positions"] else mine if mine in table["positions"] else "ALL"
+    def stored(year):
+        try:
+            return bool(league.progress(year, league_name))
+        except Exception:  # noqa: BLE001 -- a storage hiccup only hides that season's choice
+            return False
+    seasons = [year for year in range(current, current - DVP_SEASONS, -1) if year in (season, current) or stored(year)]
+    teams = payload.get("teams") or {}
+    return {"season": season, "seasons": seasons, "positions": table["positions"], "position": chosen, "playerPosition": mine,
+            "teamCount": table["teamCount"], "games": table["games"],
+            "teams": {abbr: {"name": (teams.get(abbr) or {}).get("name"), "logo": (teams.get(abbr) or {}).get("logo")} for abbr in table["dvp"]},
+            "stats": [[key, label] for key, label, _ in context.STATS],
+            "dvp": {team: entry.get(chosen) for team, entry in table["dvp"].items()}}
+
+
 def _last_season(season, league_name):
     """The season before `season` as stored, asked twice: it joins a new
     season's first games, and one slow read shouldn't leave them alone."""
@@ -465,8 +511,9 @@ def _game_logs(player_id, season, league="wnba"):
     # (the chart's Team filter: a traded player's games for each team).
     cache_key = f"krazy_data:{league}:v7:gamelog:{player_id}:{season}"
     now = time.time()
-    # A season that is over never changes; the current one is re-read.
-    fresh = 12 * 3600 if league == "nba" and season < _nba_seasons()[-1] else 30 * 60
+    # A season that is over never changes; the current one is re-read (the
+    # ones before last, read for the player page's head to head, a week).
+    fresh = (7 * 86400 if season < _nba_seasons()[0] else 12 * 3600) if league == "nba" and season < _nba_seasons()[-1] else 30 * 60
     try:
         raw = store.get(cache_key)
         envelope = json.loads(raw) if raw else None
@@ -654,12 +701,29 @@ def _history(player_id, league="wnba", season=None, fill_dunks=False):
 MAX_GAMELOG_BATCH = 8
 
 
-def _nba_gamelog(player_id, fill_dunks=False):
+# Seasons before the two every history holds that the Finder's player page
+# adds (deep): head to head reaches back like other research sites', a few
+# meetings a season.
+OLDER_SEASONS = 2
+
+
+def _nba_gamelog(player_id, fill_dunks=False, deep=False):
     """An NBA player's last two seasons of games, as the Finder reads them
-    (`fill_dunks`: one player's research page, see _with_saved_dunks)."""
+    (`fill_dunks`: one player's research page, see _with_saved_dunks;
+    `deep`: OLDER_SEASONS more before them, the full-game lines only)."""
     seasons = _nba_seasons()
+    rows = _saved_history(player_id, "nba", fill_dunks=fill_dunks)["rows"]
+    older = []
+    if deep:
+        for year in range(seasons[0] - OLDER_SEASONS, seasons[0]):
+            try:
+                older += _game_logs(player_id, year, "nba").get("rows", [])
+            except Exception:  # noqa: BLE001 -- a season ESPN has nothing for
+                continue
+        seen = {row.get("gameId") for row in rows}
+        rows = sorted([row for row in older if row.get("gameId") not in seen] + rows, key=lambda row: row.get("date") or "")
     return {"status": "AVAILABLE", "source": "espn", "playerId": player_id, "season": seasons[-1],
-            "seasons": seasons, "rows": _saved_history(player_id, "nba", fill_dunks=fill_dunks)["rows"],
+            "seasons": (list(range(seasons[0] - OLDER_SEASONS, seasons[0])) if deep else []) + seasons, "rows": rows,
             "fetchedAt": datetime.now(timezone.utc).isoformat()}
 
 
@@ -1220,7 +1284,9 @@ class handler(BaseHTTPRequestHandler):
                 if league == "nba":
                     if not player_id.isdigit():
                         return _send(self, 400, {"error": "A verified NBA player is required."})
-                    return _send(self, 200, _nba_gamelog(player_id, fill_dunks=True))
+                    # The Finder's player page asks for older seasons too (deep=1):
+                    # his meetings with tonight's opponent a few seasons back.
+                    return _send(self, 200, _nba_gamelog(player_id, fill_dunks=True, deep=query.get("deep", [""])[0] == "1"))
                 try: season = int(query.get("season", [str(datetime.now(timezone.utc).year)])[0])
                 except ValueError: return _send(self, 400, {"error": "A valid WNBA season is required."})
                 if not player_id.isdigit() or not 2000 <= season <= 2100: return _send(self, 400, {"error": "A verified WNBA player and season are required."})
@@ -1279,7 +1345,7 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 400, {"error": "A player, his team and the opponent are required."})
                 import nba_matchups
                 return _send(self, 200, nba_matchups.play_types(who, team, opponent))
-            if resource in ("matchup", "league-context", "player-context", "game-notes", "scout"):
+            if resource in ("matchup", "league-context", "player-context", "game-notes", "scout", "dvp"):
                 return self._context(resource, query, league)
             if resource == "props-record":
                 # How the props the list showed went (props_record.py).
@@ -1348,6 +1414,18 @@ class handler(BaseHTTPRequestHandler):
                 if not event_id:
                     return _send(self, 404, {"error": "This game is not on ESPN's schedule yet."})
                 return _send(self, 200, matchup.matchup(event_id, league_name))
+            if resource == "dvp":
+                current = league.current_season(league=league_name)
+                try:
+                    season = int(arg("season") or current)
+                except ValueError:
+                    return _send(self, 400, {"error": "A valid season is required."})
+                if not current - DVP_SEASONS < season <= current:
+                    return _send(self, 400, {"error": "A valid season is required."})
+                found = _dvp(league_name, season, arg("position").upper(), arg("playerId"))
+                if not found:
+                    return _send(self, 404, {"error": "That season isn't stored."})
+                return _send(self, 200, found)
             if resource == "game-notes":
                 # The trend chart's game cards: this season and last, from
                 # what is stored (no rebuild for a card).

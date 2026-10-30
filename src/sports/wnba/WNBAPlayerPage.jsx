@@ -132,7 +132,8 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
  const removeFilter=useCallback(key=>setFilters(old=>old.filter(filter=>splitKey(filter)!==key)),[]);
  const clearFilters=useCallback(()=>setFilters([]),[]);
  useEffect(()=>{if(!row.playerId)return undefined;const controller=new AbortController();setTrend(old=>({...old,state:'loading'}));
-  fetch(basketballLogUrl(row),{signal:controller.signal,credentials:'same-origin'})
+  // The NBA page reaches back two more seasons for head to head (deep).
+  fetch(basketballLogUrl(row)+(row.sport==='nba'?'&deep=1':''),{signal:controller.signal,credentials:'same-origin'})
    .then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'Game logs unavailable');setTrend({state:'ready',rows:data.rows||[]});})
    .catch(error=>{if(error.name!=='AbortError')setTrend({state:'error',rows:[],error:error.message});});
   return()=>controller.abort();},[row.playerId,row.sport,retry]);

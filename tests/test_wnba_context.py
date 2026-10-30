@@ -105,6 +105,23 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(guards["BBB"], [17.5, 2])
         self.assertEqual(guards["CCC"][1], 3)
 
+    def test_one_season_split_by_the_rosters_positions(self):
+        # The rosters name every guard and center here: PG / SG / C tables,
+        # and ALL adds every opposing player. AAA allowed CCC's guard 25 and
+        # center 12 (game 2) and BBB's 5 and 8 (game 1): ALL 25.0 a game.
+        specific = {"star": "PG", "b_g": "SG", "c_g": "PG", "mate": "C", "b_c": "C", "c_c": "C"}
+        table = context.season_dvp(self.payload, specific)
+        self.assertEqual(table["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
+        self.assertTrue(table["specific"])
+        self.assertEqual(table["dvp"]["AAA"]["ALL"]["stats"]["pts"]["szn"][0], 25.0)
+        self.assertEqual(table["dvp"]["AAA"]["PG"]["stats"]["pts"]["szn"][0], 12.5)   # 25 from CCC's PG, none from BBB's
+        self.assertEqual(table["dvp"]["AAA"]["SG"]["stats"]["pts"]["szn"][0], 2.5)
+        self.assertEqual(table["games"]["AAA"], 2)
+        # Rosters that name too few of the players: G / F / C, as the box scores say.
+        plain = context.season_dvp(self.payload, {"star": "PG"})
+        self.assertEqual((plain["positions"], plain["specific"]), (["ALL", "G", "F", "C"], False))
+        self.assertEqual(plain["dvp"]["AAA"]["G"]["stats"]["pts"]["szn"][0], 15.0)
+
     def test_position_defense_counts_the_whole_game(self):
         ctx = context.league_context(self.payload)
         # BBB's center scored 2 in 5 minutes against CCC: they count, since CCC

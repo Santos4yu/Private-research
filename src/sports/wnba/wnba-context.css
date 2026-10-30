@@ -77,6 +77,18 @@
 .wnba-dvp-controls{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-right:10px}
 .wnba-dvp-controls .mlb-context-switch button{min-height:38px;padding:6px 10px}
 .wnba-team-picker{min-width:110px}.wnba-team-picker .finder-custom-select{width:100%}
+/* Defense vs position: Season, Position and the defense, three small menus
+   on one line (a soft grey that reads on the light and dark looks). */
+.wnba-dvp-menus{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 12px;transition:opacity .15s ease}
+.wnba-dvp-menus[data-loading]{opacity:.65}
+.wnba-dvp-menus .finder-custom-select{flex:0 0 auto;width:auto}
+.wnba-dvp-menus .finder-custom-select>div{width:auto}
+html:root .unified-finder .wnba-dvp-menus .finder-custom-select .finder-select-trigger{width:auto;min-width:0;height:30px;gap:6px;padding:0 8px 0 10px;border:0;border-radius:8px;background:rgba(127,127,127,.14);color:inherit;font-size:12.5px;font-weight:600}
+html:root .unified-finder .wnba-dvp-menus .finder-custom-select .finder-select-trigger:hover{background:rgba(127,127,127,.22)}
+.wnba-dvp-menus .finder-option-label{gap:6px}
+.wnba-dvp-menus .finder-option-label>img{flex:0 0 16px;width:16px;height:16px}
+.wnba-dvp-menus .finder-select-trigger svg{width:14px;height:14px;opacity:.7}
+.wnba-dvp-vs{padding:0 2px;opacity:.6;font-size:12px;font-weight:600}
 .wnba-stat-name{display:grid;gap:3px}.wnba-stat-name small{font-weight:400;color:#afafaf;font-size:10px}
 .wnba-bar-col{width:26%;min-width:70px}
 .wnba-rank-bar{display:block;height:5px;border-radius:5px;background:#2f2f2f;overflow:hidden}.wnba-rank-bar i{display:block;height:100%;border-radius:inherit;background:#bfbfbf}

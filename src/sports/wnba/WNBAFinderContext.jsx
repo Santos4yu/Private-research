@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Activity,ArrowLeftRight,CalendarClock,ChartColumn,HeartPulse,ListOrdered,RefreshCw,Shield,Target,Trophy,UserRound,Users} from 'lucide-react';
 import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
 import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
@@ -69,28 +69,47 @@ function Standings({matchup,team}){
 // ---------------------------------------------------------------- Defense
 const DVP_ORDER=['pr','pts','reb','ast','pa','ra','pra','tpm','fgm','ftm','stl','blk','to','pf'];
 const strength={good:'Weak',fair:'Average',poor:'Tough'};
-function DefenseVsPosition({league,row,stat,playerPosition}){
- const data=league.data,opponent=opponentOf(row);
- const [position,setPosition]=useState(playerPosition||'G'),[team,setTeam]=useState(opponent);
- useEffect(()=>setPosition(playerPosition||'G'),[playerPosition]);
+// One stored season at a time (api/wnba.py resource=dvp), picked from
+// three small menus: Season, Position and the defense (Oct 30, the owner,
+// with another app's: "same size dropdowns ... nice and small and
+// compact"). The NBA splits by PG, SG, SF, PF and C from ESPN's rosters;
+// "All" is every opposing player. Before, the card read the league numbers
+// that take in last season early in a new one, under this season's name.
+const POSITION_NAMES={ALL:'All',PG:'PG',SG:'SG',SF:'SF',PF:'PF',C:'C',G:'G',F:'F'};
+const seasonName=year=>`${String(year-1).slice(-2)}/${String(year).slice(-2)}`;
+function DefenseVsPosition({row,stat}){
+ const opponent=opponentOf(row);
+ const [season,setSeason]=useState(null),[position,setPosition]=useState(null),[team,setTeam]=useState(opponent);
  useEffect(()=>setTeam(opponent),[opponent]);
+ useEffect(()=>{setSeason(null);setPosition(null);},[row.playerId]);
+ const state=useWnba('dvp',{league:leagueOf(row),season,position,playerId:row.playerId});
+ // The last table stays up while another season or position loads.
+ const shown=useRef(null);
+ if(state.data)shown.current=state.data;
+ const data=state.data||shown.current;
  const focus=useMemo(()=>propFocus(row),[row]);
- if(!data)return <Card title="Defense vs position" icon={Shield}>{league.loading?<Skeleton/>:<Failed state={league} label="Defense data"/>}</Card>;
- const n=data.teamCount,labels=Object.fromEntries(data.stats),entry=data.dvp[team]?.[position];
+ if(!data)return <Card title="Defense vs position" icon={Shield}>{state.loading?<Skeleton/>:<Failed state={state} label="Defense data"/>}</Card>;
+ const n=data.teamCount,labels=Object.fromEntries(data.stats),entry=data.dvp[team];
+ const logos=Object.fromEntries(Object.entries(data.teams).map(([abbr,info])=>[abbr,info.logo]));
  // The line's own stat and what feeds it lead (prop-focus.js).
  const order=focus.order([stat,...DVP_ORDER.filter(key=>key!==stat)]).filter(key=>entry?.stats?.[key]);
  // Rank 1 allows the least. For someone taking the over that is the tough
  // end, so the tone reads from the highest rank down.
  const tone=rank=>rankTone(finite(rank)?n+1-rank:rank,n);
- return <Card title="Defense vs position" note={data.season} icon={Shield} className="wnba-dvp">
-  <div className="wnba-dvp-controls"><div className="mlb-context-switch" aria-label="Position">{POSITIONS.map(([key,label])=><button type="button" key={key} aria-pressed={position===key} onClick={()=>setPosition(key)}>{label}</button>)}</div>
-   <div className="wnba-team-picker"><FinderDropdownAssets.Provider value={{Defense:Object.fromEntries(Object.entries(data.teams).map(([abbr,info])=>[abbr,info.logo]))}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>setTeam(e.target.value)}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider></div></div>
+ const games=data.games?.[team];
+ return <Card title="Defense vs position" note={`${seasonName(data.season)}${finite(games)?` · ${games} ${games===1?'game':'games'}`:''}`} icon={Shield} className="wnba-dvp">
+  <div className="wnba-dvp-menus" data-loading={state.loading||undefined}>
+   <FinderDropdown aria-label="Season" value={data.season} onChange={e=>setSeason(Number(e.target.value))}>{data.seasons.map(year=><option key={year} value={year}>{`${seasonName(year)} Season`}</option>)}</FinderDropdown>
+   <FinderDropdown aria-label="Position" value={data.position} onChange={e=>setPosition(e.target.value)}>{data.positions.map(key=><option key={key} value={key}>{POSITION_NAMES[key]||key}</option>)}</FinderDropdown>
+   <span className="wnba-dvp-vs" aria-hidden="true">vs</span>
+   <FinderDropdownAssets.Provider value={{Defense:logos}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>setTeam(e.target.value)}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider>
+  </div>
   {entry?<div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Stat</th><th scope="col" className="wnba-bar-col">Allowed</th><th scope="col">SZN</th><th scope="col">L10</th><th scope="col">L5</th><th scope="col">Matchup</th></tr></thead><tbody>
    {order.map(key=>{const cell=entry.stats[key],[value,rank]=cell.szn||[],f=focus.of(key)||(key===stat?'key':null);return <tr key={key} data-focus={f||undefined}><th scope="row"><span className="wnba-stat-name"><span className="prop-focus-label">{labels[key]}<PropFocusTag focus={f}/></span><small>{fmt(value)} allowed/g</small></span></th>
     <td className="wnba-bar-col"><span className="wnba-rank-bar" data-tone={tone(rank)} aria-hidden="true"><i style={{width:finite(rank)?`${rank/n*100}%`:'0%'}}/></span></td>
     {['szn','l10','l5'].map(window=>{const r=cell[window]?.[1];return <td key={window} data-tone={tone(r)}>{ordinal(r)}</td>;})}
     <td><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>;})}
-  </tbody></table></div>:<Empty>No games recorded for this defense yet.</Empty>}
+  </tbody></table></div>:<Empty>No games recorded for this defense in {seasonName(data.season)}.</Empty>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
  </Card>;
 }
@@ -327,7 +346,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
   {!shownTab&&<FinderResearchTabs tab={tab} onChange={setTab}/>}
   {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
-  {tab==='defense'&&<><DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<OffenseVsDefense league={league} row={row}/></>}
+  {tab==='defense'&&<><DefenseVsPosition row={row} stat={stat}/>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}
   {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filters={filters} onToggleFilter={onToggleFilter}/>}

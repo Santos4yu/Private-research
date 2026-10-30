@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (every sport's Finder player page on the NBA page's layout; with / without filters fixed; NBA Defense tab order; before that the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page, with a Team filter; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small menus; older H2H games; chart dates; every sport's Finder player page on the NBA page's layout; with / without filters fixed; NBA Defense tab order; before that the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page, with a Team filter; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,38 @@ Last updated 2026-10-30 (every sport's Finder player page on the NBA page's layo
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Oct 30: defense rankings by season and position; older H2H games
+
+- The owner compared PropsEdge (Nesmith vs MIA H2H 6 games, ours 2; their
+  Defensive Rankings with Season / position / team menus) and said "ours is
+  wrong". Ours wasn't miscounted: the Finder's Defense vs position card read
+  the league numbers that blend last season in while a team has played under
+  15 games (opportunity.blend), under this season's name ("2027"), and split
+  G / F / C only. The Props matchup page's card counts this season alone, so
+  the two disagreed (DET vs forwards 3rd fewest blended, 2nd most in 5 games).
+  ESPN's NBA box scores label almost everyone G / F / C (2025-26: 26.5k rows,
+  ~100 PG/SG/SF/PF), so the first-letter rule (`primary_position`) is fine.
+- Now `resource=dvp` (api/wnba.py `_dvp`, context.py `season_dvp`): one
+  stored season alone, one position, every team; seasons offered back to
+  DVP_SEASONS (4) where stored (2027 and 2026 today: older NBA seasons were
+  never stored). The NBA splits ALL / PG / SG / SF / PF / C, the positions
+  from ESPN's team rosters (`_team_rosters`, current rosters: a player no
+  longer on one counts only in ALL, a box-score C still in C); if the rosters
+  place under 60% of the minutes, ALL / G / F / C. `defense_vs_position` takes
+  `positions` and `bucket`. The card (WNBAFinderContext DefenseVsPosition):
+  three small menus (Season "26/27 Season", Position, vs team with logos),
+  the player's own position first, the note "26/27 · 5 games" for the picked
+  defense; the last table stays up while another loads.
+- H2H: the Finder's NBA player page asks `resource=gamelog&deep=1`, two
+  seasons before the usual two (OLDER_SEASONS; full-game lines only, no
+  quarters / dunks / game cards there; cached a week). The board's batches
+  and the Props matchup page (its meetings read was backtested on two
+  seasons) stay at two.
+- Dates: the chart's bar labels read UTC (app.js `trendDateParts`), so an
+  NBA game at 7:30 pm Eastern showed the next day (Dec 28 for Dec 27) and the
+  next game Oct 31 for Fri Oct 30. A timestamp now reads in the viewer's time
+  zone, like the game card; a bare date stays as written.
 
 ### Oct 30: every sport's Finder player page on the NBA page's layout
 
