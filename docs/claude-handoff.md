@@ -76,6 +76,19 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: the player page's back arrow was under the phone's clock
+
+- "I can't get out the prop page the back arrow and the header are all the
+  way at the top and I can't scroll to click" (iPhone home-screen app).
+  finder-player-v2.css's phone rule gave `.finder-trend-view.fp2` a 0 top
+  padding (and 24px at the foot), beating unified-finder.css's detail
+  padding, so the top bar sat under the status bar and iOS's blur band,
+  where taps don't reach the page. It now starts below
+  `--site-status-inset` (+10px) and ends clear of the dock
+  (`--app-bottom` + 18px), like the site's other phone pages. Checked with
+  Chromium's safe-area override (59px top): the arrow sits at 107px, below
+  the 95px band, and goes back.
+
 ### Oct 30: hit-rate tiles, small menus, PG / SG / SF / PF / C defense
 
 - The owner, from a phone: the L20 tile's "Game history" card "takes the

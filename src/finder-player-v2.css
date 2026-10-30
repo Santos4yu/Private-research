@@ -288,7 +288,10 @@ html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) > header small { c
 /* ------------------------------------------------------------ a phone */
 
 @media (max-width: 760px) {
-  html:root .unified-finder .finder-trend-view.fp2 { padding: 0 14px 24px !important; }
+  /* Below the clock and iOS's blur band (--site-status-inset, site-access.css),
+     where a tap doesn't reach the page, and clear of the dock at the bottom.
+     Oct 30: a 0 here put the back arrow under the status bar on a phone. */
+  html:root .unified-finder .finder-trend-view.fp2 { padding: calc(var(--site-status-inset, env(safe-area-inset-top, 0px)) + 10px) 14px calc(var(--app-bottom, 68px) + 18px) !important; }
   .fp2 .fp2-top { gap: 10px; padding-bottom: 12px; }
   .fp2 .fp2-back { width: 38px; height: 38px; }
   html:root .fp2 .fp2-avatar { width: 42px; height: 42px; }
