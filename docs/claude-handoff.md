@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-28 (the Props tab, matchup page and Pick Builder redesigned; save to slip). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (the computer Finder board redesigned: open, fuller, no boxes). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -30,8 +30,9 @@ Last updated 2026-10-28 (the Props tab, matchup page and Pick Builder redesigned
 - Soccer stays off until the owner enables it in Admin.
 - No Unders in the Parlay Builder or the assistant. The removed "line
   check" must not come back.
-- The Finder stays as it is. The NBA matchup feature is its own page off
-  the Props tab, not part of the Finder.
+- The Finder keeps its features and data. The NBA matchup feature is its
+  own page off the Props tab, not part of the Finder. Its look is the
+  owner's to change (Oct 27 phone cards, Oct 30 computer board).
 
 ## How to work in this repo
 
@@ -74,6 +75,34 @@ Last updated 2026-10-28 (the Props tab, matchup page and Pick Builder redesigned
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Oct 30: the computer Finder board, open and fuller
+
+- The owner, on a 2560-wide screen: "make it more fuller clean and higher
+  quality it looks so low quality right now and isnt pleasing to research
+  with". Computer only (min-width 761px); the phone cards are unchanged
+  apart from the sort chips' new words.
+- No frame: the bar, controls and board sit on the page (`--fb-page` =
+  `--theme-bg`, which the sticky column titles use so they don't show as
+  a strip). The page cap is 1880px (was 1700, `unified-finder.css` top).
+- `finder-desk.css` (bar and controls, rewritten): sports as words with
+  logos, the picked one on a soft fill; search and Apps as soft 44px
+  fields; the filters as soft chips as wide as their words, Saved and
+  reset at the row's end. No outlines anywhere.
+- `finder-board.css` computer block (rewritten): rows 66px on faint rules,
+  hover shade, rows ease in (`--i` from Row's index); 44px photos; the
+  line 18px with More green / Less red; Defense, L10 avg and Streak
+  numbers colored for the pick (Row's `defTone` / `avgTone`: a defense
+  in the most-allowed third is good for a More, the fewest-allowed third
+  for a Less); each hit rate is its % in its color, the record beside it
+  and a 4px bar filled to the rate (fills in on show) instead of the
+  gradient boxes. Titles in words: Defense, L10 avg, Streak, Season (the
+  phone cards still say SZN). Pagination soft, the rows-per-page select
+  no longer has a box inside a box (its trigger has min-w 160px from the
+  shared Select: override it).
+- The player trends page opened from the board is unchanged (it still
+  has its older boxed tiles); offer it as a next step if the owner wants
+  it to match.
 
 ### Oct 28: are our New Orleans vs centers ranks right? (yes)
 

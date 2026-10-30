@@ -1,5 +1,5 @@
 /* Compact multi-sport research surface, isolated from the legacy card theme. */
-:root[data-theme] #app-shell #panel-finder{width:calc(100% - 28px)!important;max-width:1700px!important;padding:14px 0 90px!important;margin:0 auto!important}
+:root[data-theme] #app-shell #panel-finder{width:calc(100% - 28px)!important;max-width:1880px!important;padding:14px 0 90px!important;margin:0 auto!important}
 #panel-finder::before{display:none!important}
 #app-shell:has(#panel-finder:not([hidden]))>.hero{display:none!important}
 #app-shell:has(#panel-finder:not([hidden])){min-height:100dvh;background:#101010}

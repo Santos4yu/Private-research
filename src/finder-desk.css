@@ -1,107 +1,124 @@
-/* The Finder's bar and controls on a computer (the panel around them and
-   the board are finder-board.css). Rules carry html:root to win over
-   unified-finder.css. */
+/* The Finder's bar and controls on a computer (the board under them is
+   finder-board.css). Rules carry html:root to win over unified-finder.css.
+
+   Oct 30, the owner: "make it more fuller clean and higher quality ... it
+   looks so low quality right now and isnt pleasing to research with".
+   Open, like the Props tab: no outlines anywhere. The sports are words
+   with their logos, the one picked on a soft fill; the search and the app
+   filter are soft round fields; each filter is a soft chip as wide as its
+   words, with Saved and reset at the end of the row. */
 
 @media (min-width: 761px) {
   html:root .unified-finder {
-    --fc-card: #171717;
-    --fc-tile: #101010;
-    --fc-line: #262626;
-    --fc-text: #F3F5F8;
-    --fc-muted: #A6A6A6;
-    --fc-faint: #717171;
-    --fc-good: #3FE39E;
-    --fc-mid: #F2C26B;
-    --fc-low: #F06A77;
-    --fc-on: rgba(130,130,130, .12);
-    --fc-on-line: rgba(130,130,130, .5);
+    --fc-soft: rgba(255, 255, 255, .05);
+    --fc-soft-2: rgba(255, 255, 255, .085);
+    --fc-on: rgba(255, 255, 255, .12);
+    --fc-text: #F2F3F5;
+    --fc-muted: #A3A7AE;
+    --fc-faint: #6F737A;
+    --fc-good: #46D98F;
+    --fc-low: #EF7168;
     --fc-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
-    --fc-tiles: repeat(5, minmax(62px, 100px));
   }
-
-  /* ------------------------------------------------------------ the frame */
-
-  /* The frame itself (one panel for the list and a player's page alike)
-     is finder-board.css. */
   html:root .unified-finder { position: relative; isolation: isolate; background-image: none !important; }
 
-  /* The bar: "Finder /" large, the sports as round pills, round buttons on the right. */
-  html:root .unified-finder .finder-topbar { min-height: 0; gap: 16px; padding: 8px 4px 14px; border: 0; background: none !important; box-shadow: none !important; }
+  /* ------------------------------------------------------------ the bar */
+
+  html:root .unified-finder .finder-topbar { min-height: 0; gap: 18px; padding: 4px 2px 18px; border: 0; background: none !important; box-shadow: none !important; }
   html:root .unified-finder .finder-title { gap: 10px; }
-  html:root .unified-finder .finder-title h1 { color: #fff; font-size: 24px; font-weight: 700; letter-spacing: -.035em; }
-  html:root .unified-finder .finder-title > span { margin: 0; color: #fff; opacity: .4; font-size: 24px; font-weight: 300; }
+  html:root .unified-finder .finder-title h1 { color: #fff; font-size: 26px; font-weight: 700; letter-spacing: -.035em; }
+  html:root .unified-finder .finder-title > span { margin: 0; color: #fff; opacity: .28; font-size: 26px; font-weight: 300; }
   html:root .unified-finder :is(.finder-picks-trigger, .finder-top-save) {
-    width: 42px;
-    height: 42px;
-    border: 1px solid var(--fc-line) !important;
-    border-radius: 14px;
-    background: var(--fc-card);
+    width: 40px;
+    height: 40px;
+    border: 0 !important;
+    border-radius: 12px;
+    background: var(--fc-soft);
     color: var(--fc-text);
+    transition: background-color .15s ease, color .15s ease;
   }
-  html:root .unified-finder :is(.finder-picks-trigger, .finder-top-save):hover { border-color: color-mix(in srgb, var(--fc-line) 40%, #fff 22%) !important; }
-  html:root .unified-finder .finder-top-save[aria-pressed=true] { border-color: var(--fc-on-line) !important; background: var(--fc-on); color: var(--fc-good); }
-  html:root .unified-finder .finder-sports { gap: 8px; padding: 2px; }
+  html:root .unified-finder :is(.finder-picks-trigger, .finder-top-save):hover { background: var(--fc-soft-2); }
+  html:root .unified-finder .finder-top-save[aria-pressed=true] { background: var(--fc-on); color: var(--fc-good); }
+  html:root .unified-finder .finder-sports { gap: 4px; padding: 2px; }
   html:root .unified-finder .finder-sports > button {
-    gap: 7px;
-    min-height: 38px;
-    padding: 0 15px;
-    border: 1px solid rgba(255, 255, 255, .1);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, .04);
-    color: #DDDDDD;
-    font: 700 12px/1 var(--font-sans);
-    letter-spacing: .02em;
-    text-transform: uppercase;
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--fc-muted);
+    font: 600 13px/1 var(--font-sans);
+    letter-spacing: 0;
+    text-transform: none;
+    transition: background-color .15s ease, color .15s ease;
   }
-  html:root .unified-finder .finder-sports > button:hover { background: rgba(255, 255, 255, .09); color: #fff; }
-  html:root .unified-finder .finder-sports > button[aria-pressed=true] {
-    border-color: rgba(255, 255, 255, .3);
-    background: rgba(255, 255, 255, .13);
-    color: #fff;
-    box-shadow: inset 0 1px rgba(255, 255, 255, .2), 0 4px 14px rgba(0, 0, 0, .18);
-  }
+  html:root .unified-finder .finder-sports > button:hover { background: rgba(255, 255, 255, .04); color: var(--fc-text); }
+  html:root .unified-finder .finder-sports > button[aria-pressed=true] { border: 0; background: var(--fc-soft-2); color: #fff; box-shadow: none; }
   html:root .unified-finder .finder-brand { height: 22px; }
 
-  /* The controls: the phone's tall round dark bars. */
-  html:root .unified-finder .finder-controls { gap: 10px; padding: 0 4px; background: none; }
-  html:root .unified-finder .finder-search-row { gap: 10px; }
-  html:root .unified-finder .finder-filters { gap: 10px !important; }
-  html:root .unified-finder :is(label.finder-search, .finder-app-filter, .finder-filters .finder-multi-select, .finder-search-row > .finder-icon, .finder-saved, .finder-reset) {
-    height: 46px;
-    min-height: 46px;
-    border: 1px solid var(--fc-line) !important;
-    border-radius: 16px !important;
-    background: var(--fc-card) !important;
+  /* ------------------------------------------------------------ the controls */
+
+  html:root .unified-finder .finder-controls { gap: 10px; padding: 0 2px 16px; border: 0; background: none; }
+  html:root .unified-finder .finder-search-row { grid-template-columns: minmax(260px, 1.3fr) minmax(260px, 1fr) 44px; gap: 10px; }
+  html:root .unified-finder :is(label.finder-search, .finder-app-filter, .finder-search-row > .finder-icon) {
+    height: 44px;
+    min-height: 44px;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: var(--fc-soft) !important;
     box-shadow: none !important;
+    transition: background-color .15s ease;
   }
-  html:root .unified-finder :is(.finder-app-filter, .finder-filters .finder-multi-select) .finder-multi-trigger { height: 100%; min-height: 0; border-radius: 16px; }
-  html:root .unified-finder :is(label.finder-search, .finder-app-filter, .finder-filters .finder-multi-select, .finder-search-row > .finder-icon, .finder-saved, .finder-reset):hover { border-color: color-mix(in srgb, var(--fc-line) 40%, #fff 22%) !important; }
-  html:root .unified-finder label.finder-search:focus-within { border-color: var(--fc-on-line) !important; }
-  html:root .unified-finder .finder-filters .finder-multi-select.is-active { border-color: var(--fc-on-line) !important; background: var(--fc-on) !important; }
-  html:root .unified-finder .finder-filters .finder-multi-select.is-active .finder-multi-trigger { color: var(--fc-text); }
-  html:root .unified-finder .finder-search-row > .finder-icon { width: 46px; }
-  html:root .unified-finder .finder-saved { padding: 0 16px; color: var(--fc-text); }
-  html:root .unified-finder .finder-saved.is-active { border-color: var(--fc-on-line) !important; background: var(--fc-on) !important; }
-  /* Clearing the filters is a quiet button, not a green one. */
-  html:root .unified-finder .finder-filters > .finder-reset { flex: 0 0 46px; width: 46px; color: var(--fc-muted); }
-  html:root .unified-finder .finder-filters > .finder-reset:hover { border-color: rgba(240, 106, 119, .5) !important; color: var(--fc-low); }
+  html:root .unified-finder :is(label.finder-search, .finder-app-filter, .finder-search-row > .finder-icon):hover { background: var(--fc-soft-2) !important; }
+  html:root .unified-finder label.finder-search { gap: 11px; padding: 0 16px; color: var(--fc-faint); }
+  html:root .unified-finder label.finder-search:focus-within { background: var(--fc-soft-2) !important; color: var(--fc-muted); }
+  html:root #panel-finder .unified-finder label.finder-search input { font-size: 14px; }
+  html:root .unified-finder .finder-app-filter .finder-multi-trigger { height: 100%; min-height: 0; padding-left: 16px; border-radius: 12px; color: var(--fc-text); font: 500 13.5px/1 var(--font-sans); }
+  html:root .unified-finder .finder-search-row > .finder-icon { width: 44px; color: var(--fc-muted); }
 
-  /* The line under the controls and the notice, in the same round cards. */
-  html:root .unified-finder .finder-mobile-sort { padding: 2px 4px 10px; }
-  html:root .unified-finder .finder-meta { padding: 4px 6px 10px; background: none; }
-  html:root .unified-finder .finder-availability { margin: 0 4px 12px; padding: 10px 10px 10px 16px; border: 1px solid var(--fc-line); border-radius: 16px; background: var(--fc-card); }
-  html:root .unified-finder .finder-availability button { border-radius: 12px; }
-  html:root .unified-finder .finder-board { margin: 0 4px 10px; }
+  /* The filters: soft chips, each as wide as its words. */
+  html:root .unified-finder .finder-filters { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px !important; }
+  html:root .unified-finder .finder-filters .finder-multi-select,
+  html:root .unified-finder .finder-filters > :is(.finder-saved, .finder-reset) {
+    flex: 0 1 auto;
+    min-width: 0;
+    height: 38px;
+    min-height: 38px;
+    overflow: hidden;
+    border: 0 !important;
+    border-radius: 10px !important;
+    background: var(--fc-soft) !important;
+    box-shadow: none !important;
+    transition: background-color .15s ease, color .15s ease;
+  }
+  html:root .unified-finder .finder-filters .finder-multi-select { max-width: 300px; }
+  html:root .unified-finder .finder-filters .finder-multi-select:hover,
+  html:root .unified-finder .finder-filters > :is(.finder-saved, .finder-reset):hover { background: var(--fc-soft-2) !important; }
+  html:root .unified-finder .finder-filters .finder-multi-trigger { gap: 8px; width: auto; max-width: 100%; height: 38px; padding: 0 12px 0 13px; border-radius: 10px; color: var(--fc-muted); font: 500 13px/1 var(--font-sans); }
+  html:root .unified-finder .finder-filters .finder-multi-trigger > svg:first-child { color: var(--fc-faint); }
+  html:root .unified-finder .finder-filters .finder-multi-trigger > svg:last-child { margin-left: 2px; color: var(--fc-faint); }
+  html:root .unified-finder .finder-filters .finder-multi-select.is-active { background: var(--fc-on) !important; }
+  html:root .unified-finder .finder-filters .finder-multi-select.is-active .finder-multi-trigger { color: #fff; }
+  html:root .unified-finder .finder-filters .finder-multi-select.is-active .finder-multi-trigger > svg { color: inherit; }
+  html:root .unified-finder .finder-filters > .finder-saved { gap: 8px; margin-left: auto; padding: 0 14px; color: var(--fc-muted); font: 500 13px/1 var(--font-sans); }
+  html:root .unified-finder .finder-filters > .finder-saved b { min-width: 18px; padding: 3px 5px; border-radius: 6px; background: rgba(255, 255, 255, .1); color: #fff; font-size: 11px; }
+  html:root .unified-finder .finder-filters > .finder-saved.is-active { background: var(--fc-on) !important; color: #fff; }
+  html:root .unified-finder .finder-filters > .finder-saved.is-active svg { color: var(--fc-good); }
+  /* Clearing the filters is a quiet button, red only under the pointer. */
+  html:root .unified-finder .finder-filters > .finder-reset { flex: 0 0 38px; width: 38px; color: var(--fc-faint); }
+  html:root .unified-finder .finder-filters > .finder-reset:hover { background: rgba(239, 113, 104, .1) !important; color: var(--fc-low); }
 
-  html:root .unified-finder .finder-pagination { margin-top: 2px; border: 1px solid var(--fc-line); border-radius: 16px; background: var(--fc-card); }
-  html:root .unified-finder .finder-pagination :is(button, > div > span, label) { border-color: var(--fc-line); border-radius: 12px; background: var(--fc-tile); }
-  html:root .unified-finder .finder-empty-board { border: 1px dashed var(--fc-line); border-radius: 18px; }
-
+  /* What sits between the controls and the board. */
+  html:root .unified-finder .finder-mobile-sort { padding: 2px 2px 10px; }
+  html:root .unified-finder .finder-meta { padding: 0 4px 10px; background: none; }
+  html:root .unified-finder .finder-availability { margin: 0 2px 14px; padding: 10px 10px 10px 16px; border: 0; border-radius: 12px; background: var(--fc-soft); }
+  html:root .unified-finder .finder-availability button { border-radius: 10px; }
 }
 
-/* Laptops: the sport pills drop their logos so the row fits. */
+/* Laptops: the sports drop their logos so the row fits. */
 @media (min-width: 761px) and (max-width: 1240px) {
-  html:root .unified-finder .finder-sports { gap: 6px; }
-  html:root .unified-finder .finder-sports > button { padding: 0 12px; }
+  html:root .unified-finder .finder-sports { gap: 2px; }
+  html:root .unified-finder .finder-sports > button { padding: 0 11px; }
   html:root .unified-finder .finder-sports > button .finder-league { display: none; }
 }
