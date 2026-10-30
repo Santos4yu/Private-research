@@ -21,11 +21,11 @@ function WinPredictor({matchup}){
  if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{matchup.loading?<Skeleton/>:<Empty>{matchup.error||'Matchup prediction is not available yet.'}</Empty>}</section>;
  const [away,home]=m.teams;const market=m.odds?.noVig;
  const source=m.predictor?{away:m.predictor.away,home:m.predictor.home,}:market?{away:market.away,home:market.home}:null;
- // Away grey, home white: the site's black and white, not team colours.
- const colors=['#8c8c8c','#f2f2f2'];
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.status?.detail||'Pregame'}</small></header>
-  {source?<><div className="mlb-win-body">{[away,home].map((team,index)=><React.Fragment key={team.id}>{index===1&&<div className="mlb-win-ring" role="img" aria-label={`${away.abbr} ${source.away}%, ${home.abbr} ${source.home}%`} style={{background:`conic-gradient(${colors[0]} 0% ${source.away}%, ${colors[1]} ${source.away}% 100%)`}}><span>WIN<br/>CHANCE</span></div>}
-   <div className="mlb-win-team"><Logo src={team.logo} size={32}/><strong>{team.abbr}</strong><small>{team.record||'Record unavailable'}{index===1?' · Home':''}</small><b style={{color:colors[index]}}>{fmt(index?source.home:source.away)}%</b></div></React.Fragment>)}</div></>
+  {/* The two teams, each its chance, and one bar split between them (Oct 30: the ring read as busy). */}
+  {source?<><div className="wp-teams">{[away,home].map((team,index)=><div className="wp-team" key={team.id} data-side={index?'home':'away'}><Logo src={team.logo} size={30}/>
+    <span><strong>{team.abbr}</strong><small>{team.record||'Record unavailable'}{index===1?' · Home':''}</small></span><b>{fmt(index?source.home:source.away)}%</b></div>)}</div>
+   <div className="wp-bar" role="img" aria-label={`${away.abbr} ${source.away}%, ${home.abbr} ${source.home}%`}><i style={{width:`${source.away}%`}}/></div></>
   :<Empty>No pregame prediction or moneyline is posted for this game yet.</Empty>}
  </section>;
 }
@@ -311,8 +311,11 @@ function DefenderCard({row,matchup}){
  </Card>;
 }
 
-export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilter}){
- const [tab,setTab]=useState('matchup');
+// `tab` from the page (the NBA / WNBA page's own section tabs, which then
+// stand in for this panel's tab row), else its own.
+export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilter,tab:shownTab}){
+ const [ownTab,setTab]=useState('matchup');
+ const tab=shownTab||ownTab;
  const opponent=opponentOf(row);
  const league=useWnba('league-context',{league:leagueOf(row)});
  const player=useWnba('player-context',playerContextParams(row),hasPlayerContext(row));
@@ -322,7 +325,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  const playerPosition=positionOf(player.data?.position||row.position);
  const statLabel=useMemo(()=>Object.fromEntries(league.data?.stats||[])[stat]||row.market,[league.data,stat,row.market]);
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
-  <FinderResearchTabs tab={tab} onChange={setTab}/>
+  {!shownTab&&<FinderResearchTabs tab={tab} onChange={setTab}/>}
   {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
   {tab==='defense'&&<>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<DefenseVsPosition league={league} row={row} stat={stat} playerPosition={playerPosition}/><OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}

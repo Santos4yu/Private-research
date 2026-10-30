@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (site colors are now the site's own colors, not a tint; gradients; Background colors; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-10-30 (the NBA / WNBA Finder player page rebuilt; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,38 @@ Last updated 2026-10-30 (site colors are now the site's own colors, not a tint; 
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Oct 30: the NBA / WNBA Finder player page, rebuilt
+
+- The owner: "new buttons new everything ... new placements ... nice and
+  mobile friendly and user friendly easy to navigate and see data nothing
+  complex". All the data stays; only this page (`.fp2`, WNBAPlayerPage.jsx
+  + `src/finder-player-v2.css`); other sports' Finder pages are unchanged.
+- Top bar (FinderPlayerBanner `layout="v2"`): back, photo, name, position,
+  team logo, game and time; account button on a phone. No brand logo, no
+  team watermark, no Trends / Matchup / Depth switch.
+- The chart column, top to bottom: stat tabs (words with their lines,
+  underlined when picked), the bet ("More 21.5 Points", tier icon, price,
+  Analyze) beside the line's - / +, PrizePicks lines and the save star;
+  the hit-rate windows (each % in its color with its record, the picked
+  one on a soft fill) ABOVE the chart; the chart; Average and Median (the
+  summary's hit rate and record are hidden, the windows show them);
+  filters as soft chips; odds as soft chips.
+- One tab row for everything else: Matchup, Defense, Shooting, Similar,
+  Injuries, Rankings (WNBAFinderContext now takes `tab` from the page and
+  hides its own tab row), Stats (supporting stats), Game log, Depth. Every
+  section stays mounted and is hidden when not picked (instant, keeps its
+  state). Computer (1051px+): chart left, tabs right; phone: stacked.
+- Win predictor is now two teams with their chances and one split bar
+  (`wp-*`), not a ring. Cards are soft panels without outlines.
+- How: the chart is app.js's shared trend panel (#gamelog-overlay) moved
+  into the page; v2 places its parts with grid areas on `.gamelog-modal`
+  (`.gamelog-workbench` is `display: contents`, `.gamelog-toolbar` forced
+  back to block: a phone rule had made it `contents`, which spilled the
+  line controls over the bet). Its rules carry
+  `#gamelog-overlay#gamelog-overlay.trend-edge` to outrank the panel's own
+  last layer (gamelog-premium / trend-edge rules), with !important where
+  those use it; grid-area and grid-template need !important too.
 
 ### Oct 30: the colors are the site's own colors now, not a tint
 

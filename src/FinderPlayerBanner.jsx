@@ -121,7 +121,11 @@ function HitRing({record}){
  </span>;
 }
 
-export function FinderPlayerBanner({row,playerRows=[],onBack}){
+// layout "v2" (the NBA / WNBA page, finder-player-v2.css): one top bar with
+// the player and the game; under the stat tabs the bet itself (the side, the
+// line large, the stat, the price, Analyze); no Trends / Matchup / Depth
+// switch (the page has its own section tabs).
+export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
  const ref=useRef(null);
  const slots=usePanelSlots(ref);
  const [quotes,setQuotes]=useState(null);
@@ -182,6 +186,34 @@ export function FinderPlayerBanner({row,playerRows=[],onBack}){
    <span className="fpb-lines"><span><b data-side="over">O</b>{american(book.over)}</span><span><b data-side="under">U</b>{american(book.under)}</span></span>
   </div>)}
  </div>:null;
+ if(layout==='v2'){
+  const canAnalyze=ANALYZE_SPORTS.has(row.sport)&&!row.researchOnly;
+  const bet=<div className="fp2-bet">
+   {row.market&&row.researchOnly?<p className="fp2-bet-main"><span className="fp2-bet-stat">{row.market}</span><span className="fp2-bet-note">No PrizePicks line tonight</span></p>
+    :<p className="fp2-bet-main"><span className="fp2-bet-side" data-side={side==='Less'?'less':'more'}>{side}</span><b>{shownLine}</b><span className="fp2-bet-stat">{row.market}</span>
+     {tier&&<img src={`/prizepicks/${tier}.png`} alt={tier} width="18" height="18"/>}</p>}
+   {priced&&<span className="fp2-bet-price" title={`${priced.name} ${american(priced[sideKey])}`}><img src={priced.logo} alt={priced.name} width="16" height="16" onError={e=>{e.currentTarget.hidden=true;}}/>
+    <b data-side={priced[sideKey]<0?'fav':'dog'}>{american(priced[sideKey])}</b></span>}
+   {/* Analyze grades this bet (the line on the chart), so it sits with it. */}
+   {canAnalyze&&<AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>}
+  </div>;
+  return <header ref={ref} className={`fpb fp2-head${slots?' fpb-merged':''}`}>
+   <div className="fp2-top">
+    <button type="button" className="fp2-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={19} aria-hidden="true"/></button>
+    <span className="fp2-who">
+     <span className="fpb-avatar fp2-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
+      {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+     <span className="fp2-name"><h1>{row.player}</h1>
+      <small>{row.position&&<><b>{row.position}</b><i aria-hidden="true">·</i></>}{row.teamLogo&&<img src={row.teamLogo} alt="" width="14" height="14" onError={e=>{e.currentTarget.hidden=true;}}/>}<span>{gameLabel(row)}</span>
+       {time&&<><i aria-hidden="true">·</i><span>{time}</span></>}</small></span>
+    </span>
+    <span className="fp2-actions">
+     <button type="button" className="fpb-account fp2-account" aria-label="Your account" aria-haspopup="dialog" onClick={pressAccount}><UserRound size={18} aria-hidden="true"/></button></span>
+   </div>
+   {slots?createPortal(bet,slots.hero):bet}
+   {oddsRow&&(slots?.quotes?createPortal(oddsRow,slots.quotes):oddsRow)}
+  </header>;
+ }
  return <header ref={ref} className={`fpb${slots?' fpb-merged':''}`}>
   <div className="fpb-top">
    <button type="button" className="fpb-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={18} aria-hidden="true"/>Back</button>

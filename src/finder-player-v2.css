@@ -1,0 +1,308 @@
+/* The NBA / WNBA player page off the Finder, rebuilt (WNBAPlayerPage.jsx,
+   FinderPlayerBanner layout "v2"). Oct 30, the owner: "new buttons new
+   everything ... new placements ... nice and mobile friendly and user
+   friendly easy to navigate and see data nothing complex".
+
+     top bar   back, his photo, name, game and time, Analyze
+     chart     stat tabs (each with its line), the bet (More 15.0 Points,
+               the price) beside the line's - / + and the PrizePicks lines,
+               the hit-rate windows (L5 ... Season, the % in its color),
+               the chart, average and median, the filters, the odds
+     tabs      one row for everything else: Matchup ... Rankings, Stats,
+               Game log, Depth; the picked one under it
+
+   Phone: all of it stacked. Computer (1051px+): the chart on the left, the
+   tabs on the right. Open like the Finder board: no outlines, soft fills,
+   numbers in color. The chart panel is app.js's shared trend panel moved
+   in here; its parts are placed with grid areas (the workbench lets its
+   toolbar, filters and odds take their own places). Its rules carry
+   "#gamelog-overlay#gamelog-overlay.trend-edge", like the trend panel's
+   own last layer (trend-edge), and !important where it does, to win over
+   it. Other sports' player pages keep their own look. */
+
+.fp2 {
+  --fp-text: #F2F3F5;
+  --fp-muted: #A3A7AE;
+  --fp-faint: #6F737A;
+  --fp-soft: rgba(255, 255, 255, .05);
+  --fp-soft-2: rgba(255, 255, 255, .085);
+  --fp-on: rgba(255, 255, 255, .12);
+  --fp-rule: rgba(255, 255, 255, .07);
+  --fp-good: #46D98F;
+  --fp-mid: #E8B85A;
+  --fp-low: #EF7168;
+  --fp-ease: cubic-bezier(.22, .8, .24, 1);
+}
+html:root .unified-finder .finder-trend-view.fp2 { min-height: 0; margin: 0; padding: 4px 0 24px !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; color: var(--fp-text); }
+
+/* ------------------------------------------------------------ top bar */
+
+html:root .fp2 .fp2-head { display: block; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+.fp2 .fp2-top { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 0 16px; }
+.fp2 .fp2-back {
+  display: grid; place-items: center; flex: none; width: 40px; height: 40px; padding: 0;
+  border: 0 !important; border-radius: 50%; background: var(--fp-soft); color: var(--fp-text); cursor: pointer;
+  transition: background-color .15s ease;
+}
+.fp2 .fp2-back:hover { background: var(--fp-soft-2); }
+.fp2 .fp2-who { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; }
+html:root .fp2 .fp2-avatar { position: relative; flex: none; width: 48px; height: 48px; margin: 0; border: 0; border-radius: 50%; background: #1C1E22; box-shadow: none; overflow: hidden; }
+html:root .fp2 .fp2-avatar .fpb-photo { width: 100%; height: 100%; border: 0; border-radius: 50%; object-fit: cover; object-position: top; }
+.fp2 .fp2-name { display: grid; gap: 4px; min-width: 0; }
+html:root .fp2 .fp2-name h1 { margin: 0; overflow: hidden; color: var(--fp-text); font: 700 20px/1.15 var(--font-sans); letter-spacing: -.02em; white-space: nowrap; text-overflow: ellipsis; }
+.fp2 .fp2-name small { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: var(--fp-muted); font: 500 13px/1.2 var(--font-sans); white-space: nowrap; }
+.fp2 .fp2-name small b { color: var(--fp-text); font-weight: 600; }
+.fp2 .fp2-name small i { color: var(--fp-faint); font-style: normal; }
+.fp2 .fp2-name small img { width: 14px; height: 14px; object-fit: contain; }
+.fp2 .fp2-actions { display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto; }
+html:root .fp2 .fp2-bet .ap-trigger {
+  display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 16px;
+  border: 0 !important; border-radius: 999px; background: var(--fp-text) !important; color: #0B0C0E !important;
+  font: 600 13.5px/1 var(--font-sans); box-shadow: none !important; cursor: pointer; transition: opacity .15s ease;
+}
+html:root .fp2 .fp2-bet .ap-trigger:hover { opacity: .9; transform: none; }
+html:root .fp2 .fp2-bet .ap-trigger :is(span, svg) { color: inherit !important; -webkit-text-fill-color: currentColor !important; }
+html:root .fp2 .fp2-account { display: none; }
+
+/* ------------------------------------------------------------ the layout */
+
+.fp2 .fp2-grid { display: grid; gap: 22px; min-width: 0; }
+.fp2 .fp2-chart, .fp2 .fp2-research { min-width: 0; }
+@media (min-width: 1051px) {
+  .fp2 .fp2-grid { grid-template-columns: minmax(0, 1.5fr) minmax(380px, 1fr); align-items: start; gap: 32px; }
+}
+
+/* ------------------------------------------------------------ the chart panel */
+
+html:root .fp2 .wnba-trend-host { margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge { position: static; display: block; margin: 0; padding: 0; border: 0 !important; background: none !important; box-shadow: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-rows: none !important;
+  grid-template-areas: "tabs tabs" "bet tool" "windows windows" "chart chart" "summary summary" "filters filters" "quotes quotes" "odds odds" !important;
+  align-items: center;
+  gap: 0 16px;
+  width: auto; max-width: none; max-height: none; margin: 0; padding: 0 !important;
+  overflow: visible; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge :is(.modal-head, .gamelog-market-strip, #gamelog-switch-slot) { display: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-workbench { display: contents !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs { grid-area: tabs !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-hero-slot { grid-area: bet !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar { grid-area: tool !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs { grid-area: windows !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-window-menu { grid-area: windows !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-studio { grid-area: chart !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary { grid-area: summary !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel { grid-area: filters !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-quotes-slot { grid-area: quotes !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-odds-row { grid-area: odds !important; }
+
+/* The stats: words on one line that scrolls sideways, each with its line;
+   the picked one in white over a line. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs {
+  display: flex !important; gap: 2px; margin: 0 0 18px; padding: 0 !important;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  border: 0 !important; background: none !important; box-shadow: inset 0 -1px var(--fp-rule) !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs::-webkit-scrollbar { display: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button {
+  display: grid !important; justify-items: center; gap: 4px; flex: none; min-width: 52px; height: auto !important; min-height: 0 !important;
+  margin: 0; padding: 8px 10px 11px !important; border: 0 !important; border-radius: 0 !important;
+  background: none !important; box-shadow: none !important; color: var(--fp-faint); cursor: pointer;
+  transition: color .15s ease, box-shadow .2s var(--fp-ease);
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button b { color: var(--fp-muted); font: 600 13px/1 var(--font-sans); letter-spacing: 0; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button small { color: var(--fp-faint); font: 500 11.5px/1 var(--font-sans); opacity: 1; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button:hover b { color: var(--fp-text); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { box-shadow: inset 0 -2px var(--fp-text) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active b { color: var(--fp-text); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active small { color: var(--fp-muted); }
+
+/* The bet: More (green) or Less (red), the line large, the stat, the price. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-hero-slot { min-width: 0; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
+.fp2 .fp2-bet { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; min-width: 0; }
+.fp2 .fp2-bet-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; margin: 0; }
+.fp2 .fp2-bet-main > b { color: var(--fp-text); font: 700 32px/1 var(--font-sans); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.fp2 .fp2-bet-side { color: var(--fp-good); font: 600 15px/1 var(--font-sans); }
+.fp2 .fp2-bet-side[data-side=less] { color: var(--fp-low); }
+.fp2 .fp2-bet-stat { overflow: hidden; color: var(--fp-muted); font: 500 15px/1.2 var(--font-sans); white-space: nowrap; text-overflow: ellipsis; }
+.fp2 .fp2-bet-note { color: var(--fp-faint); font: 500 13px/1.2 var(--font-sans); }
+.fp2 .fp2-bet-main img { align-self: center; width: 18px; height: 18px; }
+.fp2 .fp2-bet-price { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--fp-soft); color: var(--fp-muted); font: 600 12.5px/1 var(--font-sans); }
+.fp2 .fp2-bet-price img { width: 16px; height: 16px; object-fit: contain; }
+.fp2 .fp2-bet-price b { color: var(--fp-text); font-variant-numeric: tabular-nums; }
+
+/* The line's - / + and the PrizePicks lines, beside the bet. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar { display: block !important; margin: 0; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge :is(.gamelog-toolbar-row, .gamelog-toolbar-head) { display: flex !important; align-items: center; gap: 8px; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-market-title { display: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control {
+  display: inline-flex !important; align-items: center; height: 40px; padding: 0 4px; gap: 0;
+  border: 0 !important; border-radius: 999px !important; background: var(--fp-soft) !important; box-shadow: none !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control button {
+  display: grid; place-items: center; width: 32px !important; height: 32px !important; min-height: 0 !important; padding: 0 !important;
+  border: 0 !important; border-radius: 50% !important; background: none !important; color: var(--fp-muted) !important; font: 500 18px/1 var(--font-sans);
+  box-shadow: none !important; cursor: pointer; transition: background-color .15s ease, color .15s ease;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control button:hover { background: var(--fp-soft-2) !important; color: var(--fp-text) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-line-value { display: grid; place-items: center; min-width: 48px; height: auto !important; padding: 0 2px; background: none !important; color: var(--fp-text) !important; font: 700 15px/1 var(--font-sans) !important; font-variant-numeric: tabular-nums; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root { flex: none; width: auto !important; min-width: 0; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root .ace-select-trigger {
+  width: auto !important; min-width: 0 !important; height: 40px !important; min-height: 0 !important; gap: 8px; padding: 0 12px 0 14px !important;
+  border: 0 !important; border-radius: 999px !important; background: var(--fp-soft) !important; box-shadow: none !important; color: var(--fp-text);
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root .ace-select-trigger:hover { background: var(--fp-soft-2) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-save {
+  display: grid; place-items: center; flex: none; width: 40px !important; height: 40px !important; min-height: 0 !important; padding: 0 !important;
+  border: 0 !important; border-radius: 50% !important; background: var(--fp-soft) !important; box-shadow: none !important; color: var(--fp-muted);
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-save[aria-pressed=true] { color: var(--fp-good); }
+
+/* The hit-rate windows: each window's % in its color with its record, the
+   picked one on a soft fill. Above the chart they pick. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs {
+  display: flex !important; gap: 6px; margin: 20px 0 6px; padding: 0 !important;
+  overflow-x: auto; scrollbar-width: none; border: 0 !important; background: none !important; box-shadow: none !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs::-webkit-scrollbar { display: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button {
+  display: grid !important; grid-template-columns: auto auto; grid-template-areas: "label label" "pct rec";
+  align-items: baseline; justify-content: start; gap: 5px 6px; flex: 1 1 0; min-width: 74px; max-width: 150px; height: auto !important; min-height: 0 !important;
+  margin: 0; padding: 9px 12px 10px !important; border: 0 !important; border-radius: 14px !important;
+  background: none !important; box-shadow: none !important; color: var(--fp-faint); text-align: left; cursor: pointer;
+  transition: background-color .15s ease;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button::before, html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button::after { content: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button:hover { background: var(--fp-soft) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button.active { background: var(--fp-soft-2) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button strong { grid-area: label; display: inline-flex; align-items: center; gap: 3px; color: var(--fp-muted); font: 600 12px/1 var(--font-sans); letter-spacing: 0; text-transform: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button.active strong { color: var(--fp-text); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-pct { grid-area: pct; color: var(--fp-text); font: 700 17px/1 var(--font-sans); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-rec { grid-area: rec; color: var(--fp-faint); font: 500 11.5px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button[data-heat=good] .gl-window-pct { color: var(--fp-good); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button[data-heat=mid] .gl-window-pct { color: var(--fp-mid); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button[data-heat=low] .gl-window-pct,
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button[data-heat=bad] .gl-window-pct { color: var(--fp-low); }
+
+/* The chart, open on the page. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-studio, html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-studio .gamelog-stage { margin: 0; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
+
+/* Average and median, plain under the chart. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary {
+  display: flex !important; align-items: baseline; justify-content: flex-start !important; gap: 22px; margin: 6px 0 0; padding: 12px 2px !important;
+  border: 0 !important; background: none !important; box-shadow: inset 0 1px var(--fp-rule) !important;
+}
+/* The hit rate and record are the windows' own; the summary keeps average and median. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > :is(.gl-sum-rate, .gl-sum-record, .gamelog-sub) { display: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > div { margin-left: 0 !important; display: inline-flex !important; align-items: baseline; gap: 7px; margin: 0; padding: 0; border: 0; background: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary span { color: var(--fp-faint); font: 500 13px/1 var(--font-sans); text-transform: none; letter-spacing: 0; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary strong { color: var(--fp-text); font: 700 16px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+
+/* The filters: soft chips, each its name and value. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel {
+  display: flex !important; flex-wrap: wrap !important; gap: 8px; margin: 14px 0 0; padding: 0 !important;
+  border: 0 !important; background: none !important; box-shadow: none !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field:not([hidden]) {
+  display: inline-flex !important; align-items: center; gap: 4px; flex: 0 1 auto; width: auto !important; min-width: 0; height: 38px !important; min-height: 0 !important;
+  margin: 0; padding: 0 4px 0 14px !important; border: 0 !important; border-radius: 999px !important; background: var(--fp-soft) !important; box-shadow: none !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field > span { color: var(--fp-faint); font: 500 12.5px/1 var(--font-sans); letter-spacing: 0; text-transform: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .ace-select-trigger { width: auto !important; min-width: 0 !important; height: 32px !important; min-height: 0 !important; padding: 0 10px !important; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--fp-text); font: 600 12.5px/1 var(--font-sans) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel :is(.gamelog-ext-chips) { width: 100%; }
+
+/* The odds: one row of soft chips. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-quotes-slot { margin: 12px 0 0; padding: 0; border: 0; background: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-card {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 38px; height: auto; margin: 0; padding: 4px 14px 4px 6px;
+  border: 0 !important; border-radius: 999px; background: var(--fp-soft) !important; box-shadow: none !important; color: var(--fp-muted); font: 500 12.5px/1 var(--font-sans);
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-card > img { width: 26px; height: 26px; border-radius: 50%; object-fit: contain; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-chance { padding-left: 12px; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-chance-mark { display: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines { display: inline-flex; gap: 10px; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines > span { display: inline-flex; gap: 4px; color: var(--fp-text); font-weight: 600; font-variant-numeric: tabular-nums; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines b { color: var(--fp-faint); font-weight: 600; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-info { display: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-odds-row:empty { display: none; }
+
+/* ------------------------------------------------------------ the tabs and sections */
+
+/* One row of words, scrolling sideways on a phone; the picked one in white over a line. */
+.fp2 .fp2-tabs {
+  display: flex; gap: 2px; margin: 0 0 16px; padding: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  box-shadow: inset 0 -1px var(--fp-rule);
+}
+.fp2 .fp2-tabs::-webkit-scrollbar { display: none; }
+html:root .fp2 .fp2-tabs > button {
+  flex: none; height: 44px; margin: 0; padding: 0 12px; border: 0 !important; border-radius: 0; background: none !important;
+  color: var(--fp-faint); font: 600 14px/1 var(--font-sans); letter-spacing: 0; white-space: nowrap; cursor: pointer;
+  transition: color .15s ease, box-shadow .2s var(--fp-ease);
+}
+html:root .fp2 .fp2-tabs > button:hover { color: var(--fp-muted); }
+html:root .fp2 .fp2-tabs > button[aria-pressed=true] { color: var(--fp-text); box-shadow: inset 0 -2px var(--fp-text); }
+.fp2 .fp2-section[hidden] { display: none !important; }
+.fp2 .fp2-section:not([hidden]) { animation: fp2-in .28s var(--fp-ease); }
+@keyframes fp2-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* The cards in the sections: soft panels, no outlines; their inner tiles
+   soft too. The research panel's own layout is a column here. */
+html:root .fp2 .fp2-research .mlb-finder-context { display: grid; gap: 14px; width: auto; max-width: none; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; position: static; }
+html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) {
+  margin: 0; padding: 18px; border: 0 !important; border-radius: 18px !important; background: var(--fp-soft) !important; box-shadow: none !important;
+}
+html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) > header { margin: 0 0 14px; padding: 0; border: 0 !important; background: none !important; box-shadow: none !important; }
+html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) > header h2 { margin: 0; color: var(--fp-text); font: 600 15px/1.2 var(--font-sans); letter-spacing: -.01em; text-transform: none; }
+html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) > header small { color: var(--fp-faint); font: 500 12px/1.2 var(--font-sans); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fp2 .fp2-section:not([hidden]) { animation: none; }
+}
+
+/* ------------------------------------------------------------ a phone */
+
+@media (max-width: 760px) {
+  html:root .unified-finder .finder-trend-view.fp2 { padding: 0 14px 24px !important; }
+  .fp2 .fp2-top { gap: 10px; padding-bottom: 12px; }
+  .fp2 .fp2-back { width: 38px; height: 38px; }
+  html:root .fp2 .fp2-avatar { width: 42px; height: 42px; }
+  html:root .fp2 .fp2-name h1 { font-size: 17px; }
+  .fp2 .fp2-name small { font-size: 12px; }
+  html:root .fp2 .fp2-bet .ap-trigger { height: 34px; padding: 0 13px; margin-left: auto; font-size: 13px; }
+  html:root .fp2 .fp2-account { display: grid; width: 36px; height: 36px; border: 0 !important; border-radius: 50%; background: var(--fp-soft); }
+  /* The bet over its controls. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: "tabs" "bet" "tool" "windows" "chart" "summary" "filters" "quotes" "odds" !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar { margin-top: 12px; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root { flex: 1 1 auto; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-lines-select-root .ace-select-trigger { width: 100% !important; }
+  .fp2 .fp2-bet-main > b { font-size: 28px; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs { gap: 2px; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button { min-width: 0; padding: 8px 6px 9px !important; border-radius: 12px !important; grid-template-areas: "label" "pct" "rec"; grid-template-columns: auto; gap: 4px; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-pct { font-size: 15.5px; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field:not([hidden]) { flex: 1 1 auto; justify-content: space-between; }
+  .fp2 .fp2-tabs { margin-left: -14px; margin-right: -14px; padding: 0 8px; }
+  html:root .fp2 .fp2-tabs > button { height: 42px; padding: 0 11px; font-size: 13.5px; }
+  html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) { padding: 16px; border-radius: 16px !important; }
+}
+
+/* Win predictor: the two teams, each its chance, one bar split between them. */
+.fp2 .wp-teams { display: flex; justify-content: space-between; gap: 12px; }
+.fp2 .wp-team { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fp2 .wp-team[data-side=home] { flex-direction: row-reverse; text-align: right; }
+.fp2 .wp-team > span { display: grid; gap: 3px; min-width: 0; }
+.fp2 .wp-team strong { color: var(--fp-text); font: 600 14px/1 var(--font-sans); }
+.fp2 .wp-team small { color: var(--fp-faint); font: 500 12px/1.1 var(--font-sans); white-space: nowrap; }
+.fp2 .wp-team > b { margin: 0 4px; color: var(--fp-text); font: 700 22px/1 var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.fp2 .wp-team[data-side=away] > b { color: var(--fp-muted); }
+.fp2 .wp-bar { height: 6px; margin-top: 14px; overflow: hidden; border-radius: 6px; background: var(--fp-text); }
+.fp2 .wp-bar > i { display: block; height: 100%; background: #6F737A; box-shadow: 2px 0 0 #101010; animation: fp2-bar .7s var(--fp-ease) .1s backwards; }
+@keyframes fp2-bar { from { width: 0; } }
+
+/* The averages: the numbers on soft tiles, no outlines. */
+html:root .fp2 .fp2-research :is(.mlb-average-grid, .wnba-season-grid) > * { border: 0 !important; border-radius: 12px !important; background: rgba(255, 255, 255, .045) !important; box-shadow: none !important; }
+html:root .fp2 .fp2-research :is(.mlb-average-grid, .wnba-season-grid) > [aria-pressed=true],
+html:root .fp2 .fp2-research :is(.mlb-average-grid, .wnba-season-grid) > .is-active { background: rgba(255, 255, 255, .11) !important; }

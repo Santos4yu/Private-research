@@ -11,11 +11,22 @@ import {withLines} from '../../trend-lines';
 import {Failure} from '../../AdminNotice';
 import {useTrendPanel} from '../../trend-panel.js';
 import {depthRows,injuryCode} from './depth';
+import {RESEARCH_TABS} from '../../FinderResearchSections';
+import '../../finder-player-v2.css';
 
 
-// The WNBA player page, on the MLB Finder page's exact layout: the shared
-// trend chart, supporting stats and game log on the left, the tabbed
-// matchup panel on the right (MLBTrends in FinderTrendView.jsx).
+// The NBA / WNBA player page off the Finder (finder-player-v2.css). Oct 30,
+// the owner: "new buttons new everything ... new placements ... nice and
+// mobile friendly and user friendly easy to navigate and see data nothing
+// complex". A top bar (the player, the game, Analyze); the shared trend
+// chart with the stat tabs, the bet, the hit-rate windows, the chart, the
+// filters and the odds, top to bottom; then one row of tabs for everything
+// else: the matchup panel's six, his supporting stats, game log and the
+// depth chart. On a computer the chart takes the left and the tabs the right.
+// Every section stays mounted (hidden when not picked), so a tab opens at
+// once and keeps where it was.
+const SECTIONS=[...RESEARCH_TABS.map(([key,label])=>[key,label]),['stats','Stats'],['log','Game log'],['depth','Depth']];
+const RESEARCH=new Set(RESEARCH_TABS.map(([key])=>key));
 
 // The known stats in their usual order, then any other market PrizePicks
 // posts for this player (shown by its own name; no history to chart yet).
@@ -121,6 +132,9 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
  // With/without choices from the depth chart or Injuries tab; the chart
  // keeps the games that match every one of them.
  const [filters,setFilters]=useState([]);
+ // The section picked under the chart, and the matchup panel's last tab.
+ const [section,setSection]=useState('matchup'),[researchTab,setResearchTab]=useState('matchup');
+ const pickSection=useCallback(key=>{setSection(key);if(RESEARCH.has(key))setResearchTab(key);},[]);
  useEffect(()=>{setSelected(row);setFilters([]);},[row]);
  const toggleFilter=useCallback(entry=>setFilters(old=>toggleSplit(old,entry)),[]);
  const removeFilter=useCallback(key=>setFilters(old=>old.filter(filter=>splitKey(filter)!==key)),[]);
@@ -139,17 +153,22 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
  const shown=realGames(chartLogs).length;
  const chipsNote=filters.length?`${shown} ${shown===1?'game':'games'}`:'';
  const loading=trend.state==='loading';
- return <section className="finder-trend-view wnba-trend-page wnba-player-page">
-  <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack}/>
+ return <section className="finder-trend-view wnba-trend-page wnba-player-page fp2">
+  <FinderPlayerBanner row={selected} playerRows={playerRows} onBack={onBack} layout="v2"/>
   {!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to ESPN's roster yet, so trends and matchup research are not available.</span></div>:<>
   {trend.state==='error'&&<div className="wnba-board-message" role="alert"><span>{trend.error}</span><button type="button" className="wnba-trend-back" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
-  <div className="mlb-finder-workspace"><div className="mlb-trend-main">
-   <TrendChart row={selected} playerRows={playerRows} extraRows={extraRows} logs={chartLogs} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
-   {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}
-   <SupportingStats logs={trend.rows} loading={loading}/>
-   <DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/>
-   <PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/>
-  </div>
-  <WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter}/></div></>}
+  <div className="fp2-grid">
+   <div className="fp2-chart">
+    <TrendChart row={selected} playerRows={playerRows} extraRows={extraRows} logs={chartLogs} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
+    {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}
+   </div>
+   <div className="fp2-research">
+    <nav className="fp2-tabs" aria-label="Research">{SECTIONS.map(([key,label])=><button type="button" key={key} aria-pressed={section===key} onClick={()=>pickSection(key)}>{label}</button>)}</nav>
+    <div className="fp2-section" hidden={!RESEARCH.has(section)}><WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter} tab={researchTab}/></div>
+    <div className="fp2-section" hidden={section!=='stats'}><SupportingStats logs={trend.rows} loading={loading}/></div>
+    <div className="fp2-section" hidden={section!=='log'}><PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/></div>
+    <div className="fp2-section" hidden={section!=='depth'}><DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/></div>
+   </div>
+  </div></>}
  </section>;
 }
