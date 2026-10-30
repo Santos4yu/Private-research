@@ -445,7 +445,12 @@
 :root[data-theme] .trend-lines-menu .posted-line-primary img,
 :root[data-theme] #gamelog-lines-select-root .posted-line-primary img { width: 18px; height: 18px; object-fit: contain; }
 :root[data-theme] .trend-lines-menu .pp-select-line-value { min-width: 28px; font-weight: 750; font-variant-numeric: tabular-nums; }
-:root[data-theme] .trend-lines-menu .pp-select-line-tier { margin-left: auto; font-size: 10px; }
+/* A team's logo before its code (the Team and Opponent menus). */
+.trend-opt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.trend-opt img { flex: none; object-fit: contain; }
+/* Line and marks only: a narrow menu, the marks lined up in one column. */
+:root[data-theme] .trend-lines-menu.ace-select-menu { min-width: 0; }
+:root[data-theme] .trend-lines-menu .posted-line-primary { min-width: 40px; height: 22px; }
 @media (hover: hover) {
   :root[data-theme] #gamelog-overlay button[role="combobox"]:hover { border-color: #7d7d7d !important; }
   :root[data-theme] #gamelog-overlay .gamelog-line-control button:hover { background: #2e2e2e !important; color: #fff !important; }

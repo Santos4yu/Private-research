@@ -477,3 +477,19 @@ class DefenseBySeasonTests(unittest.TestCase):
         self.assertEqual(found["dvp"]["AAA"]["stats"]["pts"]["szn"], [14.0, 2])
         self.assertEqual(picked["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)
         self.assertEqual(found["teams"]["AAA"], {"name": "A", "logo": "a.png"})
+
+    def test_rosters_that_say_only_g_or_f_still_split(self):
+        # ESPN's rosters read G / F / C like its box scores: each player is
+        # placed by how he plays, his own position included.
+        line = lambda pid, pts, ast=0, reb=0: [pid, 1] + [{"min": 36, "pts": pts, "ast": ast, "reb": reb}.get(field, 0) for field in league.FIELDS]
+        payload = {"season": 2027, "builtAt": "y", "teams": {"AAA": {"name": "A"}, "BBB": {"name": "B"}},
+                   "players": {"g1": ["G One", "G", None, "AAA"], "f1": ["F One", "F", None, "BBB"]},
+                   "games": {"1": {"id": "1", "date": "2026-10-25", "type": 2, "home": "AAA", "away": "BBB",
+                                   "t": {"AAA": {"p": [line("g1", 20, ast=8)], "dnp": [], "z": []}, "BBB": {"p": [line("f1", 14, reb=4)], "dnp": [], "z": []}}}}}
+        rosters = {"AAA": {"g1": {"name": "G One", "pos": "G"}}, "BBB": {"f1": {"name": "F One", "pos": "F"}}}
+        with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=payload), \
+                patch.object(league, "progress", return_value=None), patch.object(api, "_team_rosters", return_value=(rosters, 2)):
+            found = api._dvp("nba", 2027, "", "g1")
+        self.assertEqual(found["positions"], ["ALL", "PG", "SG", "SF", "PF", "C"])
+        self.assertEqual((found["position"], found["playerPosition"]), ("PG", "PG"))
+        self.assertEqual(found["dvp"]["BBB"]["stats"]["pts"]["szn"][0], 20.0)

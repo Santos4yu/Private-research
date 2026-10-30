@@ -3384,7 +3384,13 @@ function renderGameLogSubfilters() {
     const fieldEl = els.glExtraFields?.[field];
     if (fieldEl) fieldEl.hidden = !shown;
     if (!shown) continue;
-    els.glExtraBridges?.[field]?.setOptions(["All", ...values].map((value) => ({ value, label: value })));
+    // Teams carry their logos (Oct 30): a game's own when it has one (soccer).
+    const logoOf = (value) => {
+      if (field !== "team" && field !== "opponent") return null;
+      const game = recentGameLogSource().find((item) => String(item[field] || "") === value) || {};
+      return field === "team" ? game.teamLogo || trendTeamLogo(value) : trendTeamLogo(value, game);
+    };
+    els.glExtraBridges?.[field]?.setOptions(["All", ...values].map((value) => ({ value, label: value, logo: value === "All" ? null : logoOf(value) })));
     els.glExtraBridges?.[field]?.setValue(current === "all" ? "All" : current);
   }
 }
@@ -3398,11 +3404,24 @@ let gameLogMoreWindows = [];
 function renderGameLogWindowMenu() {
   const menu = document.getElementById("gamelog-window-menu");
   if (!menu) return;
-  menu.innerHTML = `<header><strong>Game history</strong><button type="button" data-window-close aria-label="Close">×</button></header>`
-    + gameLogMoreWindows.map((w) => {
-      const active = w.key === gameLogState.windowKey;
-      return `<button type="button" role="menuitemradio" aria-checked="${active}" class="${active ? "active" : ""}" data-window="${w.key}" data-tone="${rateTone(w.hitRate)}"><b>${escapeHtml(w.label)}${active ? ' <i aria-hidden="true">✓</i>' : ""}</b><span>${w.hitRate == null ? "—" : `${w.hitRate}%`}</span><small>${w.avg == null ? "" : `Avg ${trendNumber(Math.round(w.avg * 10) / 10)}`}</small></button>`;
-    }).join("");
+  // A small menu under its tile, one short row a window (Oct 30: the card
+  // it was took the whole phone screen).
+  menu.innerHTML = gameLogMoreWindows.map((w) => {
+    const active = w.key === gameLogState.windowKey;
+    return `<button type="button" role="menuitemradio" aria-checked="${active}" class="${active ? "active" : ""}" data-window="${w.key}" data-tone="${rateTone(w.hitRate)}"><b>${escapeHtml(w.short || w.label)}</b><span>${w.hitRate == null ? "—" : `${w.hitRate}%`}</span><small>${w.avg == null ? "" : `Avg ${trendNumber(Math.round(w.avg * 10) / 10)}`}</small></button>`;
+  }).join("");
+}
+// Under the tile that opened it, kept on screen. Measured from where the menu
+// lands at 0,0, so it works whatever box it's positioned in.
+function placeGameLogWindowMenu(menu, tile) {
+  if (!menu || !tile) return;
+  menu.style.top = "0px";
+  menu.style.left = "0px";
+  const origin = menu.getBoundingClientRect(), at = tile.getBoundingClientRect();
+  const room = document.documentElement.clientWidth;
+  const left = Math.min(Math.max(8, at.left + at.width / 2 - origin.width / 2), room - origin.width - 8);
+  menu.style.left = `${Math.round(left - origin.left)}px`;
+  menu.style.top = `${Math.round(at.bottom + 6 - origin.top)}px`;
 }
 function windowStat(games) {
   if (!games.length) return { hitRate: null, avg: null, hits: 0, games: 0 };
@@ -3450,16 +3469,16 @@ function renderGameLogTabs() {
   // "last 10 games matching these filters" really is those 6 games -- so the
   // figure stays correct; it's flagged as capped so identical-looking rows
   // are explained rather than confusing.
-  // This season, head-to-head, the last 5 and 10, then a longer window
-  // whose menu offers 15, 20, 30 or every game.
+  // The last 5 and 10, a longer window whose menu offers 15, 20, 30 or
+  // every game, then head-to-head and this season (the owner's order, Oct 30).
   const longer = (key) => key === "season" ? { key, label: `All (${max})`, short: "All", sample: max, ...windowStat(filtered) }
     : { key, label: `L${key}`, short: `L${key}`, capped: max > 0 && max < Number(key), sample: Math.min(Number(key), max), ...windowStat(filtered.slice(-Number(key))) };
   const more = MORE_WINDOWS.includes(gameLogState.windowKey) ? gameLogState.windowKey : "20";
   const windows = [
-    { key: "year", label: year.label || "Season", sample: year.count, empty: !year.count, ...windowStat(year.count ? filtered.slice(-year.count) : []) },
-    { key: "h2h", label: "H2H", sample: h2hGames.length, empty: !h2hGames.length, ...windowStat(h2hGames) },
     ...["5", "10"].map((key) => longer(key)),
     { ...longer(more), label: longer(more).short, menu: true },
+    { key: "h2h", label: "H2H", sample: h2hGames.length, empty: !h2hGames.length, ...windowStat(h2hGames) },
+    { key: "year", label: year.label || "Season", sample: year.count, empty: !year.count, ...windowStat(year.count ? filtered.slice(-year.count) : []) },
   ];
   gameLogMoreWindows = MORE_WINDOWS.map(longer);
   if (els.gamelogTabs) {
@@ -3990,6 +4009,7 @@ function wireGameLogModal() {
     if (btn.dataset.windowMenu && windowMenu) {
       renderGameLogWindowMenu();
       windowMenu.hidden = !windowMenu.hidden;
+      if (!windowMenu.hidden) placeGameLogWindowMenu(windowMenu, btn);
       btn.setAttribute("aria-expanded", String(!windowMenu.hidden));
       return;
     }
@@ -4004,6 +4024,12 @@ function wireGameLogModal() {
     setGameLogWindow(btn.dataset.window);
   });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && windowMenu && !windowMenu.hidden) closeWindowMenu(); });
+  // A tap anywhere else, or the window changing size, closes it.
+  document.addEventListener("pointerdown", (event) => {
+    if (!windowMenu || windowMenu.hidden || windowMenu.contains(event.target) || event.target.closest?.("[data-window-menu]")) return;
+    closeWindowMenu();
+  }, true);
+  window.addEventListener("resize", () => { if (windowMenu && !windowMenu.hidden) closeWindowMenu(); });
   // These selects carry the label as their value (see renderGameLogSubfilters),
   // so translate back to the internal key filterGames() matches on.
   window.addEventListener("vortex:gamelog-season-pick", (event) => {

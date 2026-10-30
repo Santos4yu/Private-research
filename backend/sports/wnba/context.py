@@ -166,22 +166,55 @@ def defense_vs_position(by_team: dict, players: dict, positions=POSITIONS, bucke
     return result
 
 
-# The Finder's Defense vs position, one season at a time (resource=dvp). The
-# NBA's box scores say only G, F or C; its team rosters (and injury reports)
-# say PG, SG, SF, PF or C, so the NBA is split that way where the rosters
-# name most of the players who faced each team. ALL: every opposing player.
+# The Finder's Defense vs position, one season at a time (resource=dvp).
+# ALL: every opposing player. The NBA splits by PG, SG, SF, PF and C (the
+# owner, Oct 30: "make it specific instead of just G C F"). ESPN names almost
+# nobody that way -- 99.6% of last season's minutes were played by a G, F or
+# C in its box scores, and its rosters read the same -- so a G or F is placed
+# by how he plays (split_positions) wherever the rosters don't say.
 SPECIFIC = ("PG", "SG", "SF", "PF", "C")
 SPECIFIC_SHARE = 0.6
+# A 36 minutes: a guard with 5.5 assists or more is the point guard, a
+# forward with 7.5 rebounds and blocks or more the power forward. Checked on
+# the 2025 and 2026 seasons' box scores against players whose position is
+# well known: about 4 in 5 guards and forwards placed as they're known.
+PG_ASSISTS, PF_INSIDE = 5.5, 7.5
 
 
-def season_dvp(payload: dict, specific: dict | None = None) -> dict:
-    """{positions, dvp, games, teamCount, specific} for one stored season:
-    what each team allows every position a game (defense_vs_position),
-    `specific` (player id -> PG, SG...) from the rosters when it covers
-    enough of the minutes played (SPECIFIC_SHARE), else G / F / C."""
+def split_positions(by_team: dict, players: dict) -> dict:
+    """player id -> PG, SG, SF, PF or C, from his own games in `by_team`:
+    a G by his assists, an F by his rebounds and blocks, a C stays C."""
+    totals = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
+    for games in by_team.values():
+        for game in games:
+            for row in game["own"]["p"]:
+                total = totals[row[0]]
+                for index, field in enumerate(("min", "ast", "reb", "blk")):
+                    total[index] += row[_I[field]] or 0
+    placed = {}
+    for pid, (minutes, ast, reb, blk) in totals.items():
+        broad = primary_position(players.get(pid))
+        if not minutes or not broad:
+            continue
+        per = 36 / minutes
+        placed[str(pid)] = {"G": "PG" if ast * per >= PG_ASSISTS else "SG",
+                            "F": "PF" if (reb + blk) * per >= PF_INSIDE else "SF", "C": "C"}[broad]
+    return placed
+
+
+def season_dvp(payload: dict, specific: dict | None = None, split: bool = False) -> dict:
+    """{positions, dvp, games, teamCount, specific, placed} for one stored
+    season: what each team allows every position a game
+    (defense_vs_position). `specific` (player id -> PG, SG...) is the
+    rosters'; with `split` everyone else is placed by how he plays
+    (split_positions). PG / SG / SF / PF / C when that covers enough of the
+    minutes played (SPECIFIC_SHARE), else G / F / C. `placed`: each player's
+    position as counted."""
     by_team = team_games(payload)
     players = payload.get("players") or {}
     specific = {str(pid): pos for pid, pos in (specific or {}).items() if pos in SPECIFIC}
+    if split:
+        specific = {**split_positions(by_team, players), **specific}
     played = known = 0.0
     for games in by_team.values():
         for game in games:
@@ -200,7 +233,7 @@ def season_dvp(payload: dict, specific: dict | None = None) -> dict:
         bucket = lambda pid: ("ALL", primary_position(players.get(pid)))
     return {"season": payload.get("season"), "positions": list(positions), "specific": detailed,
             "games": {team: len(games) for team, games in by_team.items()}, "teamCount": len(by_team),
-            "dvp": defense_vs_position(by_team, players, positions, bucket)}
+            "dvp": defense_vs_position(by_team, players, positions, bucket), "placed": specific if detailed else {}}
 
 
 def defense_vs_each(by_team: dict, players: dict) -> dict:

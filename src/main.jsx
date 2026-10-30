@@ -373,11 +373,10 @@ function LinePrimaryMark({ line, size = 22 }) {
     ? <img src={BOOK_ICON_SRC[book]} width={size} height={size} alt={BOOK_NAME[book] || book} />
     : <i>{String(book || '?').slice(0, 2).toUpperCase()}</i>}</span>;
 }
-// Only Goblin and Demon have an icon, so STANDARD and ALT rows rendered
-// identically -- value plus the PrizePicks mark -- and there was no way to
-// tell the regular posted line from an alternate. Every row is PrizePicks
-// (the trigger already carries the mark), so the per-row logo said nothing
-// and the tier now gets the space instead.
+// Each row is the line and its marks only: the book's logo, and Goblin or
+// Demon's beside PrizePicks' (Oct 30: "remove the little 1 book text and the
+// others like goblin and demon ... keep the icons"). The tier's name is
+// still read out (the row's aria-label).
 const PP_TIER_LABEL = { STANDARD: 'Standard', GOBLIN: 'Goblin', DEMON: 'Demon', ALT: 'Alt' };
 
 // Bridges the MLB "PrizePicks lines" alt-line picker into the same Select
@@ -410,13 +409,10 @@ function AltLinesSelectHost({ controllerRef, onPick, canAdjustLine = false }) {
       <SelectContent className={canAdjustLine ? 'trend-select-menu trend-lines-menu' : undefined}>
         {(ready ? lines : []).map((line, index) => {
           return (
-            <SelectItem key={line.value} index={index} value={String(line.value)}>
+            <SelectItem key={line.value} index={index} value={String(line.value)} aria-label={`${line.value} ${line.books?.length && !PP_TIER_ICON[line.tier] ? [...new Set(line.books.map(book => BOOK_NAME[book] || book))].join(', ') : PP_TIER_LABEL[line.tier] || 'Alt'}`}>
               <span className="pp-select-line-row">
                 <span className="pp-select-line-value">{line.value}</span>
-                {line.books?.length ? <LinePrimaryMark line={line} /> : PP_TIER_ICON[line.tier] && <LinePrimaryMark line={{...line,primaryBook:'prizepicks'}} />}
-                <span className={`pp-select-line-tier is-${String(line.tier || 'alt').toLowerCase()}`}>
-                  {PP_TIER_ICON[line.tier] ? PP_TIER_LABEL[line.tier] : line.books?.length ? `${new Set(line.books.map(book => BOOK_NAME[book] || book)).size} ${new Set(line.books.map(book => BOOK_NAME[book] || book)).size === 1 ? 'book' : 'books'}` : PP_TIER_LABEL[line.tier] || 'Alt'}
-                </span>
+                <LinePrimaryMark line={line.books?.length ? line : {...line,primaryBook:'prizepicks'}} size={18} />
               </span>
             </SelectItem>
           );
@@ -456,16 +452,21 @@ if (gamelogLinesSelectRoot) {
 // caller-supplied, static-ish option list instead of a fetched one. Value
 // updates locally on pick (like StatSelectHost) since there's no external
 // "is this pick still valid" check the way PrizePicks lines needs.
+// An option may carry a `logo` (the Team and Opponent menus' team logos).
+function OptionWithLogo({ option, size }) {
+  return <span className="trend-opt"><img src={option.logo} alt="" width={size} height={size} loading="lazy" onError={(event) => { event.currentTarget.hidden = true; }} />{option.label}</span>;
+}
 function SimpleSelectHost({ controllerRef, onPick, ariaLabel, isTrend = false }) {
   const [options, setOptions] = useState([]);
   const [value, setValue] = useState('');
   const [disabled, setDisabled] = useState(false);
   controllerRef.current = { setOptions, setValue, setDisabled };
+  const picked = options.find((opt) => opt.value === value);
   return (
     <Select value={value} onValueChange={(next) => { setValue(next); onPick(next); }} disabled={disabled}>
-      <SelectTrigger placeholder="All" aria-label={ariaLabel} />
+      <SelectTrigger placeholder="All" aria-label={ariaLabel} displayValue={picked?.logo ? <OptionWithLogo option={picked} size={16} /> : undefined} />
       <SelectContent className={isTrend ? 'trend-select-menu' : undefined} align={isTrend ? 'end' : 'start'}>
-        {options.map((opt, index) => <SelectItem key={opt.value} index={index} value={opt.value}>{opt.label}</SelectItem>)}
+        {options.map((opt, index) => <SelectItem key={opt.value} index={index} value={opt.value} aria-label={opt.label}>{opt.logo ? <OptionWithLogo option={opt} size={18} /> : opt.label}</SelectItem>)}
       </SelectContent>
     </Select>
   );

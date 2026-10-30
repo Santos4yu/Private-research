@@ -718,12 +718,6 @@ body::before {
 .posted-line-primary img { width: 22px; height: 22px; object-fit: contain; }
 .posted-line-primary i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #333333; color: #fff; font: 800 8px/1 var(--font-mono, monospace); font-style: normal; }
 .pp-select-line-value { min-width: 38px; font-variant-numeric: tabular-nums; }
-/* The regular posted line has to be unmistakable next to its alternates. */
-.pp-select-line-tier { margin-left: auto; padding: 2px 7px; border-radius: 999px; font: 700 10px/1.4 var(--font-mono, monospace); letter-spacing: .06em; text-transform: uppercase; }
-.pp-select-line-tier.is-standard { color: #dddddd; background: #77777744; }
-.pp-select-line-tier.is-alt { color: #adadad; background: #ffffff12; }
-.pp-select-line-tier.is-goblin { color: #1a1a1a; background: #6fe3a8; }
-.pp-select-line-tier.is-demon { color: #2c0d12; background: #ff8b96; }
 .profile-stats-select-native {
   position: absolute;
   inset: 0;

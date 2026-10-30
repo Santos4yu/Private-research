@@ -108,7 +108,6 @@ html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-hero-slot { 
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar { grid-area: tool !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel { grid-area: filters !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs { grid-area: windows !important; }
-html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-window-menu { grid-area: windows !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-studio { grid-area: chart !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary { grid-area: summary !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-odds-row { grid-area: odds !important; }

@@ -76,6 +76,36 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Oct 30: hit-rate tiles, small menus, PG / SG / SF / PF / C defense
+
+- The owner, from a phone: the L20 tile's "Game history" card "takes the
+  whole screen"; tiles "L5-20 then h2H then the 2027"; logos on the Team
+  menu; the alt-lines menu without "1 BOOK" or the Goblin / Demon words,
+  icons kept, smaller; the Defense vs position menu "specific instead of
+  just G C F".
+- app.js renderGameLogTabs: L5, L10, L20 (its menu), H2H, this season. The
+  menu (#gamelog-window-menu) is a small dropdown now, one short row a
+  window, placed under its tile by placeGameLogWindowMenu (measured from
+  where it lands at 0,0, so whatever box holds it); a tap elsewhere or a
+  resize closes it. Its old card styles in trend-edge.css are gone, and
+  finder-player-v2.css no longer gives it the tiles' grid area.
+- main.jsx: an option can carry `logo` (OptionWithLogo); app.js sends team
+  logos for the Team and Opponent filters (a game's own logo first, then
+  trendTeamLogo). AltLinesSelectHost rows are the line and LinePrimaryMark
+  only (book logo, or PrizePicks + Goblin / Demon); the tier is in the
+  row's aria-label. `.pp-select-line-tier` styles removed.
+- Defense vs position: ESPN gives G, F or C for 99.6% of last season's
+  minutes (box scores; its rosters read the same), so the PG / SG / SF / PF
+  split never had enough to go on and fell back to G / F / C.
+  context.split_positions places each NBA G / F by how he plays, a 36
+  minutes: 5.5+ assists PG else SG; 7.5+ rebounds and blocks PF else SF
+  (checked on the 2025-26 box scores, about 4 in 5 known players placed as
+  known; Brunson, Luka PG, Edwards SG, LeBron SF, Giannis, Tatum PF). A
+  roster's own PG / SG... still wins. season_dvp(split=True) for the NBA
+  only; the WNBA stays G / F / C. `placed` gives the player's own spot.
+  SG runs large (a third of the minutes): ESPN files wings like Bridges and
+  Nesmith as G.
+
 ### Oct 30: the site froze coming back to its tab; depth charts cut players
 
 - "EVERYTIME i switch tabs ... and come back its just frozen and refreshing

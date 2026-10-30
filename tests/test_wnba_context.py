@@ -122,6 +122,24 @@ class ContextTests(unittest.TestCase):
         self.assertEqual((plain["positions"], plain["specific"]), (["ALL", "G", "F", "C"], False))
         self.assertEqual(plain["dvp"]["AAA"]["G"]["stats"]["pts"]["szn"][0], 15.0)
 
+    def test_guards_and_forwards_placed_by_how_they_play(self):
+        # Oct 30: ESPN says G, F or C for almost everyone, so the NBA's PG /
+        # SG / SF / PF come from a 36 minutes: 5.5 assists makes the point
+        # guard, 7.5 rebounds and blocks the power forward.
+        players = {"pg": ["Passer", "G", None, "AAA"], "sg": ["Shooter", "G", None, "AAA"], "pf": ["Big", "F", None, "BBB"],
+                   "sf": ["Wing", "F", None, "BBB"], "c": ["Center", "C", None, "BBB"], "x": ["Nobody", "", None, "AAA"]}
+        payload = {"season": 2027, "builtAt": "x", "teams": {}, "players": players, "games": {"1": game(
+            "1", "2026-10-25", "AAA", "BBB", [row("pg", 36, 10, reb=3, ast=6), row("sg", 36, 20, reb=4, ast=5), row("x", 10, 2)],
+            [row("pf", 36, 12, reb=8), row("sf", 36, 15, reb=7), row("c", 20, 8, reb=9)])}}
+        placed = context.split_positions(context.team_games(payload), players)
+        self.assertEqual(placed, {"pg": "PG", "sg": "SG", "pf": "PF", "sf": "SF", "c": "C"})
+        table = context.season_dvp(payload, {"sf": "PF"}, split=True)
+        self.assertEqual((table["positions"], table["specific"]), (["ALL", "PG", "SG", "SF", "PF", "C"], True))
+        self.assertEqual(table["placed"]["sf"], "PF")                         # a roster's own PG / SG... wins
+        self.assertEqual(table["dvp"]["AAA"]["PF"]["stats"]["pts"]["szn"][0], 27.0)   # Big 12 + Wing 15
+        # The WNBA (no split): G / F / C, as before.
+        self.assertEqual(context.season_dvp(payload)["positions"], ["ALL", "G", "F", "C"])
+
     def test_position_defense_counts_the_whole_game(self):
         ctx = context.league_context(self.payload)
         # BBB's center scored 2 in 5 minutes against CCC: they count, since CCC

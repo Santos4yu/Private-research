@@ -235,8 +235,9 @@ def _dvp(league_name, season, position, player_id):
     """One stored season's Defense vs position for one position (ALL, PG...
     or G / F / C), every team: {season, seasons, positions, position,
     playerPosition, teamCount, games, teams, stats, dvp: {team: {stats, n}}}.
-    The NBA's PG / SG / SF / PF come from ESPN's rosters. None when that
-    season isn't stored."""
+    The NBA's PG / SG / SF / PF: ESPN's rosters where they say, how each
+    player plays otherwise (context.split_positions). None when that season
+    isn't stored."""
     from backend.sports.wnba import context, league
     current = league.current_season(league=league_name)
     payload = league.ensure(current, league_name) if season == current else league.stored(season, league_name)
@@ -247,11 +248,11 @@ def _dvp(league_name, season, position, player_id):
     key = (payload.get("builtAt"), len(payload.get("games") or {}), roster_at)
     memory = _dvp_memory.get((league_name, season))
     if not memory or memory["key"] != key:
-        memory = {"key": key, "value": context.season_dvp(payload, specific)}
+        memory = {"key": key, "value": context.season_dvp(payload, specific, split=league_name == "nba")}
         _dvp_memory[(league_name, season)] = memory
     table = memory["value"]
     players = payload.get("players") or {}
-    mine = specific.get(str(player_id)) if table["specific"] else None
+    mine = table["placed"].get(str(player_id)) if table["specific"] else None
     mine = mine if mine in table["positions"] else context.primary_position(players.get(str(player_id)))
     if table["specific"] and mine in ("G", "F"):
         mine = None
