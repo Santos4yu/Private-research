@@ -76,6 +76,22 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 1: the slip's "teammate is out" lines, long-term and backups left off
+
+- The owner, on a graded Mahomes pick ("Smith (RB) is out: Mahomes averages
+  224.8 Pass+Rush Yds without Smith (4 games) ... 290.9 with Smith"), with
+  the Chiefs' depth chart showing nobody out: "its not correct look no
+  body is out". The back is off the depth chart (a long-term absence) and
+  barely played; his split mostly compared last season to this one.
+- slip-games.js newsFacts: a teammate on a long-term list (injured
+  reserve, PUP, suspension, N-day IL) or not due back for LONG_TERM_DAYS
+  (14) or more by ESPN's return date never makes a line, split or not (it
+  used to be left off only without a split). A football teammate needs
+  ROLE_TOUCHES (5) targets, carries, passes or tackles a game when he
+  played (the split's `usage` over its `with.games`; loadTeammates now
+  keeps `usage`). slip_games.py _entry keeps ESPN's details.returnDate as
+  `returns`.
+
 ### Oct 30: Defense vs position is G / F / C again (the owner's call)
 
 - "Let's just go back to the G F AND C I think it's better than just

@@ -206,3 +206,21 @@ test('the page keeps checking while a game is on or about to start', () => {
   assert.ok(anyLive([{startsAt: '2026-10-04T17:00:00Z', game: {state: 'pre'}}], now));
   assert.ok(!anyLive([{startsAt: '2026-10-04T23:00:00Z', game: {state: 'pre'}}, {game: {state: 'post'}}], now));
 });
+
+test('a teammate out for weeks, or a backup with no real role, is not news (Nov 1, Mahomes)', () => {
+  // Mahomes' Pass+Rush yards with a Chiefs back on injured reserve: his
+  // with/without split (290.9 with, 224.8 without) mostly measured other
+  // changes, and the slip read "Smith (RB) is out".
+  const mahomes = nflRow('Patrick Mahomes', 'Pass+Rush Yds', 'pass_rush_yards', 239.5, {position: 'QB', teamAbbr: 'KC', opponent: 'DEN'});
+  const split = {name: 'Brashard Smith', with: {games: 20, avg: 290.9}, without: {games: 4, avg: 224.8}};
+  const read = (entry, usage = 120) => newsFacts(withGame(mahomes, game({state: 'pre', team: 'KC', opponent: 'DEN', startsAt: '2026-11-01T18:00:00Z',
+    injuries: {KC: [{name: 'Brashard Smith', position: 'RB', ...entry}]}, teammates: [{...split, usage}]})), 'OVER').filter(item => item.key.startsWith('mate:'));
+  assert.deepEqual(read({status: 'Injured Reserve'}), []);
+  // "Out", but ESPN doesn't expect him back for three weeks: long-term too.
+  assert.deepEqual(read({status: 'Out', returns: '2026-11-22'}), []);
+  // Back next week: tonight's news.
+  assert.equal(read({status: 'Out', returns: '2026-11-08'}).length, 1);
+  // A back who had 2 touches a game when he played (40 over 20 games): no real role.
+  assert.deepEqual(read({status: 'Out'}, 40), []);
+  assert.equal(read({status: 'Out'}, 120).length, 1);
+});

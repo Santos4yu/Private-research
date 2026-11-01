@@ -118,7 +118,7 @@ export async function loadTeammates(legs, {signal, fetcher = fetch} = {}) {
       if (leg.row.sport === 'cfb') payload = {withWithout: Object.values(cfbWithWithout(payload, leg.row.playerId, leg.row.valueKey))};
       const found = missing.map(person => {
         const split = (payload.withWithout || []).find(item => samePerson(item.name, person.name));
-        return split ? {...person, with: split.with, without: split.without} : null;
+        return split ? {...person, with: split.with, without: split.without, usage: split.usage} : null;
       }).filter(Boolean);
       if (found.length) out[leg.key] = found;
     } catch (error) {
@@ -166,7 +166,24 @@ const GROUP = {HB: 'RB', FB: 'RB', PG: 'G', SG: 'G', SF: 'F', PF: 'F'};
 const group = value => { const pos = position(value); return GROUP[pos] || pos; };
 const sameJob = (row, mate) => Boolean(group(row.position)) && group(row.position) === group(mate.position);
 // Out for weeks (injured reserve, PUP, a suspension): already missing from his recent games.
-const longTerm = status => /injured reserve|\bir\b|physically unable|\bpup\b|non-football|suspen|\d+-day/i.test(String(status || ''));
+// Out for weeks -- a long-term list (injured reserve, PUP, a suspension),
+// or not due back for LONG_TERM_DAYS or more (ESPN's return date): not
+// tonight's news, and his recent games already went without him (Nov 1: a
+// Chiefs back on injured reserve read as "Smith (RB) is out" on Mahomes).
+const LONG_TERM_DAYS = 14;
+function longTerm(mate, row) {
+  if (/injured reserve|\bir\b|physically unable|\bpup\b|non-football|suspen|\d+-day/i.test(String(mate?.status || ''))) return true;
+  const back = Date.parse(mate?.returns || ''), from = Date.parse(row?.game?.startsAt || row?.startsAt || '') || Date.now();
+  return finite(back) && back - from >= LONG_TERM_DAYS * 864e5;
+}
+// A football teammate whose absence is worth a line: part of the offense
+// (or defense) when he played, ROLE_TOUCHES targets, carries, passes or
+// tackles a game or more. A backup's split mostly measures other changes.
+const ROLE_TOUCHES = 5;
+function hasRole(row, split) {
+  if (!['nfl', 'cfb'].includes(row.sport) || !finite(split?.usage) || !(split?.with?.games > 0)) return true;
+  return split.usage / split.with.games >= ROLE_TOUCHES;
+}
 // His average over the longer run (the season, else his last 20), on this line's stat.
 function longerAverage(row) {
   const kept = row.windows?.season?.average ?? row.windows?.l20?.average;
@@ -244,7 +261,7 @@ export function newsFacts(row, side, teammates = row?.game?.teammates || []) {
   const oneJob = !(row.sport === 'nhl' && group(row.position) !== 'G');
   const bigger = oneJob && line != null && line > 0 && finite(average) && (average <= 0 || line >= 1.4 * average)
     && !(finite(longer) && longer > 0 && line < 1.25 * longer);
-  const replaced = bigger ? found.out.find(mate => sameJob(row, mate) && !longTerm(mate.status)) : null;
+  const replaced = bigger ? found.out.find(mate => sameJob(row, mate) && !longTerm(mate, row)) : null;
   if (replaced) {
     const starts = ['QB', 'G'].includes(group(row.position)) && ['nfl', 'nhl'].includes(row.sport);
     const was = finite(average) ? ` (${fmt(average)} a game against a ${fmt(line)} line)` : '';
@@ -254,12 +271,13 @@ export function newsFacts(row, side, teammates = row?.game?.teammates || []) {
     6 * sign, sign > 0 ? 'warn' : 'down', {level: 'role'}));
   }
   // The rest of who's out: those with a with/without split first (what
-  // the absence has meant), then his own position; two at most.
-  const mates = found.out.filter(mate => mate !== replaced).map(mate => {
+  // the absence has meant), then his own position; two at most. Never a
+  // long-term absence, nor a football backup with no real role.
+  const mates = found.out.filter(mate => mate !== replaced && !longTerm(mate, row)).map(mate => {
     const split = teammates.find(item => samePerson(item.name, mate.name));
     const known = split?.without?.games >= 2 && split?.with?.games >= 2 && finite(split.without.avg) && finite(split.with.avg);
-    return {mate, split: known ? split : null};
-  }).filter(({mate, split}) => split || (!longTerm(mate.status) && sameJob(row, mate)))
+    return {mate, split: known ? split : null, played: !split || hasRole(row, split)};
+  }).filter(({mate, split, played}) => played && (split || sameJob(row, mate)))
     .sort((a, b) => Boolean(b.split) - Boolean(a.split) || sameJob(row, b.mate) - sameJob(row, a.mate));
   for (const {mate, split} of mates.slice(0, 2)) {
     const who = `${lastName(mate.name)}${mate.position ? ` (${mate.position})` : ''}`;

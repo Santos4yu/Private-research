@@ -164,15 +164,20 @@ def espn_status(competition):
 
 
 def _entry(item, sport):
-    """One ESPN injury-report entry: name, status, position and, when its
-    note says he'll be held back (a snap count, a minutes limit), the flag
-    for it (workload.py; the note itself stays here)."""
+    """One ESPN injury-report entry: name, status, position, ESPN's expected
+    return date (`returns`, when it gives one: weeks away means a long-term
+    absence, not tonight's news) and, when its note says he'll be held back
+    (a snap count, a minutes limit), the flag for it (workload.py; the note
+    itself stays here)."""
     athlete = item.get("athlete") or {}
+    details = item.get("details") or {}
     name = athlete.get("displayName") or athlete.get("fullName")
-    status = item.get("status") or ((item.get("details") or {}).get("fantasyStatus") or {}).get("description") or ""
+    status = item.get("status") or (details.get("fantasyStatus") or {}).get("description") or ""
     if not (name and status):
         return None
     entry = {"name": name, "status": str(status), "position": (athlete.get("position") or {}).get("abbreviation") or ""}
+    if details.get("returnDate"):
+        entry["returns"] = str(details["returnDate"])
     limit = workload.note_limit(item, sport)
     if limit:
         entry["limit"] = limit
