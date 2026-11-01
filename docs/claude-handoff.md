@@ -76,6 +76,25 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 1: the parlay builder said "No games" for sports still loading
+
+- "Why does the generator show no games for nfl nhl and others": the
+  builder (SmartSlip.jsx, /builder) loads each sport's board on its own,
+  but its "…" only showed while no board at all was in; the first one (the
+  NBA's, the quickest) turned every sport still loading to "No games", and
+  a board that failed (the NHL turns requests away for a minute when asked
+  too often) stayed "No games" with no second try.
+- Now `slate.pending` / `slate.failed` per sport: a chip reads "…" until
+  its own board is in; the Games and Players steps wait while a chosen
+  sport is pending; a failed board is asked again up to BOARD_TRIES (3),
+  after the server's retryAfter or BOARD_RETRY_SECONDS (5, 20). A board
+  that never comes back reads "No games" / "Off today" for members (an
+  off-season league can answer with an error) and "Didn't load" for admins.
+  Checked in the browser with an NFL board 4 s slow, an NHL board refused
+  once, and CFB down.
+- (Stopping `vite preview` with `pkill -f "vite preview"` kills the shell
+  running that command too -- its command line matches. Stop it on its own.)
+
 ### Nov 1: the slip's "teammate is out" lines, long-term and backups left off
 
 - The owner, on a graded Mahomes pick ("Smith (RB) is out: Mahomes averages

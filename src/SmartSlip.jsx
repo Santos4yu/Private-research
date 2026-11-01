@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {ArrowLeft,ArrowUpRight,BarChart3,CalendarClock,Check,ChevronLeft,ChevronRight,CircleCheck,Crown,Layers,Lock,LockOpen,Pencil,RefreshCw,Repeat2,Rocket,Search,Share2,Shield,ShieldCheck,Stethoscope,Ticket as TicketIcon,TriangleAlert,UserRound,X,Zap} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {siteFinderSportAllowed} from './site-access';
+import {useIsAdmin} from './admin-notice.js';
 import {finderSlipProp,loadSoccerOpponents,within} from './unified-finder-data';
 import {BOARD_FRESH,loadBoard,loadLines} from './finder-pool';
 import {TARGETS,MIXES,SPORT_NAMES,candidates,buildLadder,safest,exportLeg,isPrizePicksLine,gameKey,slateGames} from './smart-slip';
@@ -339,7 +340,16 @@ function Ticket({slip,locked,onLock,onSwap,onResearch,onAdd,onExport,exporting,l
  </div>;
 }
 
+// A sport's board is asked for up to BOARD_TRIES times, waiting this long
+// (seconds) between tries unless the server says how long.
+const BOARD_TRIES=3,BOARD_RETRY_SECONDS=[5,20];
+const wait=(ms,signal)=>new Promise((resolve,reject)=>{
+ const timer=setTimeout(resolve,ms);
+ signal?.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'));},{once:true});
+});
+
 export function SmartSlip(){
+ const admin=useIsAdmin();
  const saved=useMemo(readPrefs,[]);
  const [revision,setRevision]=useState(0);
  useEffect(()=>{const bump=()=>setRevision(n=>n+1);window.addEventListener('vortex:site-policy',bump);return()=>window.removeEventListener('vortex:site-policy',bump);},[]);
@@ -359,7 +369,11 @@ export function SmartSlip(){
  // Today's games on every allowed sport's board (the saved boards the
  // Finder keeps, else fresh ones): what the Games step lists, and how many
  // each sport has.
- const [slate,setSlate]=useState({loading:true,refreshing:false,games:[]});
+ // `pending`: sports whose board isn't in yet; `failed`: those whose board
+ // didn't come back after BOARD_TRIES. A sport says "No games" only once
+ // its own board is in (Nov 1: the first board in, the NBA's, turned every
+ // sport still loading to "No games").
+ const [slate,setSlate]=useState({loading:true,refreshing:false,games:[],pending:[],failed:[]});
  // The boards on screen: a sport opened or closed by the site loads (or
  // drops) only that sport, and the games already listed stay put.
  const boardsRef=useRef({});
@@ -368,12 +382,13 @@ export function SmartSlip(){
   const boards=Object.fromEntries(allowed.filter(sport=>boardsRef.current[sport]).map(sport=>[sport,boardsRef.current[sport]]));
   boardsRef.current=boards;
   const missing=allowed.filter(sport=>!boards[sport]);
-  let left=missing.length;
+  const pending=new Set(missing),failed=new Set();
   const publish=()=>{
    if(control.signal.aborted)return;
-   setSlate({loading:left>0&&!Object.keys(boards).length,refreshing:left>0,games:slateGames(Object.values(boards).flat(),{logo:teamLogo,opponentLogo})});
+   setSlate({loading:pending.size>0&&!Object.keys(boards).length,refreshing:pending.size>0,pending:[...pending],failed:[...failed],
+    games:slateGames(Object.values(boards).flat(),{logo:teamLogo,opponentLogo})});
   };
-  if(left)setSlate(old=>({...old,loading:!old.games.length,refreshing:true}));else publish();
+  if(pending.size)setSlate(old=>({...old,loading:!old.games.length,refreshing:true,pending:[...pending],failed:[]}));else publish();
   for(const sport of missing){
    (async()=>{
     // The board this phone saved shows at once; today's comes in behind it,
@@ -382,16 +397,38 @@ export function SmartSlip(){
     const saved=await loadBoard(sport,{signal:control.signal,saved:true}).catch(()=>null);
     if(saved?.rows){boards[sport]=saved.rows;publish();}
     if(saved&&Date.now()-Number(saved.ts||0)<BOARD_FRESH)return;
-    const fresh=await loadBoard(sport,{signal:control.signal}).catch(()=>null);
-    if(fresh?.rows)boards[sport]=fresh.rows;
-   })().finally(()=>{left-=1;publish();});
+    // A board that doesn't come back is asked for again, after the wait the
+    // server asks for when it gives one (the NHL turns requests away for a
+    // minute when asked too often).
+    for(let attempt=1;;attempt++){
+     try{const fresh=await loadBoard(sport,{signal:control.signal});if(fresh?.rows)boards[sport]=fresh.rows;return;}
+     catch(error){
+      if(error?.name==='AbortError')return;
+      if(attempt>=BOARD_TRIES){failed.add(sport);return;}
+      await wait((error?.retryAfter||BOARD_RETRY_SECONDS[attempt-1])*1000,control.signal).catch(()=>{});
+      if(control.signal.aborted)return;
+     }
+    }
+   })().finally(()=>{pending.delete(sport);publish();});
   }
   return()=>control.abort();
  },[allowed]);
+
  const [gamesPicked,setGamesPicked]=useState([]);
  const games=useMemo(()=>slate.games.filter(game=>chosen.includes(game.sport)),[slate,chosen]);
  const picked=useMemo(()=>gamesPicked.filter(key=>games.some(game=>game.key===key)),[gamesPicked,games]);
  const gameCount=useMemo(()=>slate.games.reduce((counts,game)=>({...counts,[game.sport]:(counts[game.sport]||0)+1}),{}),[slate]);
+ // What a sport's chip says: its games, "…" while its board is coming,
+ // and the usual "No games" once it's in empty. A board that never came
+ // back reads the same for members (an off-season league can answer with
+ // an error); admins see it didn't load.
+ const sportNote=(key,none='No games')=>{const count=gameCount[key]||0;
+  if(count)return `${count} game${count===1?'':'s'}`;
+  if(slate.pending.includes(key))return '…';
+  if(slate.failed.includes(key)&&admin)return 'Didn’t load';
+  return none;};
+ const settled=key=>!slate.pending.includes(key);
+ const waiting=chosen.some(key=>slate.pending.includes(key));
  const toggleGame=key=>setGamesPicked(old=>old.includes(key)?old.filter(item=>item!==key):[...old.filter(item=>games.some(game=>game.key===item)),key]);
  // Every player with a line in those games, soonest game first.
  const players=useMemo(()=>games.flatMap(game=>game.players.map(player=>{
@@ -686,16 +723,16 @@ export function SmartSlip(){
   <button type="button" className="ss-all ss-all-sports" aria-pressed={chosen.length===allowed.length} onClick={()=>setSports([])}><Check size={14}/>All sports</button>
   <div className="ss-sports">{allowed.map((key,index)=>{const count=gameCount[key]||0;
    return <button type="button" key={key} aria-pressed={chosen.includes(key)} onClick={()=>toggleSport(key)}
-    data-empty={!slate.loading&&!count?'true':undefined} style={{'--i':index}}>
+    data-empty={!count&&settled(key)?'true':undefined} style={{'--i':index}}>
     <Img src={LEAGUE_LOGOS[key]}/>
-    <span><b>{SPORT_NAMES[key]}</b><small>{slate.loading&&!count?'…':count?`${count} game${count===1?'':'s'}`:'No games'}</small></span>
+    <span><b>{SPORT_NAMES[key]}</b><small>{sportNote(key)}</small></span>
     <i className="ss-picked" aria-hidden="true"><Check size={10} strokeWidth={3.5}/></i></button>;})}</div>
  </>;
  if(at===4)body=<>
   <Segment label="Pick by" value={findBy} onChange={setFindBy} options={[['games',`Games${picked.length?` · ${picked.length}`:''}`,CalendarClock],['players',`Players${anchored.length?` · ${anchored.length}`:''}`,UserRound]]}/>
   {findBy==='games'
-   ?<GamePicker games={games} picked={picked} onToggle={toggleGame} loading={slate.loading} refreshing={slate.refreshing}/>
-   :<PlayerPicker players={players} picked={anchors} onToggle={toggleAnchor} loading={slate.loading}/>}
+   ?<GamePicker games={games} picked={picked} onToggle={toggleGame} loading={slate.loading||waiting} refreshing={slate.refreshing}/>
+   :<PlayerPicker players={players} picked={anchors} onToggle={toggleAnchor} loading={slate.loading||waiting}/>}
  </>;
  if(at===LAST)body=<>
   <ul className="ss-review">
@@ -743,7 +780,7 @@ export function SmartSlip(){
      <p>Four quick questions and your slip is ready for PrizePicks. Only Elite and Strong picks, overs only.</p>
     </div>
     <div className="ss-intro-sports">{allowed.map(key=><span key={key}><Img src={LEAGUE_LOGOS[key]}/><b>{SPORT_NAMES[key]}</b>
-     <small>{slate.loading&&!gameCount[key]?'…':gameCount[key]?`${gameCount[key]} game${gameCount[key]===1?'':'s'}`:'Off today'}</small></span>)}</div>
+     <small>{sportNote(key,'Off today')}</small></span>)}</div>
     <div className="ss-intro-go">
      <button type="button" className="ss-next" onClick={()=>go(1)}>Let’s go<ChevronRight size={18}/></button>
      {hasSaved&&<button type="button" className="ss-quick" onClick={build}><Zap size={16}/><span><b>Quick build</b><small>{summary.slice(0,3).join(' · ')}</small></span></button>}
