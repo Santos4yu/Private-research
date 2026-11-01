@@ -123,7 +123,7 @@ PROMPT = (
     "{market} over {line}{when}.\n"
     "Use ONLY the numbered news items below. Never add facts, numbers, quotes, injuries or dates that are not in them. "
     "Skip items that say nothing about this player's health, minutes, role, usage, shot volume, mindset, teammates "
-    "out or back, or this game.\n"
+    "out or back, or this game (general articles that only mention him: rankings, highlight clips).\n"
     "Answer with JSON only: {{\"read\": \"one or two sentences on what the news means for this prop, or an empty "
     "string when nothing in it bears on it\", \"notes\": [{{\"item\": <the number of the item it comes from>, "
     "\"text\": \"one line under 140 characters, plain words\", \"tone\": \"up\" if it helps the over, \"down\" if it "
@@ -133,7 +133,7 @@ PROMPT = (
 
 
 def _prompt(player, team, market, line, when, items) -> str:
-    listed = "\n".join(f"[{index}] ({item['published'][:10]}) {item['headline']}. {item['text']}" for index, item in enumerate(items, 1))
+    listed = "\n".join(f"[{index}] ({item['published'][:10]}, {item['source']}) {item['headline']}. {item['text']}" for index, item in enumerate(items, 1))
     return PROMPT.format(player=player, team=team or "", market=market or "this stat", line=line if line not in (None, "") else "?",
                          when=f", game {when}" if when else "", most=MAX_NOTES, items=listed)
 
@@ -164,9 +164,12 @@ def clean_notes(answer, items) -> dict:
 
 
 def headlines(items) -> dict:
-    """Without a model: the items' own headlines, tone unknown."""
+    """Without a model: the items' own headlines, tone unknown -- RotoWire's
+    player updates when there are any (ESPN's feed also carries general
+    articles that only mention him: rankings, highlight clips)."""
+    updates = [item for item in items if item["source"] == "RotoWire"] or items
     return {"read": None, "notes": [{"text": (item["headline"] or item["text"])[:180], "tone": "flat", "published": item["published"],
-                                     "source": item["source"], "link": item["link"]} for item in items[:MAX_NOTES]]}
+                                     "source": item["source"], "link": item["link"]} for item in updates[:MAX_NOTES]]}
 
 
 def read(sport, player_id, player, team="", market="", line=None, when="", ask=None, store=None) -> dict:

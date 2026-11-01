@@ -68,14 +68,15 @@ class NotesTests(unittest.TestCase):
         self.assertEqual(len(asked), 1)
         # The prompt names the player and the line, and holds only the items.
         self.assertIn("Brandin Podziemski (GSW), Points over 16.5, game Nov 1", asked[0])
-        self.assertIn("[2] (2026-10-31) Podziemski taking more shots.", asked[0])
+        self.assertIn("[2] (2026-10-31, RotoWire) Podziemski taking more shots.", asked[0])
         self.assertTrue(json.loads(next(iter(kept.values())))["value"]["notes"])
 
     def test_without_a_model_the_headlines_show(self):
         with patch.object(player_news, "espn_news", return_value=self.items):
             found = player_news.read("nba", "1", "P", ask=lambda prompt: None, store=None)
             broken = player_news.read("nba", "2", "P", ask=lambda prompt: 1 / 0, store=None)
-        self.assertEqual((found["summarized"], [note["text"] for note in found["notes"]]), (False, ["Curry out Saturday", "Podziemski taking more shots"]))
+        # RotoWire's player update first (ESPN's other articles only mention him).
+        self.assertEqual((found["summarized"], [note["text"] for note in found["notes"]]), (False, ["Podziemski taking more shots"]))
         self.assertEqual(broken["notes"], found["notes"])
         with patch.object(player_news, "espn_news", return_value=[]):
             self.assertEqual(player_news.read("nba", "3", "P", ask=lambda prompt: {"read": "x"}, store=None),

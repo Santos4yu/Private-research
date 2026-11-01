@@ -101,7 +101,14 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   screen's new "Research" fieldset turns it on.
 - .github/workflows/espn-news-check.yml (run by hand) prints what ESPN
   answers for a few players: the container can't reach ESPN, so the feed's
-  shape is confirmed there, not here.
+  shape is confirmed there, not here. Run Nov 1: `feed` with headline,
+  story, published, type, links.web.href, as read; RotoWire player updates
+  ("Curry (rest) won't play Sunday...") mixed with general ESPN articles
+  that only mention the player (rankings, highlight clips). The prompt
+  marks each item's source and says to skip those; without Groq the
+  headlines are RotoWire's updates first. Not yet seen: Groq's answer on
+  the live site (GROQ_API_KEY is in Vercel only) -- an admin's News tab is
+  the check: notes with thumbs up / down = Groq; dashes only = headlines.
 
 ### Nov 1: the parlay builder said "No games" for sports still loading
 
