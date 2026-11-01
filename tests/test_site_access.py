@@ -78,6 +78,16 @@ class SiteControlsTests(unittest.TestCase):
    self.assertEqual(controls.read()['disabledPropsLeagues'],['nfl'])
   with self.assertRaises(ValueError):
    controls.validate({**controls.DEFAULT,'disabledPropsLeagues':['xyz']})
+ def test_player_news_starts_off_until_the_admin_saves_it_on(self):
+  import json
+  with patch.object(controls.store,'get',return_value=json.dumps(controls.DEFAULT)):
+   self.assertEqual(controls.read()['disabledResearch'],['news'])
+  saved=controls.validate({**controls.DEFAULT,'disabledResearch':[]})
+  self.assertEqual(saved['researchSeen'],['news'])
+  with patch.object(controls.store,'get',return_value=json.dumps(saved)):
+   self.assertEqual(controls.read()['disabledResearch'],[])
+  with self.assertRaises(ValueError):
+   controls.validate({**controls.DEFAULT,'disabledResearch':['xyz']})
  def test_a_new_finder_league_starts_off_until_the_admin_saves_it_on(self):
   import json
   # Settings saved before soccer and tennis existed: both are off, the rest unchanged.

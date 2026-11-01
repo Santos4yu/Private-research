@@ -10,6 +10,7 @@ import './wnba-context.css';
 import {withLines} from '../../trend-lines';
 import {Failure} from '../../AdminNotice';
 import {useTrendPanel} from '../../trend-panel.js';
+import PlayerNews,{useNewsAllowed,withNews} from '../../PlayerNews';
 import {depthRows,injuryCode} from './depth';
 import {RESEARCH_TABS} from '../../FinderResearchSections';
 
@@ -127,6 +128,7 @@ function DepthChart({row,matchup,filters,onToggleFilter}){
 }
 
 export function WNBAPlayerPage({row,playerRows,onBack}){
+ const newsOn=useNewsAllowed();
  const [selected,setSelected]=useState(row),[trend,setTrend]=useState({state:'loading',rows:[]}),[retry,setRetry]=useState(0);
  // With/without choices from the depth chart or Injuries tab; the chart
  // keeps the games that match every one of them.
@@ -157,6 +159,6 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
    :trend.state==='error'&&<div className="wnba-board-message" role="alert"><span>{trend.error}</span><button type="button" className="wnba-trend-back" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
   chart={<><TrendChart row={selected} playerRows={playerRows} extraRows={extraRows} logs={chartLogs} loading={loading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
    {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}</>}
-  his={HIS.map(([key,label])=>[key,label,sections[key]])} research={RESEARCH_LIST}
-  renderResearch={tab=><WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter} tab={tab}/>}/>;
+  his={HIS.map(([key,label])=>[key,label,sections[key]])} research={withNews(RESEARCH_LIST,newsOn)}
+  renderResearch={tab=>tab==='news'?<PlayerNews row={selected}/>:<WNBAFinderContext row={selected} logs={trend.rows} matchup={matchup} filters={filters} onToggleFilter={toggleFilter} tab={tab}/>}/>;
 }

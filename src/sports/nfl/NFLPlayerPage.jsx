@@ -5,6 +5,7 @@ import {nflLineLadder,nflOddsRows,nflStatCode} from './trend-bridge';
 import {INJURY_LEGEND,MARKET_ORDER,PBP_MARKETS,STATS,family,gameIdOf,injuryCode,mergePlayByPlay,nflFinderChart,nflSeason,opponentOf,playedGames,positionOf,seedGames,teamColor,useNfl} from './nfl-finder';
 import {applySplits,finite,fmt,splitKey,toggleSplit} from '../wnba/wnba-research';
 import NFLFinderContext,{NFL_TABS} from './NFLFinderContext';
+import PlayerNews,{useNewsAllowed,withNews} from '../../PlayerNews';
 import '../../mlb-finder-context.css';
 import '../wnba/wnba-context.css';
 import './nfl-finder.css';
@@ -148,6 +149,7 @@ function PlayerGameLog({row,rows,loading,error,onRetry,position}){
 }
 
 export function NFLPlayerPage({row,playerRows,onBack}){
+ const newsOn=useNewsAllowed();
  const season=nflSeason();
  const [selected,setSelected]=useState(row),[filters,setFilters]=useState([]);
  useEffect(()=>{setSelected(row);setFilters([]);},[row]);
@@ -187,6 +189,6 @@ export function NFLPlayerPage({row,playerRows,onBack}){
    :log.error&&<div className="wnba-board-message" role="alert"><span>{log.error}</span><button type="button" className="wnba-trend-back" onClick={log.retry}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}
   chart={<><TrendChart row={selected} playerRows={playerRows} rows={chartRows} loading={chartLoading} onStat={onStat} chips={chips} chipsNote={chipsNote} onChipRemove={removeFilter} onChipsClear={clearFilters}/>
    {filters.length>0&&!shown&&!loading&&<p className="wnba-filter-empty" role="status">No games match all of these together. Remove a filter to see more.</p>}</>}
-  his={his} research={NFL_TABS}
-  renderResearch={tab=><NFLFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup} weather={weather} context={context} pbp={pbp} filters={filters} onToggleFilter={toggleFilter} tab={tab}/>}/>;
+  his={his} research={withNews(NFL_TABS,newsOn)}
+  renderResearch={tab=>tab==='news'?<PlayerNews row={selected}/>:<NFLFinderContext row={selected} playerRows={playerRows} season={season} rows={rows} position={position} league={league} matchup={matchup} weather={weather} context={context} pbp={pbp} filters={filters} onToggleFilter={toggleFilter} tab={tab}/>}/>;
 }

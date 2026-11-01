@@ -76,6 +76,33 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 1: a News card on the Finder player page (ESPN news, Groq notes)
+
+- The owner, with LineCrush's "Vibes" cards (a player saying he's trying to
+  take more shots, teammates out, minutes cut in a blowout, each tagged up
+  or down with its source and age): "We need information like this this is
+  super important." LineCrush reads tweets, podcasts and press
+  conferences; free here means ESPN's player news.
+- player_news.py: ESPN's fantasy player news
+  (site.api.espn.com/apis/fantasy/v2/games/{fba|wfba|ffl|fhl|flb}/news/players
+  ?playerId=, `feed`), the last NEWS_DAYS (21) days, MAX_ITEMS (12);
+  Groq's free text models (slip_reader._ask, TEXT_MODELS) read them for the
+  line into {read, notes: [{text, tone up/down/flat}]}. clean_notes keeps a
+  note only when it names a real item, whose date, source and link it
+  takes (never the model's). Without Groq, the headlines. NFL ids
+  (00-...) go through finder.espn_ids. Kept 45 min per player and line in
+  the store (krazy_data:news:v1:...).
+- api/prediction.py GET action=player-news (sport, playerId, player, team,
+  market, line, when). src/PlayerNews.jsx: the card (read, then one row a
+  note with a thumbs up / down / dash, age, source, link), a "News" tab
+  last in the NBA / WNBA and NFL player pages' research tabs.
+- Switch: site_controls RESEARCH_SECTIONS ('news'), `disabledResearch`,
+  `researchSeen`; starts OFF (owner's rule); admins see it; the admin
+  screen's new "Research" fieldset turns it on.
+- .github/workflows/espn-news-check.yml (run by hand) prints what ESPN
+  answers for a few players: the container can't reach ESPN, so the feed's
+  shape is confirmed there, not here.
+
 ### Nov 1: the parlay builder said "No games" for sports still loading
 
 - "Why does the generator show no games for nfl nhl and others": the

@@ -1,0 +1,13 @@
+/* The player page's News card (PlayerNews.jsx): a short read, then one row a
+   note -- whether it helps the over (green), hurts it (red) or neither --
+   with how old it is and its source. */
+.player-news-read { margin: 0 0 12px; color: #e4e4e4; font: 500 14px/1.45 var(--font-sans, Inter, Arial, sans-serif); }
+.player-news-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.player-news-list li { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid rgba(255, 255, 255, .07); border-radius: 12px; background: rgba(255, 255, 255, .03); }
+.player-news-tone { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(255, 255, 255, .08); color: #bdbdbd; }
+.player-news-list li[data-tone="up"] .player-news-tone { background: rgba(70, 217, 143, .14); color: #46D98F; }
+.player-news-list li[data-tone="down"] .player-news-tone { background: rgba(239, 113, 104, .14); color: #EF7168; }
+.player-news-list b { display: block; color: #f2f2f2; font: 600 13.5px/1.35 var(--font-sans, Inter, Arial, sans-serif); }
+.player-news-list small { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: #9a9a9a; font: 500 12px/1 var(--font-sans, Inter, Arial, sans-serif); }
+.player-news-list small a { display: inline-grid; place-items: center; color: #9a9a9a; }
+.player-news-list small a:hover { color: #fff; }

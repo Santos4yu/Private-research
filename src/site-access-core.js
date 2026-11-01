@@ -55,6 +55,12 @@ export const PROPS_LEAGUES=[['nba','NBA matchups'],['nfl','NFL matchups']];
 export function canUsePropsLeague(policy,league){
  return canUseTab(policy,'v2')&&(policy.isAdmin||!(policy.disabledPropsLeagues||[]).includes(league));
 }
+// Research inside the pages (site_controls RESEARCH_SECTIONS), one switch
+// each; hidden from everyone but admins when off. New ones start off.
+export const RESEARCH_SECTIONS=[['news','Player news on the Finder player page']];
+export function canUseResearch(policy,key){
+ return policy.isAdmin||!(policy.disabledResearch||[]).includes(key);
+}
 export function canUseSheet(policy,key){
  return canUseTab(policy,'sheets')&&(policy.isAdmin||!(policy.disabledSheets||[]).includes(key));
 }

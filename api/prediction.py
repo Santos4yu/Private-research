@@ -289,6 +289,23 @@ class handler(BaseHTTPRequestHandler):
             return self._send(200, {"version": found.get("version"), "at": found.get("at"), "picks": found.get("picks", 0),
                                     "groups": {name: {"points": group.get("points") or []} for name, group in (found.get("groups") or {}).items()},
                                     "tiers": found.get("tiers") or {}, "parlays": found.get("parlays") or {}, "parlayDays": found.get("parlayDays")})
+        if (qs.get("action", [""])[0]).strip().lower() == "player-news":
+            # What the news says about a player for a line (player_news.py):
+            # ESPN's player news, read by Groq into a few notes.
+            import player_news
+            arg = lambda name: (qs.get(name, [""])[0]).strip()
+            sport, player_id = arg("sport").lower(), arg("playerId")
+            if sport not in player_news.GAMES or not player_id or len(player_id) > 20:
+                return self._send(400, {"error": "A sport and an ESPN player are required."})
+            try:
+                line = float(arg("line")) if arg("line") else None
+            except ValueError:
+                line = None
+            try:
+                return self._send(200, player_news.read(sport, player_id, arg("player")[:60], arg("team")[:6], arg("market")[:40],
+                                                        line, arg("when")[:30]))
+            except Exception:
+                return self._send(503, {"error": "Player news is unavailable right now."})
         if (qs.get("action", [""])[0]).strip().lower() == "prizepicks-lines":
             player_name = (qs.get("player", [""])[0]).strip()
             stat_label = (qs.get("stat", [""])[0]).strip()
