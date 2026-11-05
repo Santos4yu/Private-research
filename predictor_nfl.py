@@ -162,13 +162,16 @@ def features(game, rt, values, quarterbacks, starters, rest, weather, params):
 
 
 def predict(f, params):
-    m, t = params["margin"], params["total"]
+    """(margin, total, parts). The total is None without the fitted total
+    weights (params["total"]): the backtest's weren't kept, and the line's
+    total was closer anyway (game_predictor falls back to the points ratings)."""
+    m, t = params["margin"], params.get("total")
     margin = (m["epa"] * (f["epa_h"] - f["epa_a"]) + m["succ"] * (f["succ_h"] - f["succ_a"]) + m["pts"] * (f["pts_h"] - f["pts_a"])
               + m["home"] * f["home1"] + m["rest"] * f["rest"] + m["qb"] * (f["qb_h"] - f["qb_a"]) + m["qbnew"] * (f["qbnew_h"] - f["qbnew_a"])
               + m["const"])
     total = (t["pts"] * (f["pts_h"] + f["pts_a"]) + t["epa"] * (f["epa_h"] + f["epa_a"]) + t["succ"] * (f["succ_h"] + f["succ_a"])
              + t["plays"] * (f["plays_h"] + f["plays_a"]) + t["windy"] * f["windy"] + t["cold"] * f["cold"] + t["dome"] * f["dome"]
-             + t["qbv"] * (f["qbval_h"] + f["qbval_a"]) + t["const"])
+             + t["qbv"] * (f["qbval_h"] + f["qbval_a"]) + t["const"]) if t else None
     parts = [
         ("ratings", "Team strength (schedule-adjusted)",
          m["epa"] * (f["epa_h"] - f["epa_a"]) + m["succ"] * (f["succ_h"] - f["succ_a"]) + m["pts"] * (f["pts_h"] - f["pts_a"])),

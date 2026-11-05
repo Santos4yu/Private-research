@@ -1,7 +1,9 @@
 # The Game Predictor's ESPN reads (game_predictor.py): the NBA and NFL
 # schedules with their lines, and one game's summary (line, ESPN's
 # projection, injury reports), printed so they can be checked -- the coding
-# container can't reach ESPN. Run by hand.
+# container can't reach ESPN. Then v2's NFL model on this week's games, its
+# play-by-play tables built here from nflverse (the site's are built by the
+# predictor cron). Run by hand.
 name: Game predictor check
 
 on:
@@ -16,7 +18,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: python -m pip install --quiet requests
+      - run: python -m pip install --quiet requests numpy
       - name: Read ESPN's schedules and a game each
         shell: python
         run: |
@@ -45,7 +47,7 @@ jobs:
               print("  injuries:", {team: [(item["name"], item["status"]) for item in items][:4] for team, items in found["injuries"].items()})
               print("  last five:", {team: [item["result"] for item in items] for team, items in found["lastFive"].items()})
               made = gp.prediction(sport, found, None)
-              print("  line-only prediction:", made and {key: made[key] for key in ("winner", "chance", "margin", "total", "score", "edge", "blowout")})
+              print("  line-only prediction:", made and {key: made[key] for key in ("winner", "chance", "margin", "total", "score", "ev", "blowout")})
           # Settling: a couple of finished games each, a summary apiece.
           from datetime import datetime, timedelta, timezone
           day = (datetime.now(timezone.utc) - timedelta(hours=29)).strftime("%Y%m%d")
@@ -58,3 +60,37 @@ jobs:
               print("nfl finals", gp._finals("nfl", ids))
           except Exception as error:  # noqa: BLE001
               print("finals failed", type(error).__name__, error)
+      - name: v2's NFL model on this week's games
+        shell: python
+        run: |
+          import sys, traceback
+          sys.path.insert(0, ".")
+          from datetime import datetime, timedelta, timezone
+          import game_predictor as gp
+          import nfl_team_epa
+          from backend.sports.nfl import finder
+          now = datetime.now(timezone.utc)
+          season = gp._nfl_season(now)
+          try:
+              table, last = nfl_team_epa.build(season), nfl_team_epa.build(season - 1)
+              print("play-by-play tables:", season, len(table["teams"]), "team-games,", len(table["qbs"]), "QB-games |", season - 1, len(last["teams"]))
+              context = gp.nfl_context(table, last, finder.games_index(), (now - timedelta(hours=5)).date(), season)
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
+              raise SystemExit(0)
+          games = [game for game in gp.slate("nfl", now)["games"] if game["state"] == "pre"][:8]
+          for game in games:
+              try:
+                  found = gp._summary("nfl", game["id"])
+                  built = gp.nfl_model_v2(found, context)
+                  made = gp.prediction("nfl", found, built, None, now)
+              except Exception:  # noqa: BLE001
+                  traceback.print_exc()
+                  continue
+              ours, blend = made["predictions"]["ours"], made["predictions"]["blend"]
+              line = (made.get("market") or {}).get("spread")
+              print(f"{found['away']['abbr']} @ {found['home']['abbr']} | line home {line} | ours {ours and ours['margin']} "
+                    f"({ours and ours['chance']['home']}) total {ours and ours['total']} | blend {blend['margin']} ({blend['chance']['home']}) "
+                    f"| {made['confidence']} | EV best {made['ev']['best']}")
+              print("   QBs:", built and built["starters"], "| warnings:", [item["text"] for item in made["warnings"]])
+              print("   parts:", [(part["key"], part["points"], part["text"]) for part in made["factors"]])

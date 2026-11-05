@@ -56,14 +56,27 @@ export function recordText(record){
  return `${record.correct}-${record.games-record.correct} · ${pct(record.pct)}`;
 }
 
-/** A prediction's edge, in words: null when there is none to show. */
-export function edgeText(prediction){
- const edge=prediction?.edge;
- if(!edge?.side)return null;
- const team=prediction[edge.side];
- const market=prediction.market?.chance?.[edge.side];
- return {team,price:odds(edge.price),fair:odds(edge.fair),ours:pct(edge.chance??prediction.chance?.[edge.side]),market:pct(market),
-  gap:`+${(edge.points*100).toFixed(1)}%`};
+/** A moneyline's expected value on a dollar: "+3.2%", "−4.1%". */
+export const evText=value=>value==null||!Number.isFinite(value)?'—':`${value>=0?'+':'−'}${Math.abs(value*100).toFixed(1)}%`;
+
+/** Units won or lost: "+1.4 units", "−2 units". */
+export const unitsText=units=>units==null||!Number.isFinite(units)?'—':`${units>=0?'+':'−'}${Math.abs(units).toFixed(1).replace(/\.0$/,'')} units`;
+
+/** The moneyline rows, away first: each price with the blend's chance, its
+ * value, the fair price and our model's value alone. */
+export function valueRows(prediction){
+ const ev=prediction?.ev;
+ if(!ev?.blend)return [];
+ return ['away','home'].filter(side=>ev.blend[side]).map(side=>{const row=ev.blend[side];return {side,team:prediction[side],
+  price:odds(row.price),chance:pct(row.chance),ev:row.ev,text:evText(row.ev),fair:odds(row.fair),
+  ours:ev.ours?.[side]?evText(ev.ours[side].ev):null,best:ev.best===side};});
+}
+
+/** Our model alone and with the line, when they're two different numbers. */
+export function twoCalls(prediction){
+ const {ours,blend}=prediction?.predictions||{};
+ if(!ours||!blend||blend.weight==null||blend.weight>=1)return null;
+ return {ours,blend,share:blend.weight>0?`${Math.round(blend.weight*100)}% ours`:'The line'};
 }
 
 /** The history's result for one entry: 'win', 'loss', 'push' or 'pending'. */

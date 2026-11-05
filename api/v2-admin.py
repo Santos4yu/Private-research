@@ -176,6 +176,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._handle_nfl_cron_scan()
             if action == "nfl-plays-cron":
                 return self._handle_nfl_plays_cron()
+            if action == "predictor-cron":
+                return self._handle_predictor_cron((qs.get("step") or ["snapshot"])[0])
             if action == "site-background":
                 # Public and unauthenticated on purpose: this is the image
                 # every visitor's browser fetches directly (not through the
@@ -642,6 +644,46 @@ class handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": f"NFL plays build failed: {exc}"})
         # Built but not kept: every page would rebuild it, so say so.
         return self._send(200 if stored else 500, {"ok": stored, "season": season, "bytes": size, "stored": stored})
+
+    def _handle_predictor_cron(self, step):
+        """The Game Predictor's daily jobs (game_predictor.py), same gate as
+        the NFL plays cron: step=epa builds this season's NFL play-by-play
+        table (nfl_team_epa.py) once nflverse has the night's games;
+        step=epa-last builds last season's if it isn't kept yet (its
+        ratings' starting point); step=snapshot predicts every game of the
+        next day and a half in both leagues and keeps each for the record."""
+        import hmac
+        secret = os.getenv("CRON_SECRET", "")
+        if secret:
+            if not hmac.compare_digest(self.headers.get("Authorization", ""), f"Bearer {secret}"):
+                return self._send(401, {"error": "Cron auth required"})
+        elif "vercel-cron" not in self.headers.get("User-Agent", "").lower() and self.headers.get("x-vercel-cron", "") != "1":
+            return self._send(401, {"error": "Cron request required"})
+        try:
+            if step in ("epa", "epa-last"):
+                import nfl_plays
+                import nfl_team_epa
+                season = nfl_plays.season_now() - (1 if step == "epa-last" else 0)
+                if step == "epa-last" and nfl_team_epa.stored(season):
+                    return self._send(200, {"ok": True, "season": season, "skipped": "already kept"})
+                size, stored = nfl_team_epa.refresh(season)
+                return self._send(200 if stored else 500, {"ok": stored, "season": season, "bytes": size, "stored": stored})
+            if step == "snapshot":
+                from concurrent.futures import ThreadPoolExecutor
+                import game_predictor
+
+                def one(sport):
+                    try:
+                        return game_predictor.snapshot(sport)
+                    except Exception as exc:  # noqa: BLE001 -- the other league still runs
+                        return {"sport": sport, "error": type(exc).__name__}
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    return self._send(200, {"ok": True, "leagues": list(pool.map(one, game_predictor.SPORTS))})
+        except LookupError as exc:
+            return self._send(200, {"ok": False, "skipped": str(exc)})
+        except Exception as exc:  # noqa: BLE001 -- report, don't hang the caller
+            return self._send(500, {"error": f"Predictor {step} failed: {type(exc).__name__}"})
+        return self._send(400, {"error": "Unknown step"})
 
     def _build_wnba_league(self, trigger="manual", league="wnba"):
         """Add every newly finished WNBA game to the stored season, on demand.

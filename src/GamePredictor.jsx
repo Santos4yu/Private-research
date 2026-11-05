@@ -1,14 +1,15 @@
 // The Game Predictor (game_predictor.py through /api/prediction
 // action=game-*): pick an NBA or NFL game, predict it, and see the winner,
-// the final score, the edge against the market, who's out, the pace,
+// the final score, our model alone beside it blended with the line, each
+// moneyline's value, what to check first, who's out, the pace,
 // blowout chance and each side's best player matchup; below, every past
 // prediction and how often it was right. The owner, Nov 5, with another
 // app's simple "select a game, predict winner" screens. A section the admin
 // switches on (site_controls 'predictor'), off until then.
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {Check,ChevronDown,Crosshair,Flame,Gauge,Loader2,RefreshCw,ShieldCheck,UserX,X} from 'lucide-react';
+import {AlertTriangle,Check,ChevronDown,Crosshair,Flame,Gauge,Info,Loader2,RefreshCw,ShieldCheck,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
-import {SPORTS,byText,edgeText,lineText,odds,pct,pull,recordText,resultOf,startText} from './game-predictor-core.js';
+import {SPORTS,byText,lineText,odds,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from './game-predictor-core.js';
 import './game-predictor.css';
 
 const PREF='game-predictor-sport';
@@ -70,9 +71,45 @@ function Chance({prediction}){
  </div>;
 }
 
+// Our model alone beside the main call, ours blended with the line.
+function TwoCalls({prediction}){
+ const calls=twoCalls(prediction);
+ if(!calls)return null;
+ const call=(item,label,note)=>{const team=prediction[item.winner];return <div className="gp-call">
+  <span className="gp-label">{label}{note&&<small>{note}</small>}</span>
+  <b><Logo team={team} size={20}/>{team.abbr} {pct(item.chance[item.winner])}</b>
+  <small>{byText(item.margin,prediction)}{item.score?` · ${item.score.away}-${item.score.home}`:''}</small>
+ </div>;};
+ return <div className="gp-calls">{call(calls.ours,'Our model')}{call(calls.blend,'With the line',calls.share)}</div>;
+}
+
+// Each moneyline: its price, the chance we give it, and what a dollar on it is worth.
+function Value({prediction}){
+ const rows=valueRows(prediction);
+ if(!rows.length)return null;
+ return <div className="gp-value">
+  <span className="gp-label">Moneyline value</span>
+  <ul>{rows.map(row=><li key={row.side} data-best={row.best?'':undefined}>
+   <span className="gp-value-team"><Logo team={row.team} size={20}/><b>{row.team.abbr}</b><span>{row.price}</span></span>
+   <span className="gp-value-ev" data-tone={row.ev>0?'up':'down'}>{row.text}</span>
+   <small>{row.chance} to win · fair {row.fair}{row.ours?<> · our model {row.ours}</>:null}</small>
+  </li>)}</ul>
+ </div>;
+}
+
+function Warnings({prediction}){
+ const items=prediction.warnings||[];
+ if(!items.length)return null;
+ return <section className="gp-card gp-warnings">
+  <h4><AlertTriangle size={16} aria-hidden="true"/> Check first</h4>
+  <ul>{items.map((item,index)=><li key={index} data-level={item.level}>
+   {item.level==='info'?<Info size={15} aria-hidden="true"/>:<AlertTriangle size={15} aria-hidden="true"/>}<span>{item.text}</span>
+  </li>)}</ul>
+ </section>;
+}
+
 function Verdict({prediction}){
  const winner=prediction[prediction.winner];
- const edge=edgeText(prediction);
  const score=prediction.score;
  return <section className="gp-card gp-verdict">
   <div className="gp-verdict-top">
@@ -88,16 +125,10 @@ function Verdict({prediction}){
    <span data-level={prediction.blowout.level}><Flame size={14} aria-hidden="true"/>Blowout {pct(prediction.blowout.chance)}<small>by {prediction.blowout.by}+</small></span>
    {prediction.pace&&<span data-level={prediction.pace.level}><Gauge size={14} aria-hidden="true"/>{prediction.pace.level} pace<small>{prediction.pace.value} {prediction.pace.unit}</small></span>}
   </div>
-  {edge?<div className="gp-edge is-on">
-   <span className="gp-label">Moneyline edge</span>
-   <b><Logo team={edge.team} size={20}/>{edge.team.short||edge.team.abbr} {edge.price}</b>
-   <p>We give them {edge.ours}, the price says {edge.market} ({edge.gap}). Fair price {edge.fair}.</p>
-  </div>:prediction.market?.chance?<div className="gp-edge">
-   <span className="gp-label">Moneyline edge</span><b>No edge</b>
-   <p>Our number and the market agree within 2%.</p>
-  </div>:null}
+  {prediction.confidenceWhy?.length>0&&<p className="gp-why-line">{prediction.confidenceWhy.join(' · ')}</p>}
+  <TwoCalls prediction={prediction}/>
+  <Value prediction={prediction}/>
   <dl className="gp-views">
-   {prediction.ours&&<div><dt>Our model</dt><dd>{byText(prediction.ours.margin,prediction)}</dd></div>}
    {prediction.market?.spread!=null&&<div><dt>The line</dt><dd>{byText(-prediction.market.spread,prediction)}</dd></div>}
    {prediction.espn&&<div><dt>ESPN</dt><dd>{prediction.espn.home>=0.5?prediction.home.abbr:prediction.away.abbr} {pct(Math.max(prediction.espn.home,prediction.espn.away))}</dd></div>}
    {prediction.market?.moneyline?.home!=null&&<div><dt>Moneyline</dt><dd>{prediction.away.abbr} {odds(prediction.market.moneyline.away)} · {prediction.home.abbr} {odds(prediction.market.moneyline.home)}</dd></div>}
@@ -168,6 +199,8 @@ function Compare({prediction}){
  ]:[
   ['Points a game',cell(teams.away.pf),cell(teams.home.pf)],
   ['Allowed a game',cell(teams.away.pa),cell(teams.home.pa)],
+  ...(teams.away.epaOff?[['EPA a play',cell(teams.away.epaOff),cell(teams.home.epaOff)],
+   ['EPA allowed a play',cell(teams.away.epaDef),cell(teams.home.epaDef)]]:[]),
   ['Plays a game',cell(prediction.pace?.away),cell(prediction.pace?.home)],
   ['Quarterback',teams.away.qb||'—',teams.home.qb||'—'],
  ];
@@ -189,8 +222,10 @@ function History({state,admin,onRetry}){
   </div>
   {record?.games?<dl className="gp-history-stats">
    <div><dt>Picks right</dt><dd>{record.correct} of {record.games}</dd></div>
+   {record.ours?.games?<div><dt>Our model alone</dt><dd>{record.ours.correct} of {record.ours.games}</dd></div>:null}
    {record.market?.games?<div><dt>Favorites won</dt><dd>{record.market.correct} of {record.market.games}</dd></div>:null}
    {record.scoreMiss!=null&&<div><dt>Score off by</dt><dd>{record.scoreMiss.toFixed(1)} pts</dd></div>}
+   {record.bets?.count?<div><dt>Value bets</dt><dd data-tone={record.bets.units>0?'up':record.bets.units<0?'down':undefined}>{unitsText(record.bets.units)} <small>{record.bets.count} {record.bets.count===1?'bet':'bets'}</small></dd></div>:null}
   </dl>:null}
   {loading&&!data?<div className="gp-skeleton" role="status" aria-label="Loading history"><span/><span/></div>
   :error&&!data?(admin?<p className="gp-dim">{error} <button type="button" className="gp-link" onClick={onRetry}>Retry</button></p>:<p className="gp-dim">No predictions yet.</p>)
@@ -253,6 +288,7 @@ export function GamePredictor(){
   {shown.error&&<section className="gp-card"><p className="gp-dim">{admin?shown.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p></section>}
   {shown.data&&<>
    <Verdict prediction={shown.data}/>
+   <Warnings prediction={shown.data}/>
    <Factors prediction={shown.data}/>
    <WhosOut prediction={shown.data}/>
    <Players prediction={shown.data}/>

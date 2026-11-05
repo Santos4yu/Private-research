@@ -101,20 +101,38 @@ class PredictionTests(unittest.TestCase):
         self.assertIn(found["confidence"], ("High", "Medium", "Low"))
         self.assertEqual(found["blowout"]["by"], 15)
 
-    def test_edge_against_the_market(self):
-        # Our model has DEN by 14 where the line says 4.5: the quarter of
-        # ours moves DEN's chance up, laid on the moneyline's.
-        built = {"margin": 14.0, "total": 230, "parts": [], "teams": None, "out": None, "rest": None}
+    def test_two_predictions_and_moneyline_value(self):
+        # Our model has DEN by 14 where the line says 4.5: ours alone, and
+        # the blend (a quarter ours), each with its chances and score.
+        built = {"margin": 14.0, "total": 230, "parts": [], "teams": None, "out": None, "rest": None, "sigma": 12.12, "model": "v2"}
         found = gp.prediction("nba", game(), built, now=NOW)
-        market = gp.implied(-190) / (gp.implied(-190) + gp.implied(160))
-        shift = gp.phi((0.75 * 4.5 + 0.25 * 14) / 12.5) - gp.phi(4.5 / 12.5)
-        self.assertEqual((found["edge"]["side"], found["edge"]["price"]), ("home", -190))
-        self.assertAlmostEqual(found["edge"]["points"], round(shift, 4))
-        self.assertAlmostEqual(found["edge"]["chance"], round(market + shift, 4))
-        # The line alone is no edge, even where its spread and its price
-        # don't quite agree.
-        alone = gp.prediction("nba", game(home_ml=170, away_ml=-200), None, now=NOW)
-        self.assertIsNone(alone["edge"]["side"])
+        ours, blend = found["predictions"]["ours"], found["predictions"]["blend"]
+        self.assertEqual((ours["margin"], ours["winner"], ours["total"]), (14.0, "home", 230))
+        self.assertAlmostEqual(ours["chance"]["home"], round(gp.phi(14 / 12.12), 4))
+        self.assertAlmostEqual(blend["margin"], round(0.75 * 4.5 + 0.25 * 14, 1))
+        self.assertEqual((blend["weight"], blend["total"], found["margin"]), (0.25, 226.5, blend["margin"]))
+        # The moneyline's value at the blend's chance: DEN -190 pays 100/190 a unit.
+        p = gp.phi((0.75 * 4.5 + 0.25 * 14) / 12.5)
+        home = found["ev"]["blend"]["home"]
+        self.assertEqual(home["price"], -190)
+        self.assertAlmostEqual(home["ev"], round(p * 100 / 190 - (1 - p), 4))
+        mine = ours["chance"]["home"]
+        self.assertAlmostEqual(found["ev"]["ours"]["away"]["ev"], round((1 - mine) * 1.6 - mine, 4))
+        self.assertEqual(found["ev"]["best"], "home" if home["ev"] > 0 else None)
+        # Ten points apart is worth a warning, and a low confidence.
+        self.assertEqual([item["level"] for item in found["warnings"]], ["high"])
+        self.assertEqual(found["confidence"], "Low")
+
+    def test_confidence(self):
+        built = {"margin": 9.0, "total": 230, "sigma": 12.12, "model": "v2"}
+        sure = gp.prediction("nba", game(spread=-9.5, home_ml=-450, away_ml=340), built, now=NOW)
+        self.assertEqual((sure["confidence"], sure["warnings"]), ("High", []))
+        self.assertIn("Our model and the line pick the same team", sure["confidenceWhy"])
+        split = gp.prediction("nba", game(spread=-2.5), {**built, "margin": -3.0}, now=NOW)
+        self.assertEqual(split["confidence"], "Low")
+        warned = gp.prediction("nba", game(spread=-9.5, home_ml=-450, away_ml=340),
+                               {**built, "warnings": [gp._warn("medium", "Early season")]}, now=NOW)
+        self.assertEqual(warned["confidence"], "Medium")
 
     def test_without_a_line(self):
         built = {"margin": -6.0, "total": 230.4, "parts": [], "teams": None, "out": None, "rest": None, "poss": 99, "leaguePace": 100}
@@ -180,6 +198,100 @@ class NflTests(unittest.TestCase):
         self.assertAlmostEqual(found["margin"], round(0.9 * 3 + 0.1 * hurt["margin"], 1))
 
 
+class NbaV2Tests(unittest.TestCase):
+    def setUp(self):
+        self.context = gp.nba_context(payload(), None, NOW.date())
+
+    def test_ratings_injuries_and_warnings(self):
+        healthy = gp.nba_model_v2(game(), self.context)
+        self.assertEqual(healthy["model"], "v2")
+        # BOS wins every game in the fixture: the model has BOS (away) ahead.
+        self.assertLess(healthy["margin"], 0)
+        self.assertGreater(self.context["rt"]["off"]["BOS"], self.context["rt"]["off"]["DEN"])
+        self.assertEqual(healthy["teams"]["away"]["last10"], [6, 0])
+        # Six games each: early season, and the small-sample spread of finals.
+        self.assertEqual(healthy["sigma"], 9.99)
+        self.assertIn("Early season", healthy["warnings"][0]["text"])
+        hurt = gp.nba_model_v2(game({"DEN": [{"id": "Dstar", "name": "Nikola Jokic", "position": "C", "status": "Out"}]}), self.context)
+        star = self.context["states"]["DEN"]["regulars"]["Dstar"]
+        self.assertAlmostEqual(healthy["margin"] - hurt["margin"], gp.V2["nba"]["injury"] * star["value"] * star["reflect"], places=6)
+        self.assertEqual((hurt["out"]["home"][0]["name"], hurt["out"]["home"][0]["out"]), ("Nikola Jokic", True))
+        # A questionable regular: the swing if he sits, as a note.
+        maybe = gp.nba_model_v2(game({"DEN": [{"id": "Dstar", "name": "Nikola Jokic", "status": "Questionable"}]}), self.context)
+        self.assertAlmostEqual(maybe["margin"], healthy["margin"], places=6)
+        self.assertTrue(any("if he sits" in item["text"] for item in maybe["warnings"]))
+        players = gp.nba_players_v2(game(), self.context, healthy)
+        self.assertEqual(set(players["home"]["avg"]), {"pts", "reb", "ast"})
+
+
+class NflV2Tests(unittest.TestCase):
+    """Two seasons of KC and BUF: KC's offense far better; Mahomes its quarterback."""
+    def setUp(self):
+        games, teams, qbs = {}, [], []
+        for season, base in ((2025, 1730000000), (2026, 1757000000)):
+            for n in range(6):
+                gid = f"{season}_{n}"
+                home, away = ("KC", "BUF") if n % 2 == 0 else ("BUF", "KC")
+                kc_home = home == "KC"
+                games[gid] = {"game_id": gid, "season": season, "home": home, "away": away, "home_score": 27 if kc_home else 17,
+                              "away_score": 17 if kc_home else 27, "final": True, "kickoff": base + n * 7 * 86400}
+                for team, epa, succ in (("KC", 6.0, 30.0), ("BUF", -3.0, 24.0)):
+                    teams.append({"game": gid, "team": team, "side": "o", "plays": 60, "epa": epa, "succ": succ})
+                qbs.append({"game": gid, "team": "KC", "qb": "q1", "name": "P.Mahomes", "db": 38, "epa": 8.0})
+                qbs.append({"game": gid, "team": "BUF", "qb": "q2", "name": "J.Allen", "db": 36, "epa": 2.0})
+        qbs.append({"game": "2026_5", "team": "KC", "qb": "q3", "name": "C.Wentz", "db": 6, "epa": -3.0})
+        self.games = games
+        table = lambda season: {"teams": [t for t in teams if t["game"].startswith(str(season))],
+                                "qbs": [q for q in qbs if q["game"].startswith(str(season))], "builtAt": "2026-10-20T12:00:00+00:00"}
+        today = datetime(2026, 10, 20).date()
+        self.context = gp.nfl_context(table(2026), table(2025), games, today, 2026)
+        self.game = {"id": "9", "startsAt": "2026-10-25T17:00:00Z", "neutral": False, "home": {"abbr": "BUF"}, "away": {"abbr": "KC"}}
+
+    def test_names_match_across_sources(self):
+        self.assertEqual(gp._short_key("P.Mahomes"), gp._short_key("Patrick Mahomes II"))
+        self.assertEqual(gp._short_key("D.Thompson-Robinson"), gp._short_key("Dorian Thompson-Robinson"))
+        self.assertNotEqual(gp._short_key("J.Allen"), gp._short_key("Kyler Murray"))
+
+    def test_the_quarterback_out(self):
+        healthy = gp.nfl_model_v2({**self.game, "injuries": {}}, self.context)
+        self.assertEqual(healthy["model"], "v2")
+        self.assertLess(healthy["margin"], 0)          # KC, away, is better
+        self.assertEqual(healthy["starters"]["away"], {"name": "P.Mahomes", "how": "recent starter"})
+        hurt = gp.nfl_model_v2({**self.game, "injuries": {"KC": [{"name": "Patrick Mahomes", "position": "QB", "status": "Out"}]}}, self.context)
+        self.assertEqual(hurt["starters"]["away"]["name"], "C.Wentz")
+        self.assertGreater(hurt["margin"], healthy["margin"])
+        self.assertAlmostEqual(hurt["out"]["away"][0]["impact"], round(hurt["margin"] - healthy["margin"], 1), places=1)
+        self.assertTrue(any("C.Wentz" in item["text"] for item in hurt["warnings"]))
+        # The total from the points ratings (no fitted total weights).
+        self.assertAlmostEqual(healthy["total"], 44, delta=6)
+        found = gp.prediction("nfl", {**self.game, "state": "pre", "line": {"spread": 3.5, "total": 45.5, "moneyline": {"home": 150, "away": -180}, "chance": None},
+                                      "espn": None}, hurt, now=NOW)
+        self.assertAlmostEqual(found["margin"], round(0.9 * -3.5 + 0.1 * hurt["margin"], 1))
+        self.assertAlmostEqual(found["predictions"]["ours"]["chance"]["home"], round(gp.phi(hurt["margin"] / 9.56), 4))
+
+    def test_without_the_table_the_older_model(self):
+        with patch.object(gp, "_nfl_v2", return_value=None), patch.object(gp, "_nfl_numbers", return_value=gp.nfl_tables(self.games, 2026)):
+            built, _ = gp._model("nfl", {**self.game, "injuries": {}}, NOW)
+        self.assertEqual((built["model"], built["fallback"]), ("v1", "no play-by-play table"))
+
+
+class SnapshotTests(unittest.TestCase):
+    def test_every_game_in_one_write(self):
+        store, writes = FakeStore(), []
+        original = store.set
+        store.set = lambda key, value: (writes.append(key), original(key, value))
+        upcoming = [{"id": str(n), "state": "pre", "startsAt": f"2026-11-06T0{n}:00:00Z"} for n in range(3)]
+        upcoming.append({"id": "far", "state": "pre", "startsAt": "2026-11-09T00:00:00Z"})
+        context = gp.nba_context(payload(), None, NOW.date())
+        with patch.object(gp, "slate", return_value={"games": upcoming}), patch.object(gp, "_nba_v2", return_value=context), \
+                patch.object(gp, "_summary", side_effect=lambda sport, event: {**game(), "id": event}):
+            done = gp.snapshot("nba", now=NOW, store=store)
+        self.assertEqual((done["games"], done["saved"], done["models"], done["failed"]), (3, 3, ["v2"], []))
+        self.assertEqual(len(writes), 1)
+        kept = json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])
+        self.assertEqual(sorted(item["id"] for item in kept), ["0", "1", "2"])
+
+
 class FakeStore:
     def __init__(self):
         self.data = {}
@@ -192,17 +304,18 @@ class FakeStore:
 
 
 class HistoryTests(unittest.TestCase):
-    def found(self, event, starts, pick="home", score=(112, 104), market=0.6):
+    def found(self, event, starts, pick="home", score=(112, 104), market=0.6, ours="home", bet=None):
+        ev = {"blend": {bet[0]: {"price": bet[1], "ev": 0.03}} if bet else {}, "best": bet[0] if bet else None}
         return {"id": event, "startsAt": starts, "madeAt": "2026-11-01T12:00:00Z", "winner": pick, "chance": {"home": 0.62, "away": 0.38},
                 "home": {"abbr": "DEN", "short": "Nuggets", "logo": None}, "away": {"abbr": "BOS", "short": "Celtics", "logo": None},
                 "score": {"home": score[0], "away": score[1]}, "market": {"spread": -4.5, "total": 226.5, "chance": {"home": market, "away": 1 - market}},
-                "edge": {"side": None}}
+                "predictions": {"ours": {"winner": ours, "chance": {"home": 0.7, "away": 0.3}, "score": None}}, "ev": ev, "model": "v2"}
 
     def test_record_settle_and_summary(self):
         store = FakeStore()
         gp.record("nba", self.found("1", "2026-11-03T00:00:00Z"), store=store)
         gp.record("nba", self.found("1", "2026-11-03T00:00:00Z", score=(110, 100)), store=store)   # the later one wins
-        gp.record("nba", self.found("2", "2026-11-04T00:00:00Z", pick="away", market=0.7), store=store)
+        gp.record("nba", self.found("2", "2026-11-04T00:00:00Z", pick="away", market=0.7, bet=("away", 150)), store=store)
         gp.record("nba", self.found("3", "2026-11-06T00:00:00Z"), store=store)                   # not played yet
         asked = []
 
@@ -221,6 +334,9 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(result["record"]["correct"], 1)
         self.assertEqual(result["record"]["market"], {"games": 2, "correct": 2})
         self.assertEqual(result["record"]["pending"], 1)
+        # Ours alone picked DEN both times; the one value bet (BOS +150) lost.
+        self.assertEqual(result["record"]["ours"], {"games": 2, "correct": 2})
+        self.assertEqual(result["record"]["bets"], {"count": 1, "units": -1.0, "roi": -1.0})
         # Settled games are kept settled: no more scoreboard reads for them.
         gp.history("nba", now=NOW, store=store, finals=finals)
         self.assertEqual(len(asked), 1)
@@ -249,13 +365,22 @@ class HistoryTests(unittest.TestCase):
     def test_predict_keeps_only_games_still_to_start(self):
         store = FakeStore()
         tables = gp.nba_tables(payload(), None)
-        with patch.object(gp, "_summary", return_value=game()), patch.object(gp, "_nba_numbers", return_value=tables):
+        context = gp.nba_context(payload(), None, NOW.date())
+        with patch.object(gp, "_summary", return_value=game()), patch.object(gp, "_nba_v2", return_value=context):
             gp.predict("nba", "401", now=NOW, store=store)
-        with patch.object(gp, "_summary", return_value={**game(state="in"), "id": "402"}), patch.object(gp, "_nba_numbers", return_value=tables):
+        with patch.object(gp, "_summary", return_value={**game(state="in"), "id": "402"}), patch.object(gp, "_nba_v2", return_value=context):
             found = gp.predict("nba", "402", now=NOW, store=store)
         self.assertEqual(found["id"], "402")
         kept = json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])
         self.assertEqual([item["id"] for item in kept], ["401"])
+        self.assertEqual(kept[0]["model"], "v2")
+        self.assertIsNotNone(kept[0]["ours"])
+        # Without v2's numbers the older model stands in, and says so.
+        with patch.object(gp, "_summary", return_value=game()), patch.object(gp, "_nba_v2", side_effect=RuntimeError), \
+                patch.object(gp, "_nba_numbers", return_value=tables):
+            older = gp.predict("nba", "401", now=NOW, store=store)
+        self.assertEqual(older["model"], "v1")
+        self.assertIn("simpler model", older["warnings"][0]["text"])
         with self.assertRaises(ValueError):
             gp.predict("mlb", "1", store=store)
 

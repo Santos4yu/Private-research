@@ -25,7 +25,10 @@ NFL (569): line MAE 9.69, logloss .5972, 68.2% | v1 10.11, .6229, 66.1% | v2 ind
 10.07, .6169, 66.1%, totals 10.10 vs line 10.06 | v2 market-adjusted 9.70, .5977.
 Value bets (independent EV>0, 437 bets): ROI -0.8%. No proven profitable edge.
 
-Production modules started (not wired in): predictor_ratings.py, predictor_nba.py,
-predictor_nfl.py (parity with backtest checked), nfl_team_epa.py (needs a cron).
-Left to do: game_predictor.py v2 orchestration (two predictions, quality checks,
-confidence, EV, history v2 + cron snapshots), frontend order, tests.
+Production modules: predictor_ratings.py, predictor_nba.py, predictor_nfl.py
+(parity with backtest checked), nfl_team_epa.py. WIRED IN Nov 5 (game_predictor.py
+V2, nba_model_v2 / nfl_model_v2, two predictions, warnings, confidence, moneyline
+EV, history v2, cron snapshots; see docs/claude-handoff.md). Not kept from the
+backtest: the NFL total weights (nfl_v2_params.json wasn't committed), so the NFL
+total is the line's, else 2*mu + the points ratings. NBA staged sigma kept as
+chosen, though picked after seeing test.

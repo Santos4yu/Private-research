@@ -37,9 +37,20 @@ How the number is made, backtested on real games (Nov 5):
   points, NFL 12), calibrated on the same games; the blowout chance the same
   way (NBA by 15 or more, NFL by 14 or more).
 
+v2 (Nov 5, tools/game-predictor-backtest/README.md; predictor_nba.py,
+predictor_nfl.py, predictor_ratings.py): opponent-adjusted ratings fitted
+walk-forward (NBA offense, defense and pace; NFL EPA a play, success rate,
+points and plays, with each quarterback's value). Each game gets two
+predictions: ours alone, and ours blended with the line (V2 "ours" share),
+plus data warnings, a confidence level and each moneyline's expected value.
+The older numbers above stay as the fallback when v2 can't run (the NFL's
+play-by-play tables not built yet, or a failed read).
+
 Every prediction made before tip-off is kept (HISTORY_KEY) and settled from
 ESPN's final scores, so the page shows how often it has been right, beside
-how often the market's favorite was.
+how often the market's favorite was. A cron (snapshot, through
+api/v2-admin.py) predicts every game twice a day, so the record isn't only
+the games someone opened.
 """
 from __future__ import annotations
 
@@ -64,16 +75,34 @@ MODELS = {
     "nfl": {"scale": 1.53, "home": 2.1, "qb": 3.2, "rest": 0.1, "ours": 0.1, "sigma": 12.0,
             "blowout": 14, "blowout_sigma": 13.5, "prior_games": 4, "prior_keep": 0.5, "unit": "pts"},
 }
+# v2's settings and weights, from the backtest (tools/game-predictor-backtest):
+# chosen on validation seasons, then scored once on the test seasons.
+V2 = {
+    "nba": {"lam": 12, "half_life": 50, "keep": 0.75, "pace_keep": 0.75, "window": 30, "shrink_minutes": 200,
+            "regular_minutes": 12, "rate_minutes": 200,
+            "rating": 1.1315, "injury": 0.2088, "home": 2.051,
+            "total_rating": 1.0319, "total_injury": -0.0522, "total_const": -7.037,
+            # Our margin's spread of finals by the fewer games either team has
+            # played (early margins are pulled toward last season, so smaller).
+            "sigma_by_games": ((10, 9.99), (25, 11.25), (50, 15.05), (None, 12.12)),
+            "ours": 0.25, "market_sigma": 12.5, "disagree": 7.0},
+    "nfl": {"lam": 8, "half_life": 250, "keep": 0.6, "qb_prior": 300, "qb_replacement": -0.12,
+            "margin": {"epa": 15.4959, "succ": 34.3113, "pts": 0.3545, "home": 1.0209, "rest": 0.0368, "qb": 12.0275,
+                       "qbnew": -2.0214, "const": 0.878},
+            # The fitted total weights weren't kept (the line's total was
+            # closer): without a line, the points ratings give the total.
+            "total": None, "sigma": 9.56, "ours": 0.10, "market_sigma": 11.03, "disagree": 6.0},
+}
 # Listed this way, a player is out (ESPN's NBA "Day-To-Day" and the NFL's
 # "Questionable" leave him in, the way the rest of the site counts).
 OUT_STATUSES = ("out", "doubtful", "suspension", "suspended", "injured reserve", "ir", "pup", "nfi")
-# An edge smaller than this (our win chance less the market's) is no edge.
-EDGE_MIN = 0.02
 SLATE_SECONDS = 5 * 60
 SUMMARY_SECONDS = 5 * 60
 TABLE_SECONDS = 15 * 60
-HISTORY_KEY = "krazy_data:predictor:v1:history:{sport}"
+# v2's history starts fresh: v1's (krazy_data:predictor:v1:history) is kept, not shown.
+HISTORY_KEY = "krazy_data:predictor:v2:history:{sport}"
 PRIOR_KEY = "krazy_data:predictor:v1:nba-prior:{season}"
+PRIOR2_KEY = "krazy_data:predictor:v2:nba-prior:{season}"
 MAX_HISTORY = 400
 # A game is settled once ESPN calls it final; asked about this long after its start.
 SETTLE_AFTER = {"nba": 2.5 * 3600, "nfl": 3.5 * 3600}
@@ -142,6 +171,22 @@ def _key(name) -> str:
 
 def is_out(status) -> bool:
     return str(status or "").strip().lower() in OUT_STATUSES
+
+
+def _short_key(name) -> str:
+    """First initial and last name: nflverse's "P.Mahomes" and ESPN's
+    "Patrick Mahomes II" read the same."""
+    text = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode().lower()
+    text = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b\.?", " ", text)
+    words = [word for word in re.split(r"[\s.]+", text) if re.sub(r"[^a-z]", "", word)]
+    if not words:
+        return ""
+    return words[0][0] + re.sub(r"[^a-z]", "", words[-1]) if len(words) > 1 else re.sub(r"[^a-z]", "", words[0])
+
+
+def _warn(level, text) -> dict:
+    """A data warning on a prediction: level high (it lowers the confidence), medium or info."""
+    return {"level": level, "text": text}
 
 
 # ------------------------------------------------------------------ the schedule
@@ -777,29 +822,301 @@ def nfl_players(game, tables, built) -> dict:
     return result
 
 
-# ------------------------------------------------------------------ the prediction
+# ------------------------------------------------------------------ v2 numbers
 
-def combine(sport, game, built) -> dict:
-    """The final number: ours with the line's, by the backtested weights."""
-    model = MODELS[sport]
-    line = game.get("line") or {}
-    ours = built["margin"] if built else None
-    market_margin = -line["spread"] if line.get("spread") is not None else None
-    if market_margin is not None and ours is not None:
-        margin = (1 - model["ours"]) * market_margin + model["ours"] * ours
-    elif market_margin is not None:
-        margin = market_margin
-    elif ours is not None:
-        margin = ours
-    elif game.get("espn"):
-        # ESPN's projection alone, as a margin.
-        p = min(0.99, max(0.01, game["espn"]["home"]))
-        margin = model["sigma"] * math.sqrt(2) * _erfinv(2 * p - 1)
-    else:
+def _staged_sigma(fewest, stages) -> float:
+    for upto, sigma in stages:
+        if upto is None or fewest < upto:
+            return sigma
+    return stages[-1][1]
+
+
+def _day_text(day) -> str:
+    return f"{day:%b} {day.day}"
+
+
+def nba_context(payload, prior, today) -> dict:
+    """v2's NBA numbers as of `today` (games before it only): the ratings,
+    each team's regulars, its results and what defenses allow each position."""
+    import predictor_nba
+    params = V2["nba"]
+    games, index = predictor_nba.games_of(payload)
+    players = (payload or {}).get("players") or {}
+    past = [g for g in games if g["date"] < today]
+    results = defaultdict(list)
+    for g in past:
+        results[g["home"]].append(g["hs"] > g["as"])
+        results[g["away"]].append(g["as"] > g["hs"])
+    return {"rt": predictor_nba.rate(games, today, params, prior),
+            "states": predictor_nba.team_states(games, index, today, params, players),
+            "dvp": predictor_nba.defense_by_position(games, index, players, today),
+            "results": dict(results), "lastDate": past[-1]["date"] if past else None, "today": today, "prior": bool(prior)}
+
+
+def _nba_v2_prior(season, load=None, store=None) -> dict | None:
+    """Last season's v2 ratings at its end, shrunk toward average: worked out once and kept."""
+    import predictor_nba
+    key = PRIOR2_KEY.format(season=season)
+    hit = _memory.get(key)
+    if hit:
+        return hit[1]
+    store = _store() if store is None else store
+    try:
+        raw = store.get(key) if store else None
+        if raw:
+            value = json.loads(raw)
+            _memory[key] = (time.time(), value)
+            return value
+    except Exception:  # noqa: BLE001
+        pass
+    if load is None:
+        from backend.sports.wnba import league
+        load = lambda: league.stored(season, "nba")
+    payload = load()
+    if not payload or not payload.get("games"):
         return None
-    total = line.get("total") if line.get("total") is not None else (built["total"] if built else None)
-    return {"margin": margin, "total": total}
+    value = predictor_nba.season_prior(predictor_nba.games_of(payload)[0], V2["nba"])
+    if value:
+        _memory[key] = (time.time(), value)
+        try:
+            if store:
+                store.set(key, json.dumps(value, separators=(",", ":")))
+        except Exception:  # noqa: BLE001
+            pass
+    return value
 
+
+def _nba_v2(now=None) -> dict:
+    import predictor_nba
+    from backend.sports.wnba import league
+    now = now or datetime.now(timezone.utc)
+    season = league.current_season(league="nba")
+    payload = league.ensure(season, "nba") or {}
+    today = predictor_nba.us_date(now)
+    built = (season, payload.get("builtAt"), len(payload.get("games") or {}), today)
+    hit = _memory.get("nba-v2")
+    if hit and hit[1][0] == built and time.time() - hit[0] < TABLE_SECONDS:
+        return hit[1][1]
+    context = nba_context(payload, _nba_v2_prior(season - 1), today)
+    _memory["nba-v2"] = (time.time(), (built, context))
+    return context
+
+
+def nba_model_v2(game, context) -> dict | None:
+    """v2's NBA margin and total for one game (predictor_nba.predict), with
+    the teams side by side, rest, the spread of finals for its win chance
+    and its data warnings."""
+    import predictor_nba
+    params = V2["nba"]
+    rt, states = context["rt"], context["states"]
+    built = predictor_nba.predict(game, rt, states, params, _key)
+    if not built:
+        return None
+    home, away = game["home"]["abbr"], game["away"]["abbr"]
+    start = _when(game.get("startsAt"))
+    day = predictor_nba.us_date(start) if start else context["today"]
+    for side in ("home", "away"):
+        for entry in built["out"][side]:
+            entry["out"] = entry["kind"] == "out"
+    rest = {side: predictor_nba.rest_of(states.get(game[side]["abbr"]), day, home) for side in ("home", "away")}
+    played = {side: (states.get(game[side]["abbr"]) or {}).get("games", 0) for side in ("home", "away")}
+    rated = [team for team in rt["off"] if (states.get(team) or {}).get("games")]
+    ortg = {team: rt["mu"] + rt["off"][team] for team in rated}
+    drtg = {team: rt["mu"] + rt["def"][team] for team in rated}
+    pace = {team: rt["pace_mu"] + rt["pace"].get(team, 0.0) for team in rated}
+
+    def profile(side):
+        abbr = game[side]["abbr"]
+        results = (context["results"].get(abbr) or [])[-10:]
+        offense, defense, speed = rt["mu"] + rt["off"][abbr], rt["mu"] + rt["def"][abbr], rt["pace_mu"] + rt["pace"].get(abbr, 0.0)
+        return {"ortg": [round(offense, 1), _rank_of(ortg, abbr)], "drtg": [round(defense, 1), _rank_of(drtg, abbr, high_first=False)],
+                "pace": [round(speed, 1), _rank_of(pace, abbr)], "net": round(offense - defense, 1),
+                "last10": [sum(results), len(results) - sum(results)] if len(results) >= 5 else None, "games": played[side]}
+    fewest = min(played.values())
+    warnings = []
+    if fewest < 10:
+        team = home if played["home"] <= played["away"] else away
+        warnings.append(_warn("medium", f"Early season: {team} has played {fewest} games, so its numbers still lean on last season."))
+    if not context["prior"] and fewest < 25:
+        warnings.append(_warn("medium", "Last season's numbers are missing, so early games count for more than they should."))
+    if context["lastDate"] and (context["today"] - context["lastDate"]).days >= 3:
+        warnings.append(_warn("medium", f"The box scores stop at {_day_text(context['lastDate'])}: newer games aren't counted yet."))
+    for scenario in built["scenarios"]:
+        other = away if scenario["team"] == home else home
+        warnings.append(_warn("info", f"{scenario['name']} ({scenario['team']}) is {str(scenario['status'] or 'questionable').lower()}: "
+                                      f"if he sits, about {scenario['impact']:.1f} points swing to {other}."))
+    built.update({"rest": {side: (rest[side] or {}).get("days") for side in rest}, "restInfo": rest,
+                  "teams": {"home": profile("home"), "away": profile("away")}, "leaguePace": rt["pace_mu"],
+                  "sigma": _staged_sigma(fewest, params["sigma_by_games"]), "model": "v2", "warnings": warnings})
+    return built
+
+
+def nba_players_v2(game, context, built) -> dict:
+    import predictor_nba
+    found = predictor_nba.best_matchups(game, context["rt"], context["states"], context["dvp"], built, V2["nba"])
+    for player in found.values():
+        player["avg"] = player["season"]
+    return found
+
+
+def nfl_context(table, last, games, today, season) -> dict:
+    """v2's NFL numbers as of `today`: the ratings (this season, last season's
+    as the prior), every quarterback's value and each team's last kickoff."""
+    import predictor_nfl
+    params = V2["nfl"]
+    rows = predictor_nfl.team_rows(table, games, before=today)
+    last_rows = predictor_nfl.team_rows(last, games) if last else []
+    prior = predictor_nfl.season_prior(last_rows, params)
+    kickoffs = {}
+    for game in games.values():
+        if str(game.get("season")) == str(season) and game.get("final") and game.get("kickoff"):
+            for team in (game["home"], game["away"]):
+                kickoffs[team] = max(kickoffs.get(team) or 0, game["kickoff"])
+    return {"rt": predictor_nfl.rate(rows, today, params, prior),
+            "values": predictor_nfl.qb_values([item for item in (last, table) if item], games, today, params),
+            "table": table, "last": last, "games": games, "today": today, "season": season,
+            "lastEnd": max(r[0] for r in last_rows) + timedelta(days=1) if last_rows else today,
+            "lastKickoff": kickoffs, "builtAt": table.get("builtAt"), "prior": bool(prior)}
+
+
+def _nfl_v2(now=None) -> dict | None:
+    """v2's NFL numbers, or None until the daily cron has built this season's
+    play-by-play table (a request can't wait on streaming it)."""
+    now = now or datetime.now(timezone.utc)
+    season, today = _nfl_season(now), (now - timedelta(hours=5)).date()
+
+    def load():
+        import nfl_team_epa
+        from backend.sports.nfl import finder
+        table = nfl_team_epa.stored(season)
+        if not table:
+            return None
+        return nfl_context(table, nfl_team_epa.stored(season - 1), finder.games_index(), today, season)
+    return _kept(f"nfl-v2:{season}:{today}", TABLE_SECONDS, load)
+
+
+def nfl_model_v2(game, context, tables=None) -> dict | None:
+    """v2's NFL margin for one game (predictor_nfl): schedule-adjusted EPA,
+    success and points, home field, rest and tonight's quarterbacks against
+    the ones the ratings saw. The total is the points ratings' (the line's is
+    used when there is one)."""
+    import predictor_nfl
+    from backend.sports.nfl.services.nflverse import canonical_team
+    params = V2["nfl"]
+    rt, today = context["rt"], context["today"]
+    home, away = canonical_team(game["home"]["abbr"]), canonical_team(game["away"]["abbr"])
+    if home not in rt["epa"]["off"] or away not in rt["epa"]["off"]:
+        return None
+    injuries = game.get("injuries") or {}
+    out, out_names = {}, {}
+    for side, team in (("home", home), ("away", away)):
+        out[side] = [{"name": item.get("name"), "position": item.get("position"), "status": item.get("status"),
+                      "injury": item.get("injury"), "out": is_out(item.get("status")), "impact": 0.0}
+                     for item in injuries.get(game[side]["abbr"]) or []]
+        out_names[team] = {_short_key(entry["name"]) for entry in out[side] if entry["out"]}
+    quarterbacks = {team: predictor_nfl.team_quarterbacks(context["table"], context["games"], team, today, params["half_life"])
+                    for team in (home, away)}
+    before = {team: predictor_nfl.team_quarterbacks(context["last"], context["games"], team, context["lastEnd"], params["half_life"])
+              if context["last"] else {} for team in (home, away)}
+    starters = {team: predictor_nfl.pick_starter(quarterbacks[team], before[team], out_names[team], _short_key) for team in (home, away)}
+    healthy = {team: predictor_nfl.pick_starter(quarterbacks[team], before[team], set(), _short_key) for team in (home, away)}
+    start = _when(game.get("startsAt"))
+    rest = {}
+    for side, team in (("home", home), ("away", away)):
+        last = context["lastKickoff"].get(team)
+        rest[side] = round((start.timestamp() - last) / 86400) if start and last and start.timestamp() > last else None
+    rest_diff = (rest["home"] or 7) - (rest["away"] or 7)
+    teams = {"home": home, "away": away, "neutral": game.get("neutral")}
+    f = predictor_nfl.features(teams, rt, context["values"], quarterbacks, starters, rest_diff, {}, params)
+    margin, total, parts = predictor_nfl.predict(f, params)
+    if total is None:
+        total = 2 * rt["pts"]["mu"] + f["pts_h"] + f["pts_a"]
+    # A starting quarterback out: what he'd have been worth tonight.
+    for side, team in (("home", home), ("away", away)):
+        if healthy[team][0] and healthy[team][0] != starters[team][0]:
+            whole = predictor_nfl.predict(predictor_nfl.features(teams, rt, context["values"], quarterbacks, {**starters, team: healthy[team]},
+                                                                 rest_diff, {}, params), params)[0]
+            for entry in out[side]:
+                if entry["out"] and _short_key(entry["name"]) == _short_key(healthy[team][1]):
+                    entry["impact"] = round(abs(whole - margin), 1)
+        out[side].sort(key=lambda entry: (-entry["impact"], not entry["out"]))
+    net = lambda team: rt["epa"]["off"].get(team, 0.0) - rt["epa"]["def"].get(team, 0.0)
+    qb_text = lambda team: f"{team} {starters[team][1] or 'unknown'}" + (" (new)" if f["qbnew_h" if team == home else "qbnew_a"] else "")
+    texts = {"ratings": f"EPA a play, offense less defense: {home} {net(home):+.2f}, {away} {net(away):+.2f}",
+             "home": "Neutral site" if game.get("neutral") else f"{home} at home",
+             "qb": f"{qb_text(away)} · {qb_text(home)}",
+             "rest": f"{home} {rest['home'] or 7} days, {away} {rest['away'] or 7} days" if rest_diff else None}
+    known = [team for team in rt["pts"]["off"] if rt["games"].get(team)]
+    scored = {team: rt["pts"]["mu"] + rt["pts"]["off"][team] for team in known}
+    allowed = {team: rt["pts"]["mu"] + rt["pts"]["def"][team] for team in known}
+    epa_off = {team: rt["epa"]["off"][team] for team in known}
+    epa_def = {team: rt["epa"]["def"][team] for team in known}
+    profile = lambda team: {"pf": [round(rt["pts"]["mu"] + rt["pts"]["off"].get(team, 0.0), 1), _rank_of(scored, team)],
+                            "pa": [round(rt["pts"]["mu"] + rt["pts"]["def"].get(team, 0.0), 1), _rank_of(allowed, team, high_first=False)],
+                            "epaOff": [round(rt["epa"]["off"].get(team, 0.0), 3), _rank_of(epa_off, team)],
+                            "epaDef": [round(rt["epa"]["def"].get(team, 0.0), 3), _rank_of(epa_def, team, high_first=False)],
+                            "games": rt["games"].get(team, 0), "qb": starters[team][1]}
+    warnings = []
+    for team in (home, away):
+        qb, name, how = starters[team]
+        if how == "unknown":
+            warnings.append(_warn("high", f"{team}'s starting quarterback is unknown."))
+        elif how == "last season":
+            warnings.append(_warn("medium", f"{team}'s quarterback is a guess: {name} hasn't started for them this season."))
+        elif f["qbnew_h" if team == home else "qbnew_a"]:
+            warnings.append(_warn("info", f"{name} has thrown few of {team}'s passes this season: his value comes mostly from other games."))
+        if rt["games"].get(team, 0) < 3:
+            warnings.append(_warn("medium", f"Early season: {team} has played {rt['games'].get(team, 0)} games, so its numbers lean on last season."))
+    built_at = _when(context.get("builtAt"))
+    if built_at and start and (start - built_at).days >= 8:
+        warnings.append(_warn("medium", f"The play-by-play stops at {_day_text(built_at)}: newer games aren't counted yet."))
+    return {"margin": margin, "total": total, "out": out, "rest": rest, "model": "v2", "sigma": params["sigma"], "warnings": warnings,
+            "parts": [{"key": key, "label": label, "points": round(points, 1), "text": texts.get(key)} for key, label, points in parts],
+            "teams": {"home": profile(home), "away": profile(away)},
+            "plays": _nfl_pace((tables or {}).get("league_data"), home, away),
+            "starters": {side: {"name": starters[team][1], "how": starters[team][2]} for side, team in (("home", home), ("away", away))}}
+
+
+def _model(sport, game, now):
+    """(built, players): v2's numbers, else the older model's, with a warning saying so."""
+    reason = None
+    try:
+        if sport == "nba":
+            context = _nba_v2(now)
+            built = nba_model_v2(game, context)
+            if built:
+                return built, nba_players_v2(game, context, built)
+            reason = "unrated"
+        else:
+            context = _nfl_v2(now)
+            if context:
+                try:
+                    tables = _nfl_numbers(now)
+                except Exception:  # noqa: BLE001 -- the player matchups and plays are left off
+                    tables = None
+                built = nfl_model_v2(game, context, tables)
+                if built:
+                    return built, (nfl_players(game, tables, built) if tables else {})
+                reason = "unrated"
+            else:
+                reason = "no play-by-play table"
+    except Exception as exc:  # noqa: BLE001 -- the older model stands in
+        reason = type(exc).__name__
+    if sport == "nba":
+        tables = _nba_numbers(now)
+        built = nba_model(game, tables)
+        players = nba_players(game, tables, built) if built else {}
+    else:
+        tables = _nfl_numbers(now)
+        built = nfl_model(game, tables)
+        players = nfl_players(game, tables, built) if built else {}
+    if built:
+        built.update({"model": "v1", "fallback": reason,
+                      "warnings": [_warn("medium", "Using the simpler model for this game: the newer ratings aren't ready.")]})
+    return built, players
+
+
+# ------------------------------------------------------------------ the prediction
 
 def _erfinv(y: float) -> float:
     """The inverse error function (Winitzki's approximation, refined by two Newton steps)."""
@@ -819,67 +1136,118 @@ def final_score(margin: float, total: float) -> tuple[int, int]:
     return home, away
 
 
+def moneyline_ev(prices, chance) -> dict:
+    """side -> {price, chance, ev, fair}: what one unit on that moneyline
+    returns on average at this win chance (0.05: five cents a dollar), and
+    the price that chance is worth."""
+    out = {}
+    for side in ("home", "away"):
+        price, p = (prices or {}).get(side), (chance or {}).get(side)
+        if price is None or abs(price) < 100 or p is None:
+            continue
+        profit = 100 / abs(price) if price < 0 else price / 100
+        out[side] = {"price": price, "chance": round(p, 4), "ev": round(p * profit - (1 - p), 4), "fair": american(p)}
+    return out
+
+
+def _call(margin, total):
+    """One prediction's shape: winner, chances, the margin, total and final score."""
+    return {"margin": round(margin, 1), "total": round(total, 1) if total is not None else None, "winner": "home" if margin >= 0 else "away",
+            "score": dict(zip(("home", "away"), final_score(margin, total))) if total is not None else None}
+
+
+def confidence_of(blend, ours, market_margin, warnings):
+    """(High / Medium / Low, why): how sure the blend is, whether our model
+    and the line pick the same team, and the data warnings."""
+    p = max(blend["chance"].values())
+    split = ours is not None and market_margin is not None and (ours["margin"] >= 0) != (market_margin >= 0)
+    severe = [item for item in warnings if item["level"] == "high"]
+    worry = [item for item in warnings if item["level"] == "medium"]
+    why = [f"{p * 100:.0f}% to win"]
+    if ours is not None and market_margin is not None:
+        why.append("Our model and the line pick different teams" if split else "Our model and the line pick the same team")
+    if severe:
+        why.append("A data warning")
+    elif worry:
+        why.append("Data to check")
+    if severe or split or p < 0.57:
+        return "Low", why
+    if p >= 0.7 and not worry and (ours is None or market_margin is not None):
+        return "High", why
+    return "Medium", why
+
+
 def prediction(sport, game, built, players=None, now=None) -> dict:
-    """The page's prediction for one game (game: _summary; built: nba_model / nfl_model)."""
-    model = MODELS[sport]
-    final = combine(sport, game, built)
-    if not final:
+    """The page's prediction for one game (game: _summary; built: the model's
+    numbers): ours alone and ours blended with the line ("predictions"), the
+    blend's winner, chances and score up front, the moneylines' expected
+    value, the data warnings and a confidence level."""
+    model, v2 = MODELS[sport], V2[sport]
+    line = game.get("line") or {}
+    market_margin = -line["spread"] if line.get("spread") is not None else None
+    ours = None
+    if built:
+        sigma = built.get("sigma") or model["sigma"]
+        home_p = phi(built["margin"] / sigma)
+        ours = {**_call(built["margin"], built.get("total")), "chance": {"home": round(home_p, 4), "away": round(1 - home_p, 4)},
+                "model": built.get("model", "v1")}
+    # The blend: the line with our share of the difference (or whichever there is).
+    if market_margin is not None and built:
+        margin, sigma, weight = (1 - v2["ours"]) * market_margin + v2["ours"] * built["margin"], v2["market_sigma"], v2["ours"]
+    elif market_margin is not None:
+        margin, sigma, weight = market_margin, v2["market_sigma"], 0.0
+    elif built:
+        margin, sigma, weight = built["margin"], built.get("sigma") or model["sigma"], 1.0
+    elif game.get("espn"):
+        # ESPN's projection alone, as a margin.
+        p = min(0.99, max(0.01, game["espn"]["home"]))
+        margin, sigma, weight = model["sigma"] * math.sqrt(2) * _erfinv(2 * p - 1), model["sigma"], None
+    else:
         return None
-    margin, total = final["margin"], final["total"]
-    home_chance = phi(margin / model["sigma"])
-    winner = "home" if margin > 0 or (margin == 0 and home_chance >= 0.5) else "away"
+    total = line.get("total") if line.get("total") is not None else (built.get("total") if built else None)
+    home_chance = phi(margin / sigma)
     chance = {"home": home_chance, "away": 1 - home_chance}
-    line = game.get("line")
+    blend = {**_call(margin, total), "chance": {side: round(value, 4) for side, value in chance.items()}, "weight": weight}
+    winner = blend["winner"]
     market = None
     if line:
         # The moneylines' chances with the margin taken out, else the spread's.
         prices = line.get("moneyline") or {}
         home_p, away_p = implied(prices.get("home")), implied(prices.get("away"))
         market_chance = ({"home": home_p / (home_p + away_p), "away": away_p / (home_p + away_p)} if home_p and away_p
-                         else {"home": phi(-line["spread"] / model["sigma"]), "away": 1 - phi(-line["spread"] / model["sigma"])}
-                         if line.get("spread") is not None else None)
+                         else {"home": phi(market_margin / v2["market_sigma"]), "away": 1 - phi(market_margin / v2["market_sigma"])}
+                         if market_margin is not None else None)
         market = {**line, "chance": market_chance}
-    edge = None
-    if market and market.get("chance"):
-        # Only our own disagreement counts: how far our number moves the
-        # line's chance (both read the same way), laid on the moneyline's.
-        # The spread and the moneyline can differ by a point or two of
-        # chance on their own; that isn't an edge of ours.
-        shift = home_chance - (phi(-line["spread"] / model["sigma"]) if line.get("spread") is not None else market["chance"]["home"])
-        ours_now = {"home": min(0.99, max(0.01, market["chance"]["home"] + shift))}
-        ours_now["away"] = 1 - ours_now["home"]
-        side = "home" if shift >= 0 else "away"
-        gap = abs(shift)
-        price = (market.get("moneyline") or {}).get(side)
-        edge = {"side": side if gap >= EDGE_MIN else None, "points": round(gap, 4), "price": price, "chance": round(ours_now[side], 4),
-                "fair": american(ours_now[side]),
-                "value": (ours_now[side] * (100 / abs(price) if price < 0 else price / 100) - (1 - ours_now[side])) if price else None}
-    ours = None
-    if built:
-        ours = {"margin": round(built["margin"], 1), "total": round(built["total"], 1) if built.get("total") else None,
-                "chance": phi(built["margin"] / model["sigma"])}
-    # How many of the three views (ours alone, the market, ESPN's) pick the same winner.
-    views = [view for view in ((ours or {}).get("chance"), ((market or {}).get("chance") or {}).get("home"), (game.get("espn") or {}).get("home"))
-             if view is not None]
+    prices = (market or {}).get("moneyline") or {}
+    ev = {"blend": moneyline_ev(prices, blend["chance"]), "ours": moneyline_ev(prices, (ours or {}).get("chance"))}
+    best = max((side for side, item in ev["blend"].items() if item["ev"] > 0), key=lambda side: ev["blend"][side]["ev"], default=None)
+    ev["best"] = best
+    warnings = list((built or {}).get("warnings") or [])
+    if built and market_margin is None:
+        warnings.append(_warn("medium", "No betting line yet: both predictions are our model alone."))
+    elif not built and market_margin is not None:
+        warnings.append(_warn("medium", "Our model couldn't rate this game: the prediction is the line's."))
+    if built and market_margin is not None and abs(built["margin"] - market_margin) >= v2["disagree"]:
+        warnings.append(_warn("high", f"Our model and the line are {abs(built['margin'] - market_margin):.1f} points apart: check for late news."))
+    confidence, why = confidence_of(blend, ours, market_margin, warnings)
+    # How many of the three views (ours alone, the market, ESPN's) pick the blend's winner.
+    views = [view for view in ((ours or {}).get("chance", {}).get("home"), ((market or {}).get("chance") or {}).get("home"),
+                               (game.get("espn") or {}).get("home")) if view is not None]
     agree = sum(1 for view in views if (view >= 0.5) == (winner == "home"))
-    views = len(views)
-    big = max(chance.values())
-    confidence = "High" if big >= 0.7 and agree == views else "Medium" if big >= 0.58 else "Low"
     blow = model["blowout"]
     blowout = phi((abs(margin) - blow) / model["blowout_sigma"]) + phi((-abs(margin) - blow) / model["blowout_sigma"])
-    score = final_score(margin, total) if total is not None else None
     team = lambda side: {key: (game[side] or {}).get(key) for key in ("abbr", "name", "short", "logo", "color", "record")}
     return {"sport": sport, "id": game["id"], "startsAt": game.get("startsAt"), "state": game.get("state"), "detail": game.get("detail"),
             "venue": game.get("venue"), "neutral": bool(game.get("neutral")),
             "home": team("home"), "away": team("away"), "winner": winner,
-            "chance": {side: round(value, 4) for side, value in chance.items()},
-            "margin": round(margin, 1), "total": round(total, 1) if total is not None else None,
-            "score": {"home": score[0], "away": score[1]} if score else None,
-            "market": market, "espn": game.get("espn"), "ours": ours, "edge": edge,
+            "chance": blend["chance"], "margin": blend["margin"], "total": blend["total"], "score": blend["score"],
+            "predictions": {"ours": ours, "blend": blend}, "model": (built or {}).get("model") or "line",
+            "market": market, "espn": game.get("espn"), "ours": ours, "ev": ev, "warnings": warnings,
             "blowout": {"chance": round(blowout, 3), "by": blow, "level": "High" if blowout >= 0.45 else "Medium" if blowout >= 0.3 else "Low"},
-            "confidence": confidence, "agree": [agree, views],
+            "confidence": confidence, "confidenceWhy": why, "agree": [agree, len(views)],
             "factors": (built or {}).get("parts") or [], "teams": (built or {}).get("teams"), "out": (built or {}).get("out"),
             "rest": (built or {}).get("rest"), "pace": _pace(sport, built), "players": players or {},
+            "starters": (built or {}).get("starters"),
             "lastFive": game.get("lastFive") or {}, "madeAt": (now or datetime.now(timezone.utc)).isoformat()}
 
 
@@ -901,37 +1269,60 @@ def _pace(sport, built):
             "home": plays["home"], "away": plays["away"]}
 
 
-def predict(sport, event_id, now=None, store=None) -> dict:
+def predict(sport, event_id, now=None, store=None, keep=True) -> dict:
     """Predict one game (ESPN's event id) and keep it for the history while
-    the game is still to start."""
+    the game is still to start (`keep`; the snapshot keeps its own in one write)."""
     if sport not in SPORTS:
         raise ValueError("Unknown sport")
     now = now or datetime.now(timezone.utc)
     game = _summary(sport, event_id)
     if not game.get("home") or not game.get("away"):
         raise LookupError("That game isn't on ESPN's schedule.")
-    built, players = None, {}
     try:
-        if sport == "nba":
-            tables = _nba_numbers(now)
-            built = nba_model(game, tables)
-            players = nba_players(game, tables, built) if built else {}
-        else:
-            tables = _nfl_numbers(now)
-            built = nfl_model(game, tables)
-            players = nfl_players(game, tables, built) if built else {}
+        built, players = _model(sport, game, now)
     except Exception:  # noqa: BLE001 -- the line and ESPN's projection still make a prediction
-        built = built or None
+        built, players = None, {}
     found = prediction(sport, game, built, players, now)
     if not found:
         raise LookupError("There isn't enough on this game yet to predict it.")
-    start = _when(found["startsAt"])
-    if found["state"] == "pre" and start and start > now:
+    if keep and _still_to_start(found, now):
         try:
             record(sport, found, store=store)
         except Exception:  # noqa: BLE001 -- the history is never worth failing a prediction
             pass
     return found
+
+
+def _still_to_start(found, now) -> bool:
+    start = _when(found.get("startsAt"))
+    return found.get("state") == "pre" and bool(start) and start > now
+
+
+def snapshot(sport, now=None, store=None, hours=36) -> dict:
+    """Predict every game starting within `hours` and keep each (the cron,
+    twice a day), then settle the finished ones: the history covers every
+    game, not only the ones someone opened. One write for all of them."""
+    now = now or datetime.now(timezone.utc)
+    store = _store() if store is None else store
+    games = [game for game in slate(sport, now)["games"] if game["state"] == "pre" and (start := _when(game["startsAt"]))
+             and now < start <= now + timedelta(hours=hours)]
+    try:  # The season's numbers once, before the games share them.
+        _nba_v2(now) if sport == "nba" else _nfl_v2(now)
+    except Exception:  # noqa: BLE001 -- each game falls back on its own
+        pass
+
+    def one(game):
+        try:
+            return predict(sport, game["id"], now=now, store=store, keep=False), None
+        except Exception as exc:  # noqa: BLE001 -- that game waits for the next snapshot
+            return None, type(exc).__name__
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(one, games))
+    made = [found for found, _ in results if found and _still_to_start(found, now)]
+    if made:
+        record_many(sport, made, store)
+    return {"sport": sport, "games": len(games), "saved": len(made), "models": sorted({found["model"] for found in made}),
+            "failed": [error for _, error in results if error], "record": history(sport, now=now, store=store)["record"]}
 
 
 # ------------------------------------------------------------------ the history
@@ -945,15 +1336,21 @@ def _store():
 
 
 def _entry(found) -> dict:
-    """What the history keeps of a prediction."""
+    """What the history keeps of a prediction: the blend's pick (the main
+    one), ours alone, the market's favorite and the moneyline with the best
+    expected value, if any was above zero (a one-unit bet, for the record)."""
     team = lambda side: {key: found[side].get(key) for key in ("abbr", "short", "logo")}
     market = found.get("market") or {}
     market_chance = market.get("chance") or {}
+    ours = (found.get("predictions") or {}).get("ours")
+    ev = found.get("ev") or {}
+    bet = (ev.get("blend") or {}).get(ev.get("best")) if ev.get("best") else None
     return {"id": found["id"], "startsAt": found["startsAt"], "madeAt": found["madeAt"], "home": team("home"), "away": team("away"),
-            "pick": found["winner"], "chance": found["chance"][found["winner"]], "score": found["score"],
+            "model": found.get("model"), "pick": found["winner"], "chance": found["chance"][found["winner"]], "score": found["score"],
+            "ours": {"pick": ours["winner"], "chance": ours["chance"][ours["winner"]], "score": ours["score"]} if ours else None,
             "marketPick": ("home" if market_chance.get("home", 0.5) >= 0.5 else "away") if market_chance else None,
-            "spread": market.get("spread"), "total": market.get("total"),
-            "edge": (found.get("edge") or {}).get("side"), "result": None}
+            "spread": market.get("spread"), "total": market.get("total"), "confidence": found.get("confidence"),
+            "bet": {"side": ev["best"], "price": bet["price"], "ev": bet["ev"]} if bet else None, "result": None}
 
 
 def _read(sport, store):
@@ -972,9 +1369,14 @@ def _write(sport, items, store):
 
 def record(sport, found, store=None):
     """Keep the latest prediction made before the game starts (one per game)."""
+    record_many(sport, [found], store)
+
+
+def record_many(sport, founds, store=None):
+    """record() for several games in one read and one write."""
     store = _store() if store is None else store
-    items = [item for item in _read(sport, store) if item.get("id") != found["id"]]
-    items.insert(0, _entry(found))
+    ids = {found["id"] for found in founds}
+    items = [item for item in _read(sport, store) if item.get("id") not in ids] + [_entry(found) for found in founds]
     items.sort(key=lambda item: item.get("startsAt") or "", reverse=True)
     _write(sport, items, store)
 
@@ -1010,6 +1412,13 @@ def settle(item, final) -> dict:
               "market": None if not item.get("marketPick") or winner is None else item["marketPick"] == winner}
     if item.get("score"):
         result["miss"] = abs(item["score"]["home"] - home) + abs(item["score"]["away"] - away)
+    if item.get("ours") and winner is not None:
+        result["ours"] = item["ours"]["pick"] == winner
+    bet = item.get("bet")
+    if bet:
+        price = bet["price"]
+        # One unit: the price's profit if it won, the unit if it lost, nothing on a tie.
+        result["bet"] = 0.0 if winner is None else round(100 / abs(price) if price < 0 else price / 100, 4) if bet["side"] == winner else -1.0
     return {**item, "result": result}
 
 
@@ -1018,8 +1427,12 @@ def record_summary(items) -> dict:
     market = [item for item in settled if item["result"].get("market") is not None]
     misses = [item["result"]["miss"] for item in settled if item["result"].get("miss") is not None]
     correct = sum(1 for item in settled if item["result"]["correct"])
+    ours = [item["result"]["ours"] for item in settled if item["result"].get("ours") is not None]
+    bets = [item["result"]["bet"] for item in items if (item.get("result") or {}).get("bet") is not None]
     return {"games": len(settled), "correct": correct, "pct": correct / len(settled) if settled else None,
+            "ours": {"games": len(ours), "correct": sum(ours)},
             "market": {"games": len(market), "correct": sum(1 for item in market if item["result"]["market"])},
+            "bets": {"count": len(bets), "units": round(sum(bets), 2), "roi": sum(bets) / len(bets) if bets else None},
             "scoreMiss": sum(misses) / len(misses) / 2 if misses else None,
             "pending": sum(1 for item in items if not item.get("result"))}
 

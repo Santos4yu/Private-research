@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-05 (the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-05 (Game Predictor v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,57 @@ Last updated 2026-11-05 (the Game Predictor: NBA and NFL winners, final scores, 
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 5 (latest): Game Predictor v2 live — two predictions, warnings, EV, snapshots
+
+- The owner pasted the v2 to-do list ("wire the new models in ... two
+  predictions per game, our model alone and blended with the line, plus
+  data-quality warnings, a confidence rating, and moneyline EV"; "build the
+  NFL EPA tables daily, and save a snapshot of every game automatically").
+- game_predictor.py `V2` holds the backtest's settings and weights (README in
+  tools/game-predictor-backtest). NBA: `nba_context` (predictor_nba rate /
+  team_states / defense_by_position, last season's v2 prior kept under
+  `krazy_data:predictor:v2:nba-prior:{season}`), `nba_model_v2`,
+  `nba_players_v2`. NFL: `nfl_context` from `nfl_team_epa.stored(season)` and
+  last season's, `nfl_model_v2` (starters by `pick_starter`; nflverse names
+  are "P.Mahomes", so injuries match on `_short_key`, first initial + last
+  name; a starter out gets an impact = the margin with him minus without).
+  NFL total: the line's, else 2*mu + the points ratings (the fitted total
+  weights weren't kept).
+- `_model` tries v2 and falls back to the v1 numbers (still in the file)
+  with a warning "Using the simpler model..." and `fallback` = why
+  (e.g. "no play-by-play table" before the cron's first run, or an
+  exception name). The response has `model` ("v2" / "v1" / "line").
+- `prediction()`: `predictions.ours` (our margin, total, score, chance with
+  its own sigma: NBA staged by games played, NFL 9.56) and
+  `predictions.blend` (line + V2 "ours" share: NBA 25%, NFL 10%; chance
+  with the market sigma, NBA 12.5, NFL 11.03). The top-level winner /
+  chance / score are the blend's. `ev.blend` / `ev.ours`: each moneyline's
+  expected value a unit at that chance, `ev.best` the blend's best above 0.
+  `warnings` [{level high/medium/info, text}]: early season, box scores or
+  play-by-play stale, last season missing, questionable regulars (the swing
+  if he sits), QB unknown / a guess / new, no line, the line and ours 7
+  (NBA) / 6 (NFL) points apart (high). `confidence` High/Medium/Low from the
+  blend's chance, whether ours and the line pick the same team, and the
+  warnings; `confidenceWhy` says why. The old `edge` is gone.
+- History: new key `krazy_data:predictor:v2:history:{sport}` (v1's kept, not
+  shown). Entries add `model`, `ours` (pick), `bet` (the best +EV
+  moneyline, one unit) and `confidence`; the record adds `ours` and `bets`
+  (count, units, roi). `record_many` saves several in one write.
+- Crons (api/v2-admin.py `predictor-cron`, vercel.json): `step=epa` 12:30
+  UTC builds this season's NFL table; `step=epa-last` 12:50 builds last
+  season's if not kept; `step=snapshot` 16:40 and 22:40 UTC predicts every
+  game in the next 36 hours in both leagues (`snapshot`) and settles.
+- Page: "Our model" and "With the line" side by side under the verdict,
+  "Moneyline value" (each side: price, EV, chance, fair price, our model's
+  EV), a "Check first" card for the warnings, confidence reasons under the
+  tags; History adds "Our model alone" and "Value bets" (units). NFL side by
+  side adds EPA a play / allowed.
+- Not checked live from here: ESPN, nflverse and the stored NBA seasons
+  aren't reachable from the container. The GitHub "Game predictor check"
+  workflow (run by hand) now also builds the NFL tables from nflverse and
+  prints v2 for this week's games. numpy comes from requirements.txt (first
+  live use of it); if it ever failed, every game would say "simpler model".
 
 ### Nov 5 (later): Game Predictor v2 — backtest done, production half built
 

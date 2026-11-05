@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {byText,edgeText,lineText,odds,pct,pull,recordText,resultOf,startText} from '../src/game-predictor-core.js';
+import {byText,evText,lineText,odds,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
 
@@ -34,10 +34,23 @@ test('the record and each result',()=>{
  assert.equal(resultOf({result:{winner:'away',correct:false}}),'loss');
 });
 
-test('the edge in words',()=>{
- const prediction={...game,chance:{home:0.64,away:0.36},market:{chance:{home:0.36,away:0.64}},edge:{side:'home',points:0.28,chance:0.64,price:170,fair:-178}};
- assert.deepEqual(edgeText(prediction),{team:game.home,price:'+170',fair:'-178',ours:'64%',market:'36%',gap:'+28.0%'});
- assert.equal(edgeText({...prediction,edge:{side:null}}),null);
+test('each moneyline\'s value, away first',()=>{
+ const prediction={...game,ev:{blend:{home:{price:-190,chance:0.62,ev:-0.0537,fair:-163},away:{price:160,chance:0.38,ev:-0.012,fair:163}},
+  ours:{home:{price:-190,chance:0.7,ev:0.0684}},best:null}};
+ const rows=valueRows(prediction);
+ assert.deepEqual(rows.map(row=>[row.side,row.price,row.chance,row.text,row.fair,row.ours,row.best]),
+  [['away','+160','38%','−1.2%','+163',null,false],['home','-190','62%','−5.4%','-163','+6.8%',false]]);
+ assert.deepEqual(valueRows({...game}),[]);
+ assert.equal(evText(0.032),'+3.2%');
+ assert.equal(unitsText(1.43),'+1.4 units');
+ assert.equal(unitsText(-2),'−2 units');
+});
+
+test('two predictions only when the line and ours both count',()=>{
+ const ours={winner:'home',margin:6},blend={winner:'home',margin:5,weight:0.25};
+ assert.equal(twoCalls({predictions:{ours,blend}}).share,'25% ours');
+ assert.equal(twoCalls({predictions:{ours,blend:{...blend,weight:1}}}),null);
+ assert.equal(twoCalls({predictions:{ours:null,blend}}),null);
 });
 
 test('start times say today and tomorrow',()=>{
