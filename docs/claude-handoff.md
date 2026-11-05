@@ -76,6 +76,13 @@ Last updated 2026-11-05 (the Game Predictor: NBA and NFL winners, final scores, 
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 5 (later): Game Predictor v2 — backtest done, production half built
+
+- The owner asked for a full upgrade (data checks, opponent-adjusted NBA, EPA NFL,
+  two predictions, calibration, EV, auto history). Stopped at their request (usage).
+  Everything measured and what is left: `tools/game-predictor-backtest/README.md`.
+  New modules there are not imported by the site yet.
+
 ### Nov 5: the Game Predictor (NBA and NFL winners, scores and edges)
 
 - The owner, with another app's "select a game, predict winner, history"
