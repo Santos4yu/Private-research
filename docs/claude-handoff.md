@@ -139,6 +139,12 @@ Last updated 2026-11-05 (the Game Predictor: NBA and NFL winners, final scores, 
   `site-access.css` hidden rule.
 - `.github/workflows/game-predictor-check.yml` (run by hand) prints ESPN's
   slates and one summary per league, since the container can't reach ESPN.
+- Checked live (the GitHub check, Nov 5): 11 NBA and 15 NFL games with
+  DraftKings lines, ESPN projections and injury reports; NBA finals settle.
+  Known limit: the NFL's "main QB" is this season's most attempts, so a
+  backup who has been starting (BAL's Huntley while Jackson was hurt)
+  counts as the starter; at a tenth of the final number it moves it about
+  0.3 points.
 - Next ideas: an automatic daily snapshot so the history covers every game
   (now only games someone predicted), questionable players at part weight,
   NFL injuries beyond the QB, and checking the record after a few weeks.
