@@ -206,11 +206,11 @@ class HistoryTests(unittest.TestCase):
         gp.record("nba", self.found("3", "2026-11-06T00:00:00Z"), store=store)                   # not played yet
         asked = []
 
-        def finals(sport, days):
-            asked.append(days)
+        def finals(sport, ids):
+            asked.append(sorted(ids))
             return {"1": (115, 101), "2": (120, 99)}
         result = gp.history("nba", now=NOW, store=store, finals=finals)
-        self.assertEqual(asked, [["20261102", "20261103"]])
+        self.assertEqual(asked, [["1", "2"]])
         items = {item["id"]: item for item in result["items"]}
         self.assertEqual(len(items), 3)
         self.assertEqual(items["1"]["score"], {"home": 110, "away": 100})
@@ -225,6 +225,26 @@ class HistoryTests(unittest.TestCase):
         gp.history("nba", now=NOW, store=store, finals=finals)
         self.assertEqual(len(asked), 1)
         self.assertEqual(len(json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])), 3)
+
+    def test_a_final_from_the_summary(self):
+        summary = {"header": {"competitions": [{"status": {"type": {"state": "post"}},
+                                                "competitors": [{"homeAway": "home", "score": "27"}, {"homeAway": "away", "score": "20"}]}]}}
+        self.assertEqual(gp.final_of(summary), (27, 20))
+        summary["header"]["competitions"][0]["status"]["type"]["state"] = "in"
+        self.assertIsNone(gp.final_of(summary))
+
+    def test_the_nfl_week_and_the_next(self):
+        def board(path, params=None):
+            event = lambda id_, state: {"id": id_, "date": "2026-11-09T18:00Z", "competitions": [{"status": {"type": {"state": state}},
+                "competitors": [{"homeAway": "home", "team": {"abbreviation": "KC"}}, {"homeAway": "away", "team": {"abbreviation": "BUF"}}]}]}
+            if not params:
+                return {"week": {"number": 9}, "season": {"type": 2}, "events": [event("1", "post")]}
+            self.assertEqual(params, {"week": 10, "seasontype": 2})
+            return {"events": [event("2", "pre")]}
+        gp._memory.clear()
+        with patch.object(gp, "_espn", side_effect=lambda sport, path, params=None: board(path, params)):
+            found = gp.slate("nfl", now=NOW)
+        self.assertEqual([game["id"] for game in found["games"]], ["2"])
 
     def test_predict_keeps_only_games_still_to_start(self):
         store = FakeStore()

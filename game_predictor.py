@@ -77,6 +77,8 @@ PRIOR_KEY = "krazy_data:predictor:v1:nba-prior:{season}"
 MAX_HISTORY = 400
 # A game is settled once ESPN calls it final; asked about this long after its start.
 SETTLE_AFTER = {"nba": 2.5 * 3600, "nfl": 3.5 * 3600}
+# Games settled per read of the history (a summary each); the rest wait for the next.
+SETTLE_MOST = 16
 _memory: dict = {}
 
 
@@ -203,18 +205,27 @@ def _us_day(moment: datetime) -> str:
 
 def slate(sport, now=None) -> dict:
     """{sport, games}: the games still to start, and those on now, soonest
-    first -- the NBA's today and tomorrow, the NFL's next seven days."""
+    first -- the NBA's today and tomorrow, the NFL's week (the next one too
+    once this week's are all played)."""
     now = now or datetime.now(timezone.utc)
 
     def load():
         if sport == "nba":
-            days = [_us_day(now + timedelta(days=offset)) for offset in (0, 1)]
-        else:
-            days = [f"{_us_day(now)}-{_us_day(now + timedelta(days=7))}"]
-        events = []
-        for day in days:
-            events += _espn(sport, "/scoreboard", {"dates": day, "limit": 100}).get("events") or []
-        return [_event(sport, event) for event in events]
+            events = []
+            for day in (_us_day(now + timedelta(days=offset)) for offset in (0, 1)):
+                events += _espn(sport, "/scoreboard", {"dates": day, "limit": 100}).get("events") or []
+            return [_event(sport, event) for event in events]
+        # ESPN's NFL scoreboard answers a date range with 400 (Nov 5); its
+        # plain scoreboard is the current week.
+        board = _espn(sport, "/scoreboard")
+        games = [_event(sport, event) for event in board.get("events") or []]
+        week, kind = (board.get("week") or {}).get("number"), (board.get("season") or {}).get("type")
+        if week and kind and not any(game["state"] == "pre" for game in games):
+            try:
+                games += [_event(sport, event) for event in _espn(sport, "/scoreboard", {"week": week + 1, "seasontype": kind}).get("events") or []]
+            except Exception:  # noqa: BLE001 -- this week's list stands
+                pass
+        return games
     games = _kept(f"slate:{sport}:{_us_day(now)}", SLATE_SECONDS, load)
     games = [game for game in games if game["home"] and game["away"] and game["state"] in ("pre", "in")]
     games.sort(key=lambda game: game["startsAt"] or "")
@@ -968,19 +979,28 @@ def record(sport, found, store=None):
     _write(sport, items, store)
 
 
-def _finals(sport, days):
-    """{event id: (home points, away points)} for games ESPN calls final on these US dates."""
-    out = {}
-    for day in days:
+def final_of(summary):
+    """(home points, away points) when ESPN's summary calls the game final, else None."""
+    competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
+    if (((competition.get("status") or {}).get("type") or {}).get("state")) != "post":
+        return None
+    sides = {competitor.get("homeAway"): _num(competitor.get("score")) for competitor in competition.get("competitors") or []}
+    if sides.get("home") is None or sides.get("away") is None:
+        return None
+    return int(sides["home"]), int(sides["away"])
+
+
+def _finals(sport, event_ids):
+    """{event id: (home points, away points)} for the games ESPN calls final,
+    a summary each (the same request for both leagues; the NFL's scoreboard
+    won't take every date form)."""
+    def one(event_id):
         try:
-            events = _espn(sport, "/scoreboard", {"dates": day, "limit": 100}).get("events") or []
-        except Exception:  # noqa: BLE001 -- that day waits for the next look
-            continue
-        for event in events:
-            game = _event(sport, event)
-            if game["state"] == "post" and game["home"] and game["away"] and game["home"]["score"] is not None and game["away"]["score"] is not None:
-                out[game["id"]] = (int(game["home"]["score"]), int(game["away"]["score"]))
-    return out
+            return event_id, final_of(_espn(sport, "/summary", {"event": event_id}))
+        except Exception:  # noqa: BLE001 -- that game waits for the next look
+            return event_id, None
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        return {event_id: final for event_id, final in pool.map(one, event_ids) if final}
 
 
 def settle(item, final) -> dict:
@@ -1015,8 +1035,7 @@ def history(sport, now=None, store=None, finals=None) -> dict:
     due = [item for item in items if not item.get("result") and (start := _when(item.get("startsAt")))
            and (now - start).total_seconds() >= SETTLE_AFTER[sport]]
     if due:
-        days = sorted({_us_day(_when(item["startsAt"])) for item in due})[-8:]
-        found = (finals or _finals)(sport, days)
+        found = (finals or _finals)(sport, [item["id"] for item in due][:SETTLE_MOST])
         changed = False
         for index, item in enumerate(items):
             if item in due and item["id"] in found:

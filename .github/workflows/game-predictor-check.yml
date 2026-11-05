@@ -46,3 +46,15 @@ jobs:
               print("  last five:", {team: [item["result"] for item in items] for team, items in found["lastFive"].items()})
               made = gp.prediction(sport, found, None)
               print("  line-only prediction:", made and {key: made[key] for key in ("winner", "chance", "margin", "total", "score", "edge", "blowout")})
+          # Settling: a couple of finished games each, a summary apiece.
+          from datetime import datetime, timedelta, timezone
+          day = (datetime.now(timezone.utc) - timedelta(hours=29)).strftime("%Y%m%d")
+          try:
+              ids = [event["id"] for event in gp._espn("nba", "/scoreboard", {"dates": day}).get("events") or []][:3]
+              print("nba finals", day, gp._finals("nba", ids))
+              board = gp._espn("nfl", "/scoreboard")
+              print("nfl week", (board.get("week") or {}).get("number"), "season type", (board.get("season") or {}).get("type"))
+              ids = [event["id"] for event in board.get("events") or []][:3]
+              print("nfl finals", gp._finals("nfl", ids))
+          except Exception as error:  # noqa: BLE001
+              print("finals failed", type(error).__name__, error)

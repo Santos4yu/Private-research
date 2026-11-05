@@ -125,8 +125,12 @@ Last updated 2026-11-05 (the Game Predictor: NBA and NFL winners, final scores, 
   allowed to the position.
 - History: every prediction made before tip-off is kept (latest one per
   game, `krazy_data:predictor:v1:history:{sport}`, 400 max) and settled
-  from ESPN's finals when read, with picks right, how often the market's
-  favorite won (to compare), and how far off the score was.
+  when the history is read, a game's ESPN summary each (16 a read), with
+  picks right, how often the market's favorite won (to compare), and how
+  far off the score was.
+- ESPN's NFL scoreboard answers a date range (`dates=A-B`) with 400: the
+  NFL slate is its plain scoreboard (the current week), plus `week=N+1`
+  once this week is all played. The NBA's is today's and tomorrow's dates.
 - Page: `src/GamePredictor.jsx`, `src/game-predictor-core.js` (words and
   numbers, tested), `src/game-predictor.css`. Wired like My Bets:
   `site_controls.TABS`, `site-access.js` names + slug, `site-access-core`,
