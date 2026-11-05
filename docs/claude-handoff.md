@@ -139,6 +139,11 @@ Last updated 2026-11-05 (the Game Predictor: NBA and NFL winners, final scores, 
   `site-access.css` hidden rule.
 - `.github/workflows/game-predictor-check.yml` (run by hand) prints ESPN's
   slates and one summary per league, since the container can't reach ESPN.
+- Same day, the owner's phone: the title sat under the clock ("Not mobile
+  friendly it's bugged"). The panel now pads its top by
+  `--site-status-inset` on phones, as My Bets does (Playwright doesn't
+  emulate the inset: set `--site-status-inset` to ~94px in the preview to
+  check a page).
 - Checked live (the GitHub check, Nov 5): 11 NBA and 15 NFL games with
   DraftKings lines, ESPN projections and injury reports; NBA finals settle.
   Known limit: the NFL's "main QB" is this season's most attempts, so a

@@ -148,6 +148,11 @@ li[data-result="loss"] .gp-history-mark{background:color-mix(in srgb,var(--gp-do
 .gp-skeleton{display:grid;gap:8px}
 .gp-skeleton span{height:40px;border-radius:12px;background:var(--gp-raised)}
 
+/* Phones: the page starts below the clock and status bar (site-access.css
+   --site-status-inset, as My Bets does) and runs edge to edge. */
+@media (max-width:760px){
+ :root[data-theme] body #app-shell #panel-predictor{width:100%!important;padding:calc(var(--site-status-inset,0px) + 8px) 10px calc(96px + env(safe-area-inset-bottom,0px))!important}
+}
 @media (max-width:560px){
  .gp-card{padding:14px;border-radius:16px}
  .gp-head{grid-template-columns:auto minmax(0,1fr)}
