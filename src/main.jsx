@@ -61,6 +61,7 @@ const sections = {
   bot: () => import('./KrazyBot').then(m => ({ default: m.KrazyBot })),
   sheets: () => import('./CheatSheets').then(m => ({ default: m.CheatSheets })),
   promos: () => import('./PromoBoard').then(m => ({ default: m.PromoBoard })),
+  predictor: () => import('./GamePredictor').then(m => ({ default: m.GamePredictor })),
   bets: () => import('./MyBets').then(m => ({ default: m.MyBets })),
   analyzer: () => import('./SlipAnalyzer').then(m => ({ default: m.SlipAnalyzer })),
   props: () => import('./PropsLeague').then(m => ({ default: m.PropsLeague })),
@@ -77,6 +78,7 @@ const Moneylines = lazy(sections.moneylines);
 const KrazyBot = lazy(sections.bot);
 const CheatSheets = lazy(sections.sheets);
 const PromoBoard = lazy(sections.promos);
+const GamePredictor = lazy(sections.predictor);
 const MyBets = lazy(sections.bets);
 const SlipAnalyzer = lazy(sections.analyzer);
 const PropsLeague = lazy(sections.props);
@@ -150,6 +152,7 @@ const krazyBotRoot = document.getElementById('krazy-bot-root');
 const cheatSheetsRoot = document.getElementById('cheat-sheets-root');
 const promoBoardRoot = document.getElementById('promo-board-root');
 const myBetsRoot = document.getElementById('my-bets-root');
+const gamePredictorRoot = document.getElementById('game-predictor-root');
 // A section starts (mounts, and so fetches its data) the first time its tab
 // is shown rather than at sign-in. Returns a function that stops waiting.
 function whenShown(host, start) {
@@ -215,6 +218,12 @@ function mountMyBets(open){
  if(open&&!myBetsMount&&myBetsRoot){myBetsMount=shownRoot(myBetsRoot,later(<MyBets/>));}
  else if(!open&&myBetsMount){myBetsMount.unmount();myBetsMount=null;}
 }
+// The Game Predictor: a section the admin switches on (off until then).
+let gamePredictorMount=null;
+function mountGamePredictor(open){
+ if(open&&!gamePredictorMount&&gamePredictorRoot){gamePredictorMount=shownRoot(gamePredictorRoot,later(<GamePredictor/>));}
+ else if(!open&&gamePredictorMount){gamePredictorMount.unmount();gamePredictorMount=null;}
+}
 // The Props tab's NBA side: its league switch mounts only for someone the
 // NBA side is switched on for; everyone else sees the MLB board alone.
 const propsLeagueRoot=document.getElementById('props-league-root');
@@ -244,7 +253,7 @@ function mountCheatSheets(open){
  if(open&&!cheatSheetsMount&&cheatSheetsRoot){cheatSheetsMount=shownRoot(cheatSheetsRoot,later(<CheatSheets/>));}
  else if(!open&&cheatSheetsMount){cheatSheetsMount.unmount();cheatSheetsMount=null;}
 }
-window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));mountPromoBoard(canUseTab(event.detail,'promos'));mountMyBets(canUseTab(event.detail,'bets'));mountPropsLeague(propsLeagues(event.detail));});
+window.addEventListener('vortex:site-policy',event=>{mountPrivateResearch(event.detail.accessGranted);mountAdminSections(Boolean(event.detail.accessGranted&&event.detail.isAdmin));mountKrazyBot(canUseTab(event.detail,'bot'));mountCheatSheets(canUseTab(event.detail,'sheets'));mountPromoBoard(canUseTab(event.detail,'promos'));mountMyBets(canUseTab(event.detail,'bets'));mountGamePredictor(canUseTab(event.detail,'predictor'));mountPropsLeague(propsLeagues(event.detail));});
 mountPrivateResearch(document.documentElement.dataset.siteAccess==='granted');
 
 const filterIcons = { all: LayoutGrid, hrr: BarChart3, 'total-bases': Diamond, hits: CircleDot, strikeouts: Target, matchup: Crosshair };

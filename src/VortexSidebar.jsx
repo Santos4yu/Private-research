@@ -8,7 +8,7 @@ import './vortex-sidebar.css';
 // The rail's sections, in topTabs' order within each. A destination not
 // listed here lands in the last one.
 const GROUPS = [
-  { key: 'discover', label: 'Discover', tabs: ['finder', 'bot', 'sheets', 'moves', 'research'] },
+  { key: 'discover', label: 'Discover', tabs: ['finder', 'bot', 'sheets', 'moves', 'research', 'predictor'] },
   { key: 'build', label: 'Build', tabs: ['builder', 'slip', 'export', 'saved', 'bets'] },
   { key: 'more', label: 'More', tabs: ['promos', 'slate', 'v2'] },
 ];

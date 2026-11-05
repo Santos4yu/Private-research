@@ -1,0 +1,48 @@
+# The Game Predictor's ESPN reads (game_predictor.py): the NBA and NFL
+# schedules with their lines, and one game's summary (line, ESPN's
+# projection, injury reports), printed so they can be checked -- the coding
+# container can't reach ESPN. Run by hand.
+name: Game predictor check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  espn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install --quiet requests
+      - name: Read ESPN's schedules and a game each
+        shell: python
+        run: |
+          import json, sys
+          sys.path.insert(0, ".")
+          import game_predictor as gp
+          for sport in gp.SPORTS:
+              try:
+                  slate = gp.slate(sport)
+              except Exception as error:  # noqa: BLE001
+                  print(f"{sport}: slate failed {type(error).__name__} {error}")
+                  continue
+              games = slate["games"]
+              print(f"{sport}: {len(games)} games to come")
+              for game in games[:6]:
+                  print("  ", game["startsAt"], game["state"], game["away"]["abbr"], "@", game["home"]["abbr"], "|", json.dumps(game["line"]))
+              upcoming = [game for game in games if game["state"] == "pre"]
+              if not upcoming:
+                  continue
+              try:
+                  found = gp._summary(sport, upcoming[0]["id"])
+              except Exception as error:  # noqa: BLE001
+                  print(f"  summary failed {type(error).__name__} {error}")
+                  continue
+              print("  summary line:", json.dumps(found["line"]), "| espn:", found["espn"], "| neutral:", found["neutral"])
+              print("  injuries:", {team: [(item["name"], item["status"]) for item in items][:4] for team, items in found["injuries"].items()})
+              print("  last five:", {team: [item["result"] for item in items] for team, items in found["lastFive"].items()})
+              made = gp.prediction(sport, found, None)
+              print("  line-only prediction:", made and {key: made[key] for key in ("winner", "chance", "margin", "total", "score", "edge", "blowout")})

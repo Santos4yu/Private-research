@@ -196,6 +196,7 @@ html[data-hidden-tabs~="bot"] :is([data-requires-tab~="bot"],[data-tab="bot"]):i
 html[data-hidden-tabs~="sheets"] :is([data-requires-tab~="sheets"],[data-tab="sheets"]):is(#_,*),
 html[data-hidden-tabs~="promos"] :is([data-requires-tab~="promos"],[data-tab="promos"]):is(#_,*),
 html[data-hidden-tabs~="bets"] :is([data-requires-tab~="bets"],[data-tab="bets"]):is(#_,*){display:none!important}
+html[data-hidden-tabs~="predictor"] :is([data-requires-tab~="predictor"],[data-tab="predictor"]):is(#_,*){display:none!important}
 /* Research home's toolkit: one card left takes the full row; none left
    takes its heading with it. */
 html[data-hidden-tabs~="slate"] .lab-tools,html[data-hidden-tabs~="slip"] .lab-tools{grid-template-columns:minmax(0,1fr)!important}

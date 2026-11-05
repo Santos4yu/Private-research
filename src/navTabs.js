@@ -1,4 +1,4 @@
-import { Layers2 as BarChart3, Ticket as ClipboardList, TicketPercent, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, SearchCheck, Trophy, CircleDot, MessagesSquare, ShieldCheck, Activity, Bot, NotebookTabs, ImageUp, ChartNoAxesCombined } from 'lucide-react';
+import { Crosshair, Layers2 as BarChart3, Ticket as ClipboardList, TicketPercent, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, SearchCheck, Trophy, CircleDot, MessagesSquare, ShieldCheck, Activity, Bot, NotebookTabs, ImageUp, ChartNoAxesCombined } from 'lucide-react';
 
 // Single source of truth for the site's primary navigation destinations,
 // shared by the top pill bar (VortexTopTabs) and the sidebar (VortexSidebar)
@@ -13,6 +13,7 @@ export const topTabs = [
   { title: 'Research', icon: Search, value: 'research' },
   { title: 'Tools', icon: FlaskConical, value: 'slate' },
   { title: 'Props', icon: BarChart3, value: 'v2' },
+  { title: 'Game Predictor', icon: Crosshair, value: 'predictor' },
   { title: 'Parlay', icon: Sparkles, value: 'builder' },
   { title: 'Slip Analyzer', icon: ScanLine, value: 'slip' },
   { title: 'Slip to PrizePicks', icon: ImageUp, value: 'export' },

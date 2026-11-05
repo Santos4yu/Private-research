@@ -321,8 +321,8 @@ class SwitchTests(unittest.TestCase):
     def test_line_moves_starts_off_until_the_admin_turns_it_on(self):
         old = {**controls.DEFAULT, 'disabledTabs': ['nrfi'], 'finderSportsSeen': list(controls.FINDER_SPORTS)}
         with patch.object(controls.store, 'get', return_value=json.dumps(old)):
-            # (Slip to PrizePicks, admin-only until it got its switch, starts off too, and so does My Bets.)
-            self.assertEqual(controls.read()['disabledTabs'], ['bets', 'bot', 'export', 'moves', 'nrfi', 'promos', 'sheets'])
+            # (Slip to PrizePicks, admin-only until it got its switch, starts off too, and so do My Bets and the Game Predictor.)
+            self.assertEqual(controls.read()['disabledTabs'], ['bets', 'bot', 'export', 'moves', 'nrfi', 'predictor', 'promos', 'sheets'])
         with patch.object(controls.store, 'get', return_value=None):
             self.assertIn('moves', controls.read()['disabledTabs'])
         saved = controls.validate({**controls.DEFAULT, 'disabledTabs': []})

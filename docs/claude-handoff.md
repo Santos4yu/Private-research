@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small menus; older H2H games; chart dates; every sport's Finder player page on the NBA page's layout; with / without filters fixed; NBA Defense tab order; before that the NBA / WNBA Finder player page rebuilt, then laid out like a clean trends page, with a Team filter; site colors are the site's own colors; gradients; the computer Finder board). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-05 (the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,69 @@ Last updated 2026-10-30 (defense rankings by season and PG/SG/SF/PF/C with small
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 5: the Game Predictor (NBA and NFL winners, scores and edges)
+
+- The owner, with another app's "select a game, predict winner, history"
+  screens: a moneyline predictor for the NBA and NFL from free sources
+  (who's out, spreads, blowout chance, pace, matchups, each team's best
+  player edge) that ends with a final score like "112-96". A new section,
+  **Game Predictor** (tab key `predictor`, URL `/game-predictor`), behind
+  its own switch in Admin's section list. It starts **off** (not in
+  `tabsSeen`); admins always see it.
+- Server: `game_predictor.py`, routed through `api/prediction.py`
+  (`action=game-slate|game-predict|game-history&sport=nba|nfl`; the site
+  is at Vercel's 12-function limit, so no new `api/*.py`). ESPN's
+  scoreboard and summary give the schedule, the DraftKings line
+  (spread, total, moneylines; `_price` also reads ESPN's newer
+  `moneyline.home.close.odds`), ESPN's projection, both injury reports and
+  each team's last five. NBA numbers come from the stored seasons
+  (`league.ensure`, last season's ratings kept once under
+  `krazy_data:predictor:v1:nba-prior:{season}`); NFL from nflverse
+  (`finder.games_index`, `player_rows`, `league`).
+- The model, backtested on real games (scripts in the session scratchpad,
+  not in the repo):
+  - NBA, 2025-26, 979 games with lines: ORtg / DRtg / pace this season with
+    last season worth 12 games, met the usual way, + home court 1.6, a
+    back-to-back 1.2, last-10 net x 0.2, and who's out (0.19 x each
+    regular's Game Score over the last 20 games x how often he played in
+    them, so a long absence is already in the team's numbers). Alone: 74%
+    of second-half winners (line 73%), margin miss 11.3 vs the line's 11.0.
+    Final = 75% line + 25% ours (did best). The site's own code replayed
+    over the season: final 11.06 vs line 11.08 margin miss.
+  - NFL, 2013-25, 3,562 games: points for / against with last season worth
+    4 games, home 2.1, rest, starting QB out 3.2 (the team's most-attempts
+    QB listed Out). The line was clearly better (66% vs 63%), so final =
+    90% line + 10% ours.
+  - Total: the line's (ours was no closer), else ours. Win chance: normal,
+    NBA sigma 12.5, NFL 12; blowout (NBA 15+, NFL 14+) with 15 / 13.5,
+    calibrated on the same games.
+  - **Edge** = only our own disagreement: how far our part moves the
+    line's chance, laid on the moneyline's no-vig chance; 2% or more shows
+    "Moneyline edge" with the price and our fair price. (Comparing our
+    spread-based chance straight to the moneyline invented edges from the
+    spread/price gap.)
+- Best matchup on each team: NBA, rotation players (22+ min, playing
+  lately, not out) — pts / reb / ast x what the defense allows his G / F /
+  C per 36 (shrunk on few games) x the game's pace vs his team's, plus half
+  of the out teammates' points by scoring share; NFL, the QB, top 2 backs
+  by carries, top 3 targets — fantasy and main yards x the defense's
+  allowed to the position.
+- History: every prediction made before tip-off is kept (latest one per
+  game, `krazy_data:predictor:v1:history:{sport}`, 400 max) and settled
+  from ESPN's finals when read, with picks right, how often the market's
+  favorite won (to compare), and how far off the score was.
+- Page: `src/GamePredictor.jsx`, `src/game-predictor-core.js` (words and
+  numbers, tested), `src/game-predictor.css`. Wired like My Bets:
+  `site_controls.TABS`, `site-access.js` names + slug, `site-access-core`,
+  `navTabs` (Crosshair), sidebar Discover group, dock item + icon,
+  `app.js` titles / slugs / panel, `index.html` panel, `main.jsx` mount,
+  `site-access.css` hidden rule.
+- `.github/workflows/game-predictor-check.yml` (run by hand) prints ESPN's
+  slates and one summary per league, since the container can't reach ESPN.
+- Next ideas: an automatic daily snapshot so the history covers every game
+  (now only games someone predicted), questionable players at part weight,
+  NFL injuries beyond the QB, and checking the record after a few weeks.
 
 ### Nov 1: a News card on the Finder player page (ESPN news, Groq notes)
 

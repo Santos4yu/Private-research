@@ -34,7 +34,7 @@ export function dockState(state, scrollY, bottom = Infinity) {
 // dock never shows a gap. My Slip opens the Pick Builder panel.
 export const DOCK_SIZE = 4;
 export const DOCK_DEFAULT = ['finder', 'research', 'v2', 'saved'];
-export const DOCK_FILL = ['finder', 'research', 'v2', 'saved', 'slip', 'bot', 'moves', 'builder', 'sheets', 'promos', 'nrfi', 'slate', 'community', 'export', 'bets'];
+export const DOCK_FILL = ['finder', 'research', 'v2', 'saved', 'slip', 'bot', 'moves', 'builder', 'sheets', 'promos', 'nrfi', 'slate', 'community', 'export', 'bets', 'predictor'];
 // Each section's dock label and icon (DockIcons.jsx).
 export const DOCK_ITEMS = {
   finder: {label: 'Finder', icon: 'finder'}, research: {label: 'Research', icon: 'research'}, v2: {label: 'Props', icon: 'props'},
@@ -42,6 +42,7 @@ export const DOCK_ITEMS = {
   moves: {label: 'Moves', icon: 'moves'}, builder: {label: 'Builder', icon: 'builder'}, sheets: {label: 'Sheets', icon: 'sheets'},
   promos: {label: 'Promos', icon: 'promos'}, nrfi: {label: 'NRFI', icon: 'nrfi'}, slate: {label: 'Tools', icon: 'tools'},
   community: {label: 'Community', icon: 'community'}, export: {label: 'PrizePicks', icon: 'export'}, bets: {label: 'My Bets', icon: 'bets'},
+  predictor: {label: 'Predictor', icon: 'predictor'},
 };
 
 /**

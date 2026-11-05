@@ -251,6 +251,37 @@ class handler(BaseHTTPRequestHandler):
         except Exception:
             return self._send(503, {"error": "Your bets are unavailable right now. Try again in a minute."})
 
+    def _game_predictor(self):
+        """The Game Predictor (game_predictor.py), behind its own switch:
+        action=game-slate (the games to pick from), game-predict (one game,
+        kept for the record) and game-history (past predictions, settled)."""
+        from site_controls import allowed
+        if not allowed(self.headers, 'predictor'):
+            return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+        if not session_with_live_access(self.headers):
+            return self._send(401, {"error": "Sign in to use the Game Predictor.", "authRequired": True})
+        import game_predictor
+        qs = parse_qs(urlparse(self.path).query)
+        arg = lambda name: (qs.get(name, [""])[0]).strip()
+        action, sport = arg("action").lower(), arg("sport").lower()
+        if sport not in game_predictor.SPORTS:
+            return self._send(400, {"error": "Pick the NBA or the NFL."})
+        try:
+            if action == "game-slate":
+                return self._send(200, game_predictor.slate(sport))
+            if action == "game-history":
+                return self._send(200, game_predictor.history(sport))
+            if action == "game-predict":
+                event = arg("event")
+                if not event.isdigit() or len(event) > 14:
+                    return self._send(400, {"error": "Pick a game first."})
+                return self._send(200, game_predictor.predict(sport, event))
+        except LookupError as exc:
+            return self._send(404, {"error": str(exc)})
+        except Exception:  # noqa: BLE001 -- ESPN or the stored season can't be read right now
+            return self._send(503, {"error": "The predictor can't reach its data right now. Try again in a minute."})
+        return self._send(404, {"error": "Unknown predictor action."})
+
     def do_GET(self):
         from site_controls import allowed
         if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower() == "ping":
@@ -258,6 +289,8 @@ class handler(BaseHTTPRequestHandler):
             return self._send(200, {"ok": True})
         if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower() == "bets":
             return self._bets_list()
+        if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower().startswith("game-"):
+            return self._game_predictor()
         if not allowed(self.headers,'research'):
             return self._send(503, {"error":"This section is temporarily unavailable", "featureDisabled":True})
         # Live (uncached) Discord role check -- this is the "real data"

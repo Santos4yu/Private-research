@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from v2.board import store, admin_auth
 SITE_BACKGROUND_PATH_RE=re.compile(r'^/api/v2-admin\?action=site-background&v=\d+$')
 KEY='krazy_data:site_controls:v1'
-TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyline','nrfi','community','bot','sheets','promos','export','bets')
+TABS=('research','finder','moves','v2','slate','saved','slip','builder','moneyline','nrfi','community','bot','sheets','promos','export','bets','predictor')
 # The sections settings saved before tabsSeen existed knew of. A section
 # added later starts switched off until the admin turns it on, the same way
 # new Finder leagues do below -- so a page still being built never appears
