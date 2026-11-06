@@ -99,6 +99,13 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   page waits on it. The container can't reach DraftKings (proxy 403); the
   GitHub check (`game-predictor-check.yml`) has a step that reads it and
   prints the matches.
+- Checked on GitHub after the push (Nov 6): DraftKings answered 200 for
+  both leagues (NBA 9 games, NFL 27, markets named Moneyline / Spread /
+  Total, selections `outcomeType` Home / Away), and every game on the slate
+  matched (8 of 8 each), the page's line marked `draftkings`. Right then
+  the prices equalled ESPN's copy; the difference is that ours is seconds
+  old. The live site (Vercel) can't be read from here without a member
+  login; if DraftKings blocks Vercel, the page quietly keeps ESPN's line.
 
 ### Nov 6 (last): Game Predictor — each game its own page with tabs; the pick full screen
 
