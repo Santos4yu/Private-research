@@ -19,10 +19,11 @@
 // A section the admin switches on (site_controls 'predictor'), off until then.
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Trophy,UserX,X} from 'lucide-react';
+import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Share,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
 import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,inkOn,lineText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {shareMoneyline} from './game-share.js';
 import './game-predictor.css';
 
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
@@ -111,6 +112,23 @@ function PredictView({slate,onOpen,admin,onRetry}){
     </button>
    </li>;})}</ul>
  </section>)}</div>;
+}
+
+// The pick or parlay as a picture (game-share.js): the phone's share sheet
+// (Copy, Save, Messages), a computer's clipboard, else a download.
+function ShareButton({legs,stake,label,className='gp-share'}){
+ const [state,setState]=useState(null);
+ const run=async()=>{
+  if(state==='busy')return;
+  setState('busy');
+  try{const done=await shareMoneyline({legs,stake});setState(done==='copied'?'Copied':done==='saved'?'Saved':null);}
+  catch{setState(null);}
+  setTimeout(()=>setState(old=>old==='busy'?old:null),1800);
+ };
+ return <button type="button" className={className} onClick={run} disabled={state==='busy'} aria-label={label}>
+  {state==='Copied'||state==='Saved'?<Check size={16} aria-hidden="true"/>:<Share size={16} aria-hidden="true"/>}
+  <span>{state==='Copied'||state==='Saved'?state:state==='busy'?'Making it…':'Share'}</span>
+ </button>;
 }
 
 const Section=({title,icon:Icon,children,className=''})=><section className={`gp-sec ${className}`}>
@@ -403,8 +421,10 @@ function PickScreen({pick,onClose,onSaved}){
     <div><dt>Amount</dt><dd>{amount?moneyText(amount):'1 unit'}</dd></div>
     <div><dt>Odds</dt><dd>{cents(marketChance)} · {odds(price)}</dd></div>
     <div><dt>To win</dt><dd>{win!=null?moneyText(win,true):`${decimal(price)?`+${(decimal(price)-1).toFixed(2)}`:'—'} units`}</dd></div>
-    <div className="is-big"><dt>Payout</dt><dd>{win!=null?moneyText(win+amount):'—'}</dd></div>
+    <div className="is-big"><dt>Payout</dt><dd>{win!=null?moneyText(win+amount):decimal(price)?`${decimal(price).toFixed(2)} units`:'—'}</dd></div>
    </dl>
+   <ShareButton className="gp-done-share" label={`Share the ${team.abbr} pick as a picture`} stake={amount}
+    legs={[{team,opponent:other,home:side==='home',price,chance:prediction.chance?.[side],startsAt:prediction.startsAt,sport:prediction.sport}]}/>
    <button type="button" className="gp-done-ok" onClick={close}>Done</button>
   </div>:<>
    <header className="gp-screen-top">
@@ -638,7 +658,8 @@ function Generator({league,admin}){
   :!top.length?<Empty title={`No moneylines ${when} yet`} text="The books usually post them the day before."/>
   :<div className={`gp-results${state.loading?' is-busy':''}`}>
    <section className="gp-pick">
-    <span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>Most likely to win {when}</span>
+    <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>Most likely to win {when}</span>
+     <ShareButton legs={[top[0]]} label={`Share the ${top[0].team.abbr} moneyline as a picture`}/></div>
     <div className="gp-pick-main">
      <span className="gp-hero-logo"><Logo team={top[0].team} size={56}/></span>
      <span><b>{top[0].team.short||top[0].team.abbr}</b><small>{which==='both'?`${top[0].sport?.toUpperCase()} · `:''}{top[0].home?'vs':'@'} {top[0].opponent.abbr} · {clockText(top[0].startsAt)} · {top[0].confidence} confidence</small></span>
@@ -652,6 +673,7 @@ function Generator({league,admin}){
       <span className="gp-parlay-pays"><b>{paysText(combo.dec)}</b><small>{odds(americanOf(combo.dec))}</small></span>
       <span className="gp-parlay-hit"><span className="gp-meter" style={{'--w':combo.chance}}/><small>{pct(combo.chance)} to hit</small></span>
       <strong data-tone={combo.ev>0?'up':'down'}>{evText(combo.ev)}<small>value</small></strong>
+      <ShareButton legs={combo.legs} label={`Share this ${combo.legs.length}-pick parlay as a picture`}/>
      </div>
      <ul className="gp-legs">{combo.legs.map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'}/>)}</ul>
     </li>)}</ol>:<p className="gp-note">{mode==='payout'?`No mix of these games pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}

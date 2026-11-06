@@ -76,6 +76,28 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (share): moneyline picks and parlays as a picture to send
+
+- The owner, with a sportsbook's "3 Pick Parlay" screenshot: "a nice
+  copyable image the website gives when I do moneyline wither it's a
+  straight or parlay this is how I send my current parlays".
+- `src/game-share.js`: `drawMoneyline({legs, stake})` draws the site's own
+  card on a canvas, 1080 wide and as tall as its legs: "Moneyline" or
+  "3-Pick Parlay" with the total odds and "pays 2.04x", then each leg (the
+  game and its time, the team's logo through `viaSite`, now exported from
+  slip-share.js so the canvas can be saved, the team, "Moneyline", its odds
+  and our chance), then Amount / To win / Payout (dollars, or units when no
+  amount), and the site's name as on the other share cards (`SITE`).
+  `cardText` holds the words (tested). `shareMoneyline` hands it to a
+  phone's share sheet (the picture alone, so Copy copies the picture), else
+  copies it to a computer's clipboard ("Copied"), else downloads it.
+- `ShareButton` (GamePredictor.jsx) on the saved pick screen (over Done),
+  the generator's "Most likely to win" pick and each parlay (an icon only on
+  phones). The saved screen's Payout now reads "1.40 units" when no amount
+  was entered (it was a dash).
+- Not changed yet: the saved screen still says "You picked"; the owner was
+  offered "Locked in" + "Mavericks to win" and other wordings, no answer yet.
+
 ### Nov 6 (latest of all): home edge from the records, this season's ranks, the DraftKings-style chart
 
 - The owner: "don't just automatically give the team a plus for being at

@@ -96,6 +96,7 @@
 /* The prediction: the winner up top, then one section after another. */
 .gp-hero-logo{display:grid;place-items:center;flex:none;width:78px;height:78px;border-radius:24px;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
 .gp-kicker{display:inline-flex;align-items:center;gap:6px;color:var(--gp-muted);font-size:12.5px;font-weight:650}
+.gp-pick-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .gp-views{display:flex;flex-wrap:wrap;row-gap:10px;margin:0;padding-top:14px;border-top:1px solid var(--gp-rule)}
 .gp-views div{flex:1;min-width:96px;padding:0 14px;border-left:1px solid var(--gp-rule)}
 .gp-views div:first-child{padding-left:0;border-left:0}
@@ -203,7 +204,13 @@
 .gp-parlays{margin:0;padding:0;list-style:none}
 .gp-parlays>li{padding:14px 0 6px}
 .gp-parlays>li+li{border-top:1px solid var(--gp-rule)}
-.gp-parlay-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;margin-bottom:4px}
+.gp-parlay-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:16px;margin-bottom:4px}
+/* Share: a quiet pill with an icon; "Copied" for a moment after. */
+.gp-share{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border:0;border-radius:999px;background:var(--gp-soft-2);
+ color:var(--gp-text);font-size:13px;font-weight:750;cursor:pointer;transition:background-color .2s,transform .15s var(--gp-ease)}
+.gp-share:hover{background:rgba(255,255,255,.12)}
+.gp-share:active{transform:scale(.95)}
+.gp-share:disabled{opacity:.6;cursor:default}
 .gp-parlay-pays b{font-size:26px;font-weight:850;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
 .gp-parlay-pays small{margin-left:7px;color:var(--gp-muted);font-size:13px;font-weight:700}
 .gp-parlay-hit{display:grid;gap:6px}
@@ -382,6 +389,9 @@
 .gp-done-rows dt{font-weight:650;opacity:.85}
 .gp-done-rows dd{margin:0;font-weight:800;font-variant-numeric:tabular-nums}
 .gp-done-rows .is-big dd{font-size:32px;font-weight:850;letter-spacing:-.02em}
+.gp-done-share{display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;margin-bottom:10px;border:0;border-radius:16px;
+ background:rgba(255,255,255,.16);color:#fff;font-size:15.5px;font-weight:800;cursor:pointer}
+.gp-done-share:active{transform:scale(.97)}
 .gp-done-ok{min-height:54px;border:0;border-radius:16px;background:rgba(255,255,255,.94);color:#111;font-size:16px;font-weight:850;cursor:pointer}
 @media (min-width:700px){
  .gp-swipebar{width:100%;max-width:520px;margin:0 auto 20px;border-radius:22px;padding-bottom:16px}
@@ -433,6 +443,8 @@ li[data-result="loss"] .gp-history-mark{background:color-mix(in srgb,var(--gp-do
  .gp-pick-main b{font-size:19px}
  .gp-pick-num b{font-size:26px}
  .gp-parlay-head{gap:12px}
+ .gp-parlay-head .gp-share{width:34px;padding:0;justify-content:center}
+ .gp-parlay-head .gp-share span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
  .gp-parlay-pays b{font-size:22px}
  .gp-history-list>li{grid-template-columns:24px minmax(0,1fr) auto auto;gap:9px}
  .gp-stats .is-lead dd{font-size:30px}

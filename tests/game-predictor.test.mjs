@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {cardText,combined} from '../src/game-share.js';
 import {colorGap,inkOn,keyInjuries,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
 import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
@@ -213,4 +214,23 @@ test('a team label\'s text stays readable',()=>{
  assert.equal(inkOn('002b5c'),'#ffffff');
  assert.equal(inkOn('fdb927'),'#141414');
  assert.equal(inkOn(null),'#ffffff');
+});
+
+test('the moneyline picture\'s words',()=>{
+ const legs=[{team:{abbr:'BOS'},price:-344},{team:{abbr:'DAL'},price:-253},{team:{abbr:'SA'},price:-130}];
+ const price=combined(legs);
+ assert.ok(Math.abs(price.dec-(1+100/344)*(1+100/253)*(1+100/130))<1e-9);
+ assert.equal(price.american,americanOf(price.dec));
+ const parlay=cardText({legs,stake:25});
+ assert.equal(parlay.title,'3-Pick Parlay');
+ assert.equal(parlay.odds,odds(price.american));
+ assert.deepEqual(parlay.money.map(row=>row[0]),['Amount','To win','Payout']);
+ assert.equal(parlay.money[0][1],'$25');
+ assert.equal(parlay.money[2][1],moneyText(25*price.dec));
+ // A straight pick with no amount: in units.
+ const straight=cardText({legs:[{team:{abbr:'DAL'},price:-253}]});
+ assert.equal(straight.title,'Moneyline');
+ assert.equal(straight.odds,'-253');
+ assert.deepEqual(straight.money,[['Amount','1 unit'],['To win','0.40 units'],['Payout','1.40 units']]);
+ assert.equal(combined([{price:null}]),null);
 });

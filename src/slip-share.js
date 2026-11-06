@@ -15,7 +15,7 @@ const nice = value => (Number.isInteger(value) ? String(value) : Number(value).t
 // A canvas can only be saved when what's drawn on it is this site's own, and
 // the leagues' image hosts don't allow it otherwise -- so their headshots and
 // logos come through api/mlb-logo.py (?src=). Anything that fails is drawn without.
-const viaSite = src => {
+export const viaSite = src => {
   try {
     const url = new URL(src, location.href);
     return url.origin === location.origin || url.protocol === 'data:' ? src : `/api/mlb-logo?src=${encodeURIComponent(url.href)}`;
