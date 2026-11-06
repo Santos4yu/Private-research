@@ -429,3 +429,82 @@ html:root body > #gl-more-pop .gl-more-reset:hover { color: var(--gm-text); }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button { grid-template-areas: "label" "pct" "avg" !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-rec { display: none !important; }
 html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-avg { grid-area: avg; color: var(--fp-muted); font: 500 11.5px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------ Nov 6 (b): the page after PickFinder's layout, in our colors
+   (the owner: "you didn't make the finder layout like pickfinder"). From
+   the top: the odds as cards (each book's logo and its O / U); then one
+   panel holding the stats as folder tabs (the line in a badge, the picked
+   tab joined to the panel), the title, the buttons, the filters, the
+   windows on a darker strip (HR and Avg, left aligned) and the chart with
+   plain numbers over its bars. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds { gap: 10px; padding: 2px 0 4px; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-card {
+  min-height: 60px; padding: 8px 16px 8px 10px; gap: 10px; border-radius: 14px; background: #161616 !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-card > img { width: 36px; height: 36px; border-radius: 10px; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-chance { padding-left: 16px; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines { display: grid; gap: 5px; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines > span { font: 700 14px/1 var(--font-sans); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines em { font-style: normal; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines em[data-side=over] { color: var(--fp-good); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-lines em[data-side=under] { color: var(--fp-low); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-pick small { color: var(--fp-text); font: 600 13px/1 var(--font-sans); }
+
+/* The stats: folder tabs, the line in a badge beside each name. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button {
+  display: inline-flex !important; flex-direction: row !important; align-items: center !important; gap: 7px !important; flex: none;
+  height: 46px !important; min-height: 0 !important; padding: 0 14px !important; border: 0 !important; border-radius: 14px 14px 0 0 !important;
+  background: none !important; box-shadow: none !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button::after { content: none !important; display: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button b { color: var(--fp-faint); font: 700 14px/1 var(--font-sans); letter-spacing: .01em; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button small {
+  margin: 0 !important; padding: 3px 7px; border-radius: 9px; background: rgba(255, 255, 255, .1); color: var(--fp-muted);
+  font: 700 11.5px/1.1 var(--font-sans); font-variant-numeric: tabular-nums;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button small:empty { display: none; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { background: var(--fp2-panel, #141414) !important; box-shadow: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active b { color: var(--fp-text); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active small { background: var(--fp-text); color: #111; }
+
+/* The line stepper: one framed group, the number between its buttons. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control {
+  border: 1px solid rgba(255, 255, 255, .1) !important; border-radius: 12px !important; background: none !important; overflow: hidden;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-line-control button { border-radius: 0 !important; background: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-line-value { border-inline: 1px solid rgba(255, 255, 255, .1) !important; }
+
+/* The windows: a darker strip, each window left aligned, "HR" before the rate, the average in the rate's color. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs { background: #0b0b0b !important; padding: 5px !important; border-radius: 14px !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button { justify-items: start !important; padding: 9px 10px !important; gap: 5px !important; text-align: left; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button.active { background: #1c1c1c !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button strong { color: var(--fp-text) !important; font: 700 13.5px/1 var(--font-sans) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-pct { font: 600 13.5px/1 var(--font-sans) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-pct::before { content: "HR "; }
+/* (.gl-window-avg is an older class too, with !important colors and sizes elsewhere.) */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-avg { display: block !important; color: var(--fp-muted) !important; font: 600 13.5px/1 var(--font-sans) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button[data-heat=good] .gl-window-avg { color: var(--fp-good) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button[data-heat=mid] .gl-window-avg { color: var(--fp-mid) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button:is([data-heat=low], [data-heat=bad]) .gl-window-avg { color: var(--fp-low) !important; }
+
+/* The chart: the number over each bar, plain. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-val {
+  padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--fp-text) !important; font: 700 14px/1 var(--font-sans) !important;
+}
+
+@media (max-width: 760px) {
+  html:root .fp2 { --fp2-panel: #171717; }
+  /* The panel: from the stats down to the averages, a shade lighter than the page. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal { isolation: isolate; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal::before {
+    content: ""; display: block; grid-column: 1 / -1; grid-row: tabs-start / summary-end; align-self: stretch; justify-self: stretch; z-index: -1; margin: 0 -8px -6px;
+    border-radius: 22px; background: var(--fp2-panel); pointer-events: none;
+  }
+  /* The tabs along the panel's top, on a darker strip; the picked one in the panel's color. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs {
+    margin: 0 -8px 16px !important; padding: 6px 6px 0 !important; border-radius: 22px 22px 0 0 !important;
+    background: #121212 !important; box-shadow: inset 0 -1px rgba(255, 255, 255, .05) !important;
+  }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-quotes-slot { margin: 0 -2px 18px !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary { padding-bottom: 14px !important; }
+}

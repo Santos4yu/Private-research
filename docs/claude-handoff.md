@@ -76,6 +76,34 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (Finder player page, round 2): the page after PickFinder's layout; Game Predictor list solid
+
+- The owner: "you didn't make the finder layout like pickfidner" (only the
+  filters had changed), and of the Game Predictor's list: "fix the see
+  through background on this aswell".
+- Game Predictor: `.gp-list-bg` (a fixed, solid `--ace-bg` layer first in
+  `.game-predictor`, under the accent glow), like the game page's
+  `.gp-page-bg`. Checked: it covers the screen.
+- Finder player page (finder-player-v2.css, "Nov 6 (b)" section at the end;
+  layout only, our colors):
+  - The odds: cards (60px, 14px corners), each book's logo with its O and
+    U stacked; the market-chance card's O in green, U in red.
+  - The stats: folder tabs, the line in a badge beside the name; the picked
+    tab is filled with the panel's color, its badge white (the old
+    underline, `box-shadow: inset 0 -2px`, is off).
+  - Phone: one panel from the stats to the averages, `.gamelog-modal::before`
+    as a grid item over `tabs-start / summary-end` (needs `align-self:
+    stretch`: the grid aligns items to the start, which left it 0px tall),
+    #171717 on the page's #0e0e0e; the tabs on a #121212 strip along its
+    top.
+  - The line stepper framed (one group, hairlines between); the windows on
+    a darker strip, left aligned, "HR 100%" and "Avg 5.6" both in the
+    rate's color (`.gl-window-avg` is an older class with !important
+    colors and sizes elsewhere, hence the !important here); the chart's
+    numbers plain over the bars (`.gl-val`, no pill).
+- Not done from their page: quarter / half buttons by the title, split bars
+  (OREB / DREB), the "Supporting stats" section; the owner was offered them.
+
 ### Nov 6 (Finder player page): More filters (minutes, days rest); filters and windows after PickFinder's layout
 
 - The owner, with PickFinder's player page and its filter sheet (Minutes

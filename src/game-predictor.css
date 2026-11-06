@@ -23,6 +23,12 @@
 .gp-logo-empty{display:inline-grid;place-items:center;border-radius:50%;background:var(--gp-soft-2);color:var(--gp-muted);font-size:9px;font-weight:800}
 .gp-note{margin:0;color:var(--gp-muted);font-size:13px;line-height:1.45}
 
+/* The list's own background (Nov 6, the owner: "fix the see through
+   background on this aswell"): the site's dark, solid, behind the glow, so
+   nothing of the site shows through. Fixed inside the predictor's layer,
+   as the game page's (.gp-page-bg). */
+.gp-list-bg{position:fixed;inset:0;z-index:-1;background:var(--ace-bg,#0c0c0c);pointer-events:none}
+
 /* The light at the top: two soft glows in the accent, drifting slowly. */
 .gp-aurora{position:absolute;z-index:-1;top:calc(-1 * (var(--site-status-inset,0px) + 90px));left:0;right:0;height:560px;pointer-events:none;
  background:radial-gradient(46% 52% at 30% 42%,color-mix(in srgb,var(--gp-accent) 18%,transparent),transparent 72%),

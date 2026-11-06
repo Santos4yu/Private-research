@@ -768,6 +768,7 @@ export function GamePredictor(){
   {sheet&&<PickScreen pick={sheet} onClose={()=>setSheet(null)} onSaved={()=>loadHistory()}/>}
  </div>;
  return <div className="game-predictor">
+  <div className="gp-list-bg" aria-hidden="true"/>
   <div className="gp-aurora" aria-hidden="true"/>
   <header className="gp-top">
    <div className="gp-title">
