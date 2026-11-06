@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {colorGap,keyInjuries,pairColors,readGuide} from '../src/game-predictor-core.js';
 import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
@@ -152,4 +153,40 @@ test('the chart: one side\'s view, its frame and a step line',()=>{
  const path=chartPath(series,frame,200,100);
  assert.match(path,/^M0\.0 [\d.]+H100\.0V[\d.]+H200\.0V[\d.]+H200$/);
  assert.equal(chartFrame([[]]),null);
+});
+
+test('two teams never share a color',()=>{
+ // ATL and WSH are both red on ESPN: the Wizards take their navy.
+ assert.ok(colorGap('c8102e','e31837')<150);
+ assert.deepEqual(pairColors({color:'c8102e',alt:'fdb927'},{color:'e31837',alt:'002b5c'}),{home:'c8102e',away:'002b5c'});
+ // Far apart already: kept.
+ assert.deepEqual(pairColors({color:'c8102e'},{color:'007a33'}),{home:'c8102e',away:'007a33'});
+ // The away team's second color is black (too dark here) or close too: the home team's, else gray.
+ assert.deepEqual(pairColors({color:'c8102e',alt:'fdb927'},{color:'e31837',alt:'000000'}),{home:'fdb927',away:'e31837'});
+ assert.deepEqual(pairColors({color:'c8102e'},{color:'e31837'}),{home:'c8102e',away:'a3a3a3'});
+ assert.deepEqual(pairColors({color:null},{color:'e31837'}),{home:null,away:'e31837'});
+});
+
+test('only the injuries that matter',()=>{
+ const nba=[{name:'Star',impact:2.4,out:true},{name:'Maybe',impact:1.2,out:false},{name:'Bench',impact:0.3,out:true}];
+ assert.deepEqual(keyInjuries(nba,'nba'),{shown:nba.slice(0,2),others:1});
+ const nfl=[{name:'QB1',position:'QB',out:true},{name:'WR2',position:'WR',status:'Doubtful'},{name:'Guard',position:'G',out:true},{name:'TE',position:'TE',status:'Questionable'}];
+ assert.deepEqual(keyInjuries(nfl,'nfl').shown.map(player=>player.name),['QB1','WR2']);
+ assert.equal(keyInjuries(null,'nba').others,0);
+});
+
+test('how to read the numbers, with the game\'s own',()=>{
+ const prediction={home:{abbr:'ATL'},away:{abbr:'WSH'},winner:'home',chance:{home:0.71,away:0.29},
+  market:{chance:{home:0.6,away:0.4},moneyline:{home:-200,away:170},spread:-6.5,total:230.5}};
+ const chart={now:{market:0.68,moneyline:{home:-241,away:199}}};
+ const rows=Object.fromEntries(readGuide(prediction,chart).map(row=>[row.term,row.text]));
+ // The chart's price now beats the prediction's older one.
+ assert.match(rows['The % and the ¢ price'],/ATL at 68¢ means the betting market expects ATL to win about 68 times out of 100/);
+ assert.equal(rows['Moneyline (-241 / +199)'],'Minus means favorite, plus means underdog. ATL -241: you risk $241 to win $100. WSH +199: $100 wins $199.');
+ assert.match(rows['What $10 pays'],/\$10 on ATL wins \$4\.15 \(\$14\.15 back\)\. \$10 on WSH wins \$19\.90/);
+ assert.match(rows['Our pick against the price'],/We give ATL 71%; the price says 68%\. Ours is higher/);
+ assert.match(rows.Spread,/ATL −6\.5: ATL has to win by more than 6\.5\. WSH \+6\.5/);
+ assert.match(rows.Total,/230\.5/);
+ assert.ok(rows.Value&&rows.Confidence);
+ assert.deepEqual(readGuide(null),[]);
 });

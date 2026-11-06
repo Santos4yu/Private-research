@@ -166,6 +166,74 @@ class PredictionTests(unittest.TestCase):
         self.assertEqual(gp._price({"open": {"odds": "EVEN"}}), 100)
 
 
+class StoryTests(unittest.TestCase):
+    """The Why tab's write-up in plain words."""
+    def nba(self, **changes):
+        found = game(home="ATL", away="WSH", spread=-6.5, total=230.5, home_ml=-241, away_ml=199)
+        found["home"]["short"], found["away"]["short"], found["line"]["provider"] = "Hawks", "Wizards", "DraftKings"
+        built = {"margin": 9.0, "total": 232, "sigma": 12.12, "model": "v2", "poss": 100, "leaguePace": 99, "warnings": [],
+                 "parts": [{"key": "home", "label": "Home", "points": 2.4, "text": "ATL at home"}],
+                 "teams": {"home": {"ortg": [118.4, 6], "drtg": [113.0, 12], "last10": [7, 3]},
+                           "away": {"ortg": [109.2, 25], "drtg": [120.1, 28], "last10": [4, 6]}},
+                 "out": {"home": [{"name": "Kristaps Porzingis", "kind": "questionable", "out": False, "impact": 2.2}],
+                         "away": [{"name": "Kyle Kuzma", "kind": "out", "out": True, "impact": 2.4, "injury": "Knee"},
+                                  {"name": "Bench Guy", "kind": "out", "out": True, "impact": 0.2}]},
+                 "rest": {"home": 2, "away": 1}}
+        built.update(changes)
+        players = {"home": {"name": "Trae Young", "why": ["WSH allows the 3rd most points per 36 minutes to point guards"],
+                            "proj": {"pts": 27.5}, "avg": {"pts": 24.1}}}
+        with patch.object(gp, "_pace", return_value=None):
+            return gp.prediction("nba", found, built, players, now=NOW)["story"]
+
+    def test_the_nba_in_plain_words(self):
+        story = self.nba()
+        text = {point["key"]: point["text"] for point in reversed(story["points"])}
+        self.assertTrue(story["headline"].startswith("We project the Hawks to beat the Wizards, about "))
+        self.assertIn("% chance: about 7 games in 10. DraftKings has them at 68% (-241)", text["chance"])
+        # The offense against the defense, with both league ranks.
+        self.assertIn("The Hawks' offense scores 118.4 points per 100 possessions (6th in the NBA), "
+                      "and the Wizards' defense allows 120.1 (28th).", text["teams"])
+        self.assertIn("The matchup to watch is Trae Young: the Wizards allow the 3rd most points per 36 minutes to point guards. "
+                      "We have him around 27.5 points (he averages 24.1).", text["player"])
+        # Only the injuries that matter: the bench player isn't named.
+        injuries = " ".join(point["text"] for point in story["points"] if point["key"] == "injuries")
+        self.assertIn("The Wizards are without Kyle Kuzma (knee), worth about 2.4 points a game to them.", injuries)
+        self.assertIn("Kristaps Porzingis is questionable for the Hawks", injuries)
+        self.assertNotIn("Bench Guy", injuries)
+        self.assertIn("The Wizards played last night", text["extras"])
+        self.assertIn("The Hawks have won 7 of their last 10.", text["extras"])
+        self.assertTrue(text["confidence"].endswith("they lose about 3 times in 10."))
+
+    def test_the_underdog_on_paper(self):
+        story = self.nba(teams={"home": {"ortg": [110, 20], "drtg": [118, 22]}, "away": {"ortg": [116, 8], "drtg": [112, 9]}}, out=None)
+        teams = next(point["text"] for point in story["points"] if point["key"] == "teams")
+        self.assertTrue(teams.startswith("On paper the Wizards rate a little better"))
+        self.assertFalse(any(point["key"] == "injuries" for point in story["points"]))
+
+    def test_the_nfl_quarterback(self):
+        found = game(home="KC", away="NYJ", spread=-10, total=43.5, home_ml=-575, away_ml=425)
+        found.update(sport="nfl")
+        found["home"]["short"], found["away"]["short"] = "Chiefs", "Jets"
+        built = {"margin": 8.0, "total": 43, "sigma": 9.56, "model": "v2", "warnings": [], "parts": [],
+                 "teams": {"home": {"pf": [27.1, 5], "pa": [18.2, 4]}, "away": {"pf": [17.0, 28], "pa": [25.3, 26]}},
+                 "out": {"home": [], "away": [{"name": "Garrett Wilson", "position": "WR", "out": True}, {"name": "A Lineman", "position": "G", "out": True}]},
+                 "starters": {"home": {"name": "P.Mahomes"}, "away": {"name": "T.Taylor"}}, "qbOut": {"away": "J.Fields"}, "rest": {}}
+        with patch.object(gp, "_pace", return_value=None):
+            story = gp.prediction("nfl", found, built, None, now=NOW)["story"]
+        text = " ".join(point["text"] for point in story["points"])
+        # Its defense against their offense is the bigger edge (4th against 28th), then the other end.
+        self.assertIn("The Chiefs' defense is the edge: it ranks 4th in the NFL, against the Jets' 28th-ranked offense. "
+                      "And the Chiefs' offense (5th) faces the Jets' 26th-ranked defense.", text)
+        self.assertIn("That's an 81% chance", text)
+        self.assertIn("The Jets are without their starting quarterback, J.Fields, so T.Taylor starts.", text)
+        self.assertIn("Also out for the Jets: Garrett Wilson (WR).", text)
+        self.assertNotIn("Lineman", text)
+
+    def test_the_line_alone(self):
+        story = gp.prediction("nba", game(), None, now=NOW)["story"]
+        self.assertEqual([point["key"] for point in story["points"]], ["chance", "confidence"])
+
+
 class LineTests(unittest.TestCase):
     def test_scoreboard_odds(self):
         sides = {"home": {"abbr": "DEN"}, "away": {"abbr": "BOS"}}

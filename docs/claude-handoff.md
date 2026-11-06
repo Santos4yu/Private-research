@@ -76,6 +76,44 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (final): Game Predictor — a tighter game page with its own background; Why in plain words
+
+- The owner, with screenshots of WSH @ ATL: "Compact this all a little more
+  and let's get a background tho so it's not just transparent also for
+  people who don't understand like odds and other stuff in the why let's
+  make a detailed ways to read and understand write up ... include
+  defensive rankings injuries only the injuries that matter".
+- Background: `.gp-page-bg` (a sibling of `.gp-page`, fixed, z-index -1
+  inside `.game-predictor`'s own layer, not inside the animated page: a
+  transform there would pin it to the page) is the site's dark with each
+  team's color soft in its top corner. Checked: it covers the viewport.
+- Tighter: smaller header, team rows (32px logos, 24px chances), tabs (42px),
+  chart 150px (was 210), price buttons 48px (was 58), "Our pick" and the
+  sections' spacing. The whole Chance tab fits on a phone screen.
+- Colors: ATL and WSH are both red on ESPN, so both lines and buttons were
+  red. `_competitor` now keeps ESPN's `alternateColor` (`alt`, passed on by
+  `prediction`), and `pairColors` (core) swaps the away team to it when the
+  two look alike (redmean distance under 150), else the home team's, else
+  gray; a near-black second color isn't used.
+- Why, top: "the short version", written by the server
+  (`game_predictor.story`, on every prediction as `story` {headline,
+  points [{key, text}]}): who we pick and the score; the chance in "games in
+  10" against DraftKings' price (more / less / agree / against the market);
+  the winner's offense against the loser's defense with league ranks (or the
+  defense end if that's the bigger edge; "on paper the other team rates
+  better" when neither is); the player to watch on each side (the best
+  matchup's first reason, "WSH allows" turned into "the Wizards allow");
+  injuries that matter (NBA: out and worth 1+ point, questionable worth
+  1.5+; NFL: a starting QB out from the new `qbOut` on `nfl_model_v2`, and
+  QB / RB / WR / TE out); rest, home and form; what the confidence means and
+  how often a team at that chance still loses. The page labels each point.
+- Then "Check first" (without the questionable "if he sits" lines, already in
+  the story), "Injuries that matter" (`keyInjuries`; the rest is a count),
+  "What moves our number", and "New to odds? How to read these numbers"
+  (closed until tapped; `readGuide` with this game's own numbers: the % and
+  ¢, the moneyline, what $10 pays, our pick against the price, value,
+  confidence, spread, total).
+
 ### Nov 6 (newest): Game Predictor — moneylines straight from DraftKings
 
 - The owner asked where the free odds come from (ESPN's copy of DraftKings'

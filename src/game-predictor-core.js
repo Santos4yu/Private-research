@@ -220,3 +220,74 @@ export function resultOf(item){
  if(!result.winner)return 'push';
  return result.correct?'win':'loss';
 }
+
+// ------------------------------------------------------------------ the game page's colors and words
+
+const rgbOf=hex=>/^[0-9a-f]{6}$/i.test(hex||'')?[0,2,4].map(index=>parseInt(hex.slice(index,index+2),16)):null;
+/** How far apart two colors look ("redmean" distance, 0 to about 765). */
+export function colorGap(one,two){
+ const a=rgbOf(one),b=rgbOf(two);
+ if(!a||!b)return Infinity;
+ const mean=(a[0]+b[0])/2,[r,g,bl]=[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+ return Math.sqrt((2+mean/256)*r*r+4*g*g+(2+(255-mean)/256)*bl*bl);
+}
+const tooDark=hex=>{const c=rgbOf(hex);return !c||0.2126*c[0]+0.7152*c[1]+0.0722*c[2]<18;};
+/** Both teams' colors (hex, no "#"), never two that look alike (Nov 6: ATL
+ * and WSH are both red): the away team takes its second color, else the
+ * home team does, else the away team is a light gray. */
+export function pairColors(home,away){
+ const h=rgbOf(home?.color)?home.color:null,a=rgbOf(away?.color)?away.color:null;
+ if(!h||!a||colorGap(h,a)>=150)return {home:h,away:a};
+ if(!tooDark(away?.alt)&&colorGap(away.alt,h)>=150)return {home:h,away:away.alt};
+ if(!tooDark(home?.alt)&&colorGap(home.alt,a)>=150)return {home:home.alt,away:a};
+ return {home:h,away:'a3a3a3'};
+}
+
+/** The injuries that matter: in the NBA a player worth a point or more to
+ * his team (out or questionable); in the NFL a QB, RB, WR or TE out or
+ * doubtful. {shown, others}: the rest are only counted. */
+export function keyInjuries(rows,sport){
+ const list=rows||[];
+ const matters=sport==='nfl'
+  ?player=>(player.out||/doubtful/i.test(player.status||''))&&['QB','RB','WR','TE'].includes(String(player.position||'').toUpperCase())
+  :player=>(player.impact||0)>=1;
+ const shown=list.filter(matters);
+ return {shown,others:list.length-shown.length};
+}
+
+/** "How to read the numbers": each term in plain words, with this game's own numbers. */
+export function readGuide(prediction,chart){
+ if(!prediction)return [];
+ const homeNow=chart?.now?.market??prediction.market?.chance?.home??null;
+ const prices=chart?.now?.moneyline||prediction.market?.moneyline||{};
+ const team=side=>prediction[side]?.abbr||side;
+ const chanceOf=side=>homeNow==null?null:side==='home'?homeNow:1-homeNow;
+ const fav=homeNow==null?prediction.winner:homeNow>=0.5?'home':'away',dog=fav==='home'?'away':'home';
+ const pays=price=>price<0?`you risk $${Math.abs(Math.round(price))} to win $100`:`$100 wins $${Math.round(price)}`;
+ const rows=[];
+ if(homeNow!=null)rows.push({term:'The % and the ¢ price',
+  text:`They're the same number: the chance to win. ${team(fav)} at ${cents(chanceOf(fav))} means the betting market expects ${team(fav)} to win about ${Math.round(chanceOf(fav)*100)} times out of 100.`});
+ if(prices[fav]!=null&&prices[dog]!=null){
+  const favPrice=prices[fav],dogPrice=prices[dog];
+  rows.push({term:`Moneyline (${odds(favPrice)} / ${odds(dogPrice)})`,
+   text:`Minus means favorite, plus means underdog. ${team(fav)} ${odds(favPrice)}: ${pays(favPrice)}. ${team(dog)} ${odds(dogPrice)}: ${pays(dogPrice)}.`});
+  const favWin=winOf(10,favPrice),dogWin=winOf(10,dogPrice);
+  rows.push({term:'What $10 pays',
+   text:`$10 on ${team(fav)} wins ${moneyText(favWin)} (${moneyText(10+favWin)} back). $10 on ${team(dog)} wins ${moneyText(dogWin)} (${moneyText(10+dogWin)} back). The favorite wins more often, so it pays less.`});
+ }
+ const side=prediction.winner,ours=prediction.chance?.[side],theirs=chanceOf(side);
+ if(ours!=null&&theirs!=null){
+  const gap=Math.round((ours-theirs)*100);
+  rows.push({term:'Our pick against the price',
+   text:`We give ${team(side)} ${pct(ours)}; the price says ${pct(theirs)}. ${gap>=2?'Ours is higher, so the price is good value.':gap<=-2?'Ours is lower: the right team, but a steep price for it.':'About the same: a fair price, no real edge either way.'}`});
+ }
+ rows.push({term:'Value',text:'What a $1 pick is worth on average at this price, using our chance. Green (above zero) is a good price; red means paying more than it\'s worth. It\'s an average over many games, not a promise for one.'});
+ rows.push({term:'Confidence',text:'How much to trust our number. High: a clear favorite, and our model and the betting line agree. Medium: a favorite, not a lock. Low: close to a coin flip, our model and the line disagree, or the data has gaps.'});
+ const market=prediction.market||{};
+ if(market.spread!=null&&Math.abs(market.spread)>0){
+  const by=Math.abs(market.spread),favored=market.spread<0?'home':'away',other=favored==='home'?'away':'home';
+  rows.push({term:'Spread',text:`How many points the favorite should win by. ${team(favored)} −${by}: ${team(favored)} has to win by more than ${by}. ${team(other)} +${by}: ${team(other)} can lose by less than that, or win.`});
+ }
+ if(market.total!=null)rows.push({term:'Total',text:`Both teams' points added up. The line is ${market.total}: over if they score more together, under if less.`});
+ return rows;
+}

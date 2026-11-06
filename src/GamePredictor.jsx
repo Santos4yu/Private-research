@@ -19,10 +19,10 @@
 // A section the admin switches on (site_controls 'predictor'), off until then.
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertTriangle,ArrowLeft,CalendarDays,Check,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Trophy,UserX,X} from 'lucide-react';
+import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,likeliest,lineText,mergeBoards,moneyText,odds,parlays,paysText,pct,pull,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,lineText,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import './game-predictor.css';
 
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
@@ -131,25 +131,36 @@ const GAME_TABS=[['chance','Chance'],['odds','Odds'],['why','Why'],['players','P
 //    in a game ESPN's win probability), our pick, and a button each.
 //  - Odds: the moneylines in cents and prices with their value, the line,
 //    our model alone and with it.
-//  - Why: what to check first, what moves our number, who's out.
+//  - Why: the short version in plain words (who we pick and why: the
+//    offense against the defense with their ranks, the player to watch, who's
+//    out that matters), then what to check, the injuries that matter, what
+//    moves our number, and how to read the numbers.
 //  - Players: each side's best matchup and the teams side by side.
+// The page has its own background (Nov 6, the owner: "a background tho so
+// it's not just transparent"): the site's dark with each team's color in its
+// top corner, and both teams always in colors that don't look alike.
 function GamePage({game,sport,result,admin,onBack,onPick}){
  const [tab,setTab]=useState('chance');
  const chart=useChart(sport,game.id);
- const prediction=result?.data;
+ const raw=result?.data;
+ const colors=pairColors(raw?.home||game.home,raw?.away||game.away);
+ const prediction=useMemo(()=>raw&&{...raw,home:{...raw.home,color:colors.home},away:{...raw.away,color:colors.away}},[raw,colors.home,colors.away]);
  const live=(chart?.state||game.state)==='in';
  const now=chancesNow(prediction,chart);
  const home=prediction?.home||game.home,away=prediction?.away||game.away;
  const status=live?<><i className="gp-pulse" aria-hidden="true"/>{chart?.detail||'Live'}</>:(chart?.state||game.state)==='post'?'Final':startText(game.startsAt);
  const tabsRow=useRef(null),ink=useInk(tabsRow,tab,'[aria-selected=true]');
- const row=(side,team)=>{const color=teamColor(prediction?.[side]||team);const score=chart?.[side]?.score;
+ const row=(side,team)=>{const color=teamColor({color:colors[side]});const score=chart?.[side]?.score;
   return <li style={color?{'--team':color}:undefined}>
-   <Logo team={team} size={40}/>
+   <Logo team={team} size={32}/>
    <span className="gp-board-name"><b>{team.name||team.short||team.abbr}</b><small>{team.record||team.abbr}</small></span>
    {(live||chart?.state==='post')&&score!=null&&<strong className="gp-board-score">{score}</strong>}
    <strong className="gp-board-pct">{now?pct(now[side]):'—'}</strong>
   </li>;};
- return <div className="gp-page">
+ const tint=hex=>/^[0-9a-f]{6}$/i.test(hex||'')?`#${hex}`:'transparent';
+ return <>
+ <div className="gp-page-bg" style={{'--home':tint(colors.home),'--away':tint(colors.away)}} aria-hidden="true"/>
+ <div className="gp-page">
   <header className="gp-page-top">
    <button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>
    <div><b>{away.abbr} @ {home.abbr}</b><small>{status}</small></div>
@@ -166,11 +177,13 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
    :prediction?<>
     {tab==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
     {tab==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
-    {tab==='why'&&<><Warnings prediction={prediction}/><Factors prediction={prediction}/><WhosOut prediction={prediction}/></>}
+    {tab==='why'&&<><Story prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
+     <Factors prediction={prediction}/><ReadGuide prediction={prediction} chart={chart}/></>}
     {tab==='players'&&<><Players prediction={prediction}/><Compare prediction={prediction}/></>}
    </>:null}
   </div>
- </div>;
+ </div>
+ </>;
 }
 
 // Both teams' chance over time, Polymarket-style: a line each in its team's
@@ -243,7 +256,7 @@ function ChanceTab({prediction,chart,onPick}){
   <section className="gp-sec gp-ourpick" style={teamColor(team)?{'--team':teamColor(team)}:undefined}>
    <span className="gp-kicker">Our pick</span>
    <div className="gp-ourpick-row">
-    <Logo team={team} size={44}/>
+    <Logo team={team} size={34}/>
     <span><b>{team.short||team.abbr}</b><small>{prediction.confidence} confidence</small></span>
     <strong>{pct(prediction.chance[side])}</strong>
    </div>
@@ -426,8 +439,36 @@ function Value({prediction}){
  </Section>;
 }
 
+// The short version, in plain words (Nov 6, the owner: "for people who
+// don't understand like odds ... easy to understand ... defensive rankings,
+// injuries only the injuries that matter"). Written by the server
+// (game_predictor.story): one short paragraph a point, each with its label.
+const STORY_TAGS={chance:'The odds',teams:'Offense vs defense',player:'Player to watch',injuries:'Injuries',extras:'Also',confidence:'How sure we are'};
+function Story({prediction}){
+ const story=prediction.story;
+ if(!story)return null;
+ const team=prediction[prediction.winner],color=teamColor(team);
+ return <section className="gp-sec gp-story" style={color?{'--team':color}:undefined}>
+  <p className="gp-story-lead"><Logo team={team} size={26}/><b>{story.headline}</b></p>
+  <ul className="gp-story-list">{story.points.map((point,index)=><li key={index} style={{'--i':index}}>
+   <span>{STORY_TAGS[point.key]||''}</span><p>{point.text}</p>
+  </li>)}</ul>
+ </section>;
+}
+
+// Every term on the page in plain words, with this game's own numbers; closed until asked for.
+function ReadGuide({prediction,chart}){
+ const rows=readGuide(prediction,chart);
+ if(!rows.length)return null;
+ return <details className="gp-sec gp-guide">
+  <summary><BookOpen size={15} aria-hidden="true"/><b>New to odds? How to read these numbers</b><ChevronDown size={16} aria-hidden="true"/></summary>
+  <dl>{rows.map(row=><div key={row.term}><dt>{row.term}</dt><dd>{row.text}</dd></div>)}</dl>
+ </details>;
+}
+
 function Warnings({prediction}){
- const items=prediction.warnings||[];
+ // A questionable player's "if he sits" is in the short version already.
+ const items=(prediction.warnings||[]).filter(item=>!(item.level==='info'&&/if he sits/.test(item.text)));
  if(!items.length)return null;
  return <Section title="Check first" icon={AlertTriangle} className="gp-warnings">
   <ul>{items.map((item,index)=><li key={index} data-level={item.level}>
@@ -447,16 +488,20 @@ function Factors({prediction}){
  </Section>;
 }
 
+// Only the injuries that matter (keyInjuries); the rest of the report is a count.
 function WhosOut({prediction}){
  const out=prediction.out;
  if(!out)return null;
- return <Section title="Who's out" icon={UserX}>
-  <div className="gp-two">{['away','home'].map(side=><div key={side}>
+ const sides=['away','home'].map(side=>({side,...keyInjuries(out[side],prediction.sport)}));
+ const rest=prediction.sport==='nfl'?'none at QB, RB, WR or TE':'none in the rotation';
+ return <Section title="Injuries that matter" icon={UserX}>
+  <div className="gp-two">{sides.map(({side,shown,others})=><div key={side}>
    <p className="gp-team-head"><Logo team={prediction[side]} size={20}/>{prediction[side].short||prediction[side].abbr}</p>
-   {(out[side]||[]).length?<ul className="gp-out">{out[side].slice(0,6).map((player,index)=><li key={index} data-out={player.out?'':undefined}>
+   {shown.length?<ul className="gp-out">{shown.slice(0,5).map((player,index)=><li key={index} data-out={player.out?'':undefined}>
     <span><b>{player.name}</b><small>{[player.position,player.status,player.injury].filter(Boolean).join(' · ')}</small></span>
     {player.impact>0&&<em>−{player.impact} pts</em>}
-   </li>)}</ul>:<p className="gp-note">Nobody on the injury report.</p>}
+   </li>)}</ul>:<p className="gp-note">Nobody who matters.</p>}
+   {others>0&&<p className="gp-note gp-out-more">{others} more on the report, {rest}.</p>}
   </div>)}</div>
  </Section>;
 }

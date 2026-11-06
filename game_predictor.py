@@ -214,7 +214,8 @@ def _competitor(competitor):
     record = next((item.get("summary") for item in records if item.get("type") in ("total", None)), None) if isinstance(records, list) else None
     logo = team.get("logo") or next((item.get("href") for item in team.get("logos") or []), None)
     return {"abbr": team.get("abbreviation"), "name": team.get("displayName"), "short": team.get("shortDisplayName") or team.get("name"),
-            "logo": logo, "color": team.get("color"), "record": record, "score": _num(competitor.get("score"))}
+            "logo": logo, "color": team.get("color"), "alt": team.get("alternateColor"), "record": record,
+            "score": _num(competitor.get("score"))}
 
 
 def _line(raw, sides):
@@ -1215,7 +1216,9 @@ def nfl_model_v2(game, context, tables=None) -> dict | None:
             "parts": [{"key": key, "label": label, "points": round(points, 1), "text": texts.get(key)} for key, label, points in parts],
             "teams": {"home": profile(home), "away": profile(away)},
             "plays": _nfl_pace((tables or {}).get("league_data"), home, away),
-            "starters": {side: {"name": starters[team][1], "how": starters[team][2]} for side, team in (("home", home), ("away", away))}}
+            "starters": {side: {"name": starters[team][1], "how": starters[team][2]} for side, team in (("home", home), ("away", away))},
+            "qbOut": {side: healthy[team][1] for side, team in (("home", home), ("away", away))
+                      if healthy[team][1] and starters[team][1] and healthy[team][1] != starters[team][1]}}
 
 
 def _model(sport, game, now):
@@ -1318,6 +1321,227 @@ def confidence_of(blend, ours, market_margin, warnings):
     return "Medium", why
 
 
+# ------------------------------------------------------------------ the story
+# The Why tab's write-up in plain words (Nov 6, the owner: "for people who
+# don't understand like odds ... easy to understand ... include defensive
+# rankings, injuries only the injuries that matter"): who we pick and how
+# often they'd win, against DraftKings' price; the offense against the
+# defense with their league ranks; the player matchup to watch; who's out
+# that matters; rest, home and form; and what the confidence means.
+POSITION_PLURAL = {"PG": "point guards", "SG": "shooting guards", "SF": "small forwards", "PF": "power forwards", "C": "centers",
+                   "G": "guards", "F": "forwards", "QB": "quarterbacks", "RB": "running backs", "WR": "receivers", "TE": "tight ends"}
+NFL_KEY_SPOTS = ("QB", "RB", "WR", "TE")
+
+
+def _the(made, side) -> str:
+    team = made.get(side) or {}
+    return f"the {team.get('short') or team.get('abbr') or side}"
+
+
+def _whose(made, side) -> str:
+    name = _the(made, side)
+    return name + ("'" if name.endswith("s") else "'s")
+
+
+def _cap(text) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _price_text(price) -> str:
+    return "" if price is None else f"{int(price):+d}"
+
+
+def _list_text(items) -> str:
+    items = [item for item in items if item]
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1] if items else ""
+
+
+def _team_line(made, win, lose) -> list:
+    """The winner's offense against the loser's defense (and the other end),
+    with their league ranks."""
+    teams = made.get("teams") or {}
+    w, l = teams.get(win) or {}, teams.get(lose) or {}
+    league = "NBA" if made["sport"] == "nba" else "NFL"
+    off_key, def_key = ("ortg", "drtg") if made["sport"] == "nba" else ("pf", "pa")
+    unit = "points per 100 possessions" if made["sport"] == "nba" else "points a game"
+    have = lambda row, key: isinstance(row.get(key), list) and row[key][0] is not None and row[key][1]
+    if not all((have(w, off_key), have(w, def_key), have(l, off_key), have(l, def_key))):
+        return []
+    one = l[def_key][1] - w[off_key][1]   # the winner's offense against the loser's defense
+    two = l[off_key][1] - w[def_key][1]   # the loser's offense against the winner's defense
+    lines = []
+    attack = (f"{_cap(_whose(made, win))} offense scores {w[off_key][0]:g} {unit} ({ordinal(w[off_key][1])} in the {league}), "
+              f"and {_whose(made, lose)} defense allows {l[def_key][0]:g} ({ordinal(l[def_key][1])}).")
+    hold = (f"On the other end, {_whose(made, lose)} offense ranks {ordinal(l[off_key][1])} against "
+            f"{_whose(made, win)} {ordinal(w[def_key][1])}-ranked defense.")
+    if one <= 0 and two <= 0:
+        return [f"On paper {_the(made, lose)} rate a little better (offense {ordinal(l[off_key][1])}, defense "
+                f"{ordinal(l[def_key][1])}, against {ordinal(w[off_key][1])} and {ordinal(w[def_key][1])}), so this pick leans "
+                f"on who's out and where it's played."]
+    if one >= two:
+        lines.append(attack)
+        if two > 0:
+            lines.append(hold)
+    else:
+        lines.append(f"{_cap(_whose(made, win))} defense is the edge: it ranks {ordinal(w[def_key][1])} in the {league}, "
+                     f"against {_whose(made, lose)} {ordinal(l[off_key][1])}-ranked offense.")
+        if one > 0:
+            lines.append(f"And {_whose(made, win)} offense ({ordinal(w[off_key][1])}) faces {_whose(made, lose)} "
+                         f"{ordinal(l[def_key][1])}-ranked defense.")
+    return [" ".join(lines)]
+
+
+def _player_line(made, side, other, lead) -> str | None:
+    player = (made.get("players") or {}).get(side)
+    if not player or not player.get("name"):
+        return None
+    why = next(iter(player.get("why") or []), None)
+    if why:
+        abbr = (made.get(other) or {}).get("abbr") or ""
+        if abbr and why.startswith(abbr + " "):
+            # "WSH allows ..." reads "the Wizards allow ...".
+            why = _the(made, other) + why[len(abbr):].replace(" allows ", " allow ", 1)
+        why = why[0].lower() + why[1:] if why[:2] != why[:2].upper() else why
+    proj, avg = player.get("proj") or {}, player.get("avg") or {}
+    if made["sport"] == "nba" and proj.get("pts") is not None:
+        number = f"We have him around {proj['pts']:g} points" + (f" (he averages {avg['pts']:g})." if avg.get("pts") is not None else ".")
+    elif proj.get("yards") is not None and player.get("yardsLabel"):
+        number = f"We have him around {proj['yards']:g} {str(player['yardsLabel']).lower()}."
+    else:
+        number = ""
+    return " ".join(part for part in (f"{lead} {player['name']}" + (f": {why}." if why else "."), number) if part)
+
+
+def _injury_lines(made, built) -> list:
+    """Only who matters: players out who cost their team at least a point
+    (the NBA), a starting quarterback out and skill players out (the NFL),
+    and the questionable ones who'd swing the game."""
+    out, lines = made.get("out") or {}, []
+    for side, other in (("away", "home"), ("home", "away")):
+        rows = out.get(side) or []
+        if made["sport"] == "nba":
+            gone = [row for row in rows if row.get("out") and (row.get("impact") or 0) >= 1]
+            if gone:
+                names = _list_text([row["name"] + (f" ({str(row['injury']).lower()})" if row.get("injury") else "") for row in gone[:3]])
+                worth = sum(row["impact"] for row in gone)
+                lines.append(f"{_cap(_the(made, side))} are without {names}, worth about {worth:.1f} points a game to them.")
+            for row in rows:
+                if not row.get("out") and row.get("kind") == "questionable" and (row.get("impact") or 0) >= 1.5:
+                    lines.append(f"{row['name']} is questionable for {_the(made, side)}: if he sits, that's about "
+                                 f"{row['impact']:.1f} more points for {_the(made, other)}.")
+        else:
+            starter = ((made.get("starters") or {}).get(side) or {}).get("name")
+            missing = ((built or {}).get("qbOut") or {}).get(side)
+            if missing and starter:
+                lines.append(f"{_cap(_the(made, side))} are without their starting quarterback, {missing}, so "
+                             f"{starter} starts. That's the biggest single thing that moves an NFL line.")
+            gone = [row["name"] + (f" ({row['position']})" if row.get("position") else "") for row in rows
+                    if row.get("out") and str(row.get("position") or "").upper() in NFL_KEY_SPOTS and row.get("name") != missing]
+            if gone:
+                lines.append(f"Also out for {_the(made, side)}: {_list_text(gone[:3])}.")
+    if not lines and (out.get("home") is not None or out.get("away") is not None):
+        lines.append("Nobody who matters is out on either side.")
+    return lines
+
+
+def _extras(made, win) -> str | None:
+    """Rest, home and form, a short sentence each."""
+    lose = "away" if win == "home" else "home"
+    bits = []
+    rest = made.get("rest") or {}
+    for side in (win, lose):
+        days = rest.get(side)
+        if made["sport"] == "nba" and days is not None and days <= 1:
+            bits.append(f"{_cap(_the(made, side))} played last night, and tired legs usually cost about a point.")
+    factors = {item.get("key"): item for item in made.get("factors") or []}
+    home = factors.get("home")
+    if made.get("neutral"):
+        bits.append("It's at a neutral site, so nobody gets home field.")
+    elif home and abs(home.get("points") or 0) >= 0.5:
+        bits.append(f"{_cap(_the(made, 'home'))} are at home, worth about {abs(home['points']):.1f} points.")
+    if made["sport"] == "nfl" and factors.get("rest") and abs(factors["rest"].get("points") or 0) >= 0.3:
+        rested = "home" if factors["rest"]["points"] > 0 else "away"
+        days = (made.get("rest") or {})
+        if days.get("home") and days.get("away"):
+            tired = "away" if rested == "home" else "home"
+            bits.append(f"{_cap(_the(made, rested))} had {days[rested]} days to rest, {_the(made, tired)} {days[tired]}.")
+    form = ((made.get("teams") or {}).get(win) or {}).get("last10")
+    if form and sum(form) >= 8 and (form[0] >= 7 or form[0] <= 3):
+        bits.append(f"{_cap(_the(made, win))} have won {form[0]} of their last {sum(form)}.")
+    else:
+        games = (made.get("lastFive") or {}).get((made.get(win) or {}).get("abbr")) or []
+        wins = sum(1 for game in games if game.get("result") == "W")
+        if len(games) >= 4 and (wins >= 4 or wins <= 1):
+            bits.append(f"{_cap(_the(made, win))} have won {wins} of their last {len(games)}.")
+    return " ".join(bits) or None
+
+
+def _confidence_line(made) -> str:
+    win = made["winner"]
+    p = made["chance"][win]
+    ours, market = made.get("ours"), (made.get("market") or {}).get("chance")
+    split = ours and market and (ours["chance"]["home"] >= 0.5) != (market["home"] >= 0.5)
+    levels = {item.get("level") for item in made.get("warnings") or []}
+    level = made.get("confidence") or "Medium"
+    if level == "High":
+        reason = "a clear favorite, our model and the betting line pick the same team, and nothing in the data needs checking"
+    elif level == "Low":
+        reason = ("our model and the betting line pick different teams" if split else
+                  "something in the data needs checking first" if "high" in levels else "this one is close to a coin flip")
+    else:
+        reason = ("a real favorite, but not a lock" if "medium" not in levels else
+                  "a favorite, with something in the data worth checking")
+    upsets = f"about {max(1, round((1 - p) * 20))} times in 20" if p >= 0.9 else f"about {max(1, round((1 - p) * 10))} times in 10"
+    return f"{level} confidence: {reason}. Even at {p * 100:.0f}%, they lose {upsets}."
+
+
+def story(made, built=None) -> dict | None:
+    """The Why tab's write-up: {headline, points [{key, text}]}."""
+    win = made.get("winner")
+    if win not in ("home", "away"):
+        return None
+    lose = "away" if win == "home" else "home"
+    p = made["chance"][win]
+    score = made.get("score") or {}
+    headline = (f"We project {_the(made, win)} to beat {_the(made, lose)}"
+                + (f", about {score[win]}-{score[lose]}." if score.get(win) is not None and score.get(lose) is not None else "."))
+    points = []
+    number = f"{p * 100:.0f}"
+    often = f"about {round(p * 20)} games in 20" if p >= 0.945 else f"about {min(9, max(1, round(p * 10)))} games in 10"
+    chance = f"That's {'an' if number.startswith('8') or number in ('11', '18') else 'a'} {number}% chance: {often}."
+    market = made.get("market") or {}
+    book = market.get("provider") or "The betting market"
+    their = (market.get("chance") or {}).get(win)
+    price = (market.get("moneyline") or {}).get(win)
+    if their is not None:
+        price_text = f" ({_price_text(price)})" if price is not None else ""
+        gap = (p - their) * 100
+        if their < 0.5:
+            chance += (f" {book} has them as the underdog at {their * 100:.0f}%{price_text}, so this is us going against the market: "
+                       f"a bigger payout if we're right.")
+        elif gap >= 3:
+            chance += f" {book} has them at {their * 100:.0f}%{price_text}, so we like them more than the market does. That's value."
+        elif gap <= -3:
+            chance += (f" {book} has them even higher, at {their * 100:.0f}%{price_text}: we agree on the winner, but the price is "
+                       f"steep for what you'd win.")
+        else:
+            chance += f" {book} has them at {their * 100:.0f}%{price_text}, so we and the market agree."
+    points.append({"key": "chance", "text": chance})
+    for text in _team_line(made, win, lose):
+        points.append({"key": "teams", "text": text})
+    for side, other, lead in ((win, lose, "The matchup to watch is"), (lose, win, f"For {_the(made, lose)}, watch")):
+        text = _player_line(made, side, other, lead)
+        if text:
+            points.append({"key": "player", "text": text})
+    for text in _injury_lines(made, built):
+        points.append({"key": "injuries", "text": text})
+    extra = _extras(made, win)
+    if extra:
+        points.append({"key": "extras", "text": extra})
+    points.append({"key": "confidence", "text": _confidence_line(made)})
+    return {"headline": headline, "points": points}
+
+
 def prediction(sport, game, built, players=None, now=None) -> dict:
     """The page's prediction for one game (game: _summary; built: the model's
     numbers): ours alone and ours blended with the line ("predictions"), the
@@ -1377,8 +1601,8 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
     agree = sum(1 for view in views if (view >= 0.5) == (winner == "home"))
     blow = model["blowout"]
     blowout = phi((abs(margin) - blow) / model["blowout_sigma"]) + phi((-abs(margin) - blow) / model["blowout_sigma"])
-    team = lambda side: {key: (game[side] or {}).get(key) for key in ("abbr", "name", "short", "logo", "color", "record")}
-    return {"sport": sport, "id": game["id"], "startsAt": game.get("startsAt"), "state": game.get("state"), "detail": game.get("detail"),
+    team = lambda side: {key: (game[side] or {}).get(key) for key in ("abbr", "name", "short", "logo", "color", "alt", "record")}
+    made = {"sport": sport, "id": game["id"], "startsAt": game.get("startsAt"), "state": game.get("state"), "detail": game.get("detail"),
             "venue": game.get("venue"), "neutral": bool(game.get("neutral")),
             "home": team("home"), "away": team("away"), "winner": winner,
             "chance": blend["chance"], "margin": blend["margin"], "total": blend["total"], "score": blend["score"],
@@ -1390,6 +1614,11 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
             "rest": (built or {}).get("rest"), "pace": _pace(sport, built), "players": players or {},
             "starters": (built or {}).get("starters"),
             "lastFive": game.get("lastFive") or {}, "madeAt": (now or datetime.now(timezone.utc)).isoformat()}
+    try:
+        made["story"] = story(made, built)
+    except Exception:  # noqa: BLE001 -- the page shows the numbers without it
+        made["story"] = None
+    return made
 
 
 def _pace(sport, built):

@@ -224,29 +224,61 @@
 @keyframes gp-hint{40%{transform:translateY(-22px)}}
 @keyframes gp-pop{from{transform:scale(.4);opacity:0}}
 .gp-page{padding-bottom:30px;animation:gp-rise .4s var(--gp-ease) both}
-.gp-page-top{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:8px;padding:12px 0 4px}
+/* Its own background, not the site's showing through: the site's dark, each
+   team's color soft in its top corner (away left, home right). Fixed behind
+   the page, inside the predictor's own layer. */
+.gp-page-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;animation:gp-fade .45s var(--gp-ease) both;
+ background:radial-gradient(90% 42% at 0% 0%,color-mix(in srgb,var(--away) 22%,transparent),transparent 70%),
+  radial-gradient(90% 42% at 100% 0%,color-mix(in srgb,var(--home) 22%,transparent),transparent 70%),
+  linear-gradient(180deg,color-mix(in srgb,var(--ace-bg,#0c0c0c) 86%,#fff) 0%,var(--ace-bg,#0c0c0c) 46%),var(--ace-bg,#0c0c0c)}
+.gp-page-top{display:grid;grid-template-columns:36px minmax(0,1fr) 36px;align-items:center;gap:8px;padding:6px 0 2px}
 .gp-page-top div{display:grid;justify-items:center;gap:3px;min-width:0}
-.gp-page-top b{font-size:16.5px;font-weight:800;letter-spacing:-.01em}
-.gp-page-top small{display:inline-flex;align-items:center;gap:6px;color:var(--gp-muted);font-size:12.5px;font-weight:650}
-.gp-back{display:grid;place-items:center;width:40px;height:40px;border:0;border-radius:50%;background:var(--gp-soft-2);color:var(--gp-text);cursor:pointer;transition:transform .15s}
+.gp-page-top b{font-size:15.5px;font-weight:800;letter-spacing:-.01em}
+.gp-page-top small{display:inline-flex;align-items:center;gap:6px;color:var(--gp-muted);font-size:12px;font-weight:650}
+.gp-back{display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:50%;background:var(--gp-soft-2);color:var(--gp-text);cursor:pointer;transition:transform .15s}
 .gp-back:active{transform:scale(.92)}
-.gp-back-space{width:40px}
+.gp-back-space{width:36px}
 .gp-pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gp-down);box-shadow:0 0 0 0 color-mix(in srgb,var(--gp-down) 60%,transparent);animation:gp-pulse 1.6s ease-out infinite}
-.gp-board{margin:14px 0 8px;padding:0;list-style:none}
-.gp-board li{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:14px;padding:12px 2px}
+.gp-board{margin:8px 0 2px;padding:0;list-style:none}
+.gp-board li{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:8px 2px}
 .gp-board li+li{border-top:1px solid var(--gp-rule)}
-.gp-board-name b{display:block;font-size:17px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gp-board-name small{display:block;margin-top:2px;color:var(--gp-faint);font-size:12.5px;font-weight:600}
-.gp-board-score{color:var(--gp-muted);font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
-.gp-board-pct{min-width:66px;text-align:right;color:color-mix(in srgb,var(--team,#ffffff) 55%,#fff);font-size:29px;font-weight:850;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.gp-page-tabs{margin-top:4px}
+.gp-board-name b{display:block;font-size:15.5px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gp-board-name small{display:block;margin-top:1px;color:var(--gp-faint);font-size:12px;font-weight:600}
+.gp-board-score{color:var(--gp-muted);font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+.gp-board-pct{min-width:58px;text-align:right;color:color-mix(in srgb,var(--team,#ffffff) 55%,#fff);font-size:24px;font-weight:850;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.gp-page-tabs{margin-top:2px}
+.gp-page-tabs button{min-height:42px;font-size:14.5px}
 .gp-page-body{animation:gp-rise .4s var(--gp-ease) both}
 .gp-page-body>.gp-sec:first-child{margin-top:4px;border-top:0}
+.gp-page-body .gp-sec{margin-top:14px;padding-top:14px}
+.gp-page-body .gp-sec-head{margin-bottom:9px;font-size:14.5px}
+.gp-page-body .gp-rows>li{padding:9px 0}
+
+/* Why: the short version, a lead line and a short paragraph a point, each
+   with its small label; then the guide to the numbers, closed until asked. */
+.gp-story-lead{display:flex;align-items:flex-start;gap:10px;margin:0 0 4px;font-size:16.5px;line-height:1.35;letter-spacing:-.01em}
+.gp-story-lead b{font-weight:800}
+.gp-story-lead .gp-logo{margin-top:-1px}
+.gp-story-list{display:grid;margin:0;padding:0;list-style:none}
+.gp-story-list li{padding:10px 0 10px 12px;border-left:2px solid color-mix(in srgb,var(--team,var(--gp-accent)) 55%,transparent);
+ animation:gp-rise .45s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 35ms)}
+.gp-story-list li+li{margin-top:2px}
+.gp-story-list span{display:block;margin-bottom:3px;color:var(--gp-muted);font-size:11.5px;font-weight:700}
+.gp-story-list p{margin:0;font-size:14px;line-height:1.5;color:color-mix(in srgb,var(--gp-text) 92%,transparent)}
+.gp-out-more{margin-top:6px;font-size:12px}
+.gp-guide summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;color:var(--gp-text);font-size:14px;-webkit-tap-highlight-color:transparent}
+.gp-guide summary::-webkit-details-marker{display:none}
+.gp-guide summary b{flex:1;font-weight:750}
+.gp-guide summary svg{flex:none;color:var(--gp-muted);transition:transform .25s var(--gp-ease)}
+.gp-guide[open] summary svg:last-child{transform:rotate(180deg)}
+.gp-guide dl{display:grid;gap:12px;margin:12px 0 0;animation:gp-rise .35s var(--gp-ease) both}
+.gp-guide dt{font-size:13.5px;font-weight:750}
+.gp-guide dd{margin:3px 0 0;color:var(--gp-muted);font-size:13.5px;line-height:1.5}
 .gp-page-note{padding:22px 0}
-.gp-chance-sec{border-top:0;margin-top:6px;padding-top:16px}
+.gp-chance-sec{border-top:0;margin-top:2px;padding-top:10px}
 
 /* Both teams' chance over time, a line each, the latest at its end. */
-.gp-chart2{position:relative;height:210px;margin:14px 0 20px;touch-action:pan-y;cursor:crosshair;user-select:none}
+.gp-chart2{position:relative;height:150px;margin:10px 0 14px;touch-action:pan-y;cursor:crosshair;user-select:none}
 .gp-chart2 svg{position:absolute;top:0;left:0;width:calc(100% - 64px);height:100%;overflow:visible}
 .gp-chart-grid{stroke:rgba(255,255,255,.07);stroke-width:1;vector-effect:non-scaling-stroke}
 .gp-chart2-line{fill:none;stroke-width:2.5;stroke-linejoin:round;vector-effect:non-scaling-stroke;animation:gp-fade .6s var(--gp-ease) both}
@@ -254,7 +286,7 @@
 .gp-chart2-line.is-away{stroke:color-mix(in srgb,var(--away) 72%,#fff)}
 .gp-chart2-end{position:absolute;right:0;display:grid;width:58px;transform:translateY(-50%);transition:top .6s var(--gp-ease)}
 .gp-chart2-end small{color:var(--gp-muted);font-size:11px;font-weight:700}
-.gp-chart2-end b{font-size:19px;font-weight:850;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.gp-chart2-end b{font-size:17px;font-weight:850;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .gp-chart2-end.is-home b{color:color-mix(in srgb,var(--home) 72%,#fff)}
 .gp-chart2-end.is-away b{color:color-mix(in srgb,var(--away) 72%,#fff)}
 .gp-chart-cross{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.22);pointer-events:none}
@@ -264,18 +296,18 @@
 
 /* A big price button for each team. */
 .gp-pick-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.gp-buy{display:grid;grid-auto-flow:column;align-items:baseline;align-content:center;justify-content:center;gap:8px;min-height:58px;padding:0 14px;border:0;border-radius:16px;color:#fff;cursor:pointer;
+.gp-buy{display:grid;grid-auto-flow:column;align-items:baseline;align-content:center;justify-content:center;gap:8px;min-height:48px;padding:0 14px;border:0;border-radius:14px;color:#fff;cursor:pointer;
  background:color-mix(in srgb,var(--team,var(--gp-accent)) 40%,rgba(255,255,255,.07));box-shadow:inset 0 1px 0 rgba(255,255,255,.09);transition:transform .15s var(--gp-ease),filter .2s}
-.gp-buy span{font-size:14px;font-weight:750;opacity:.9}
-.gp-buy b{font-size:21px;font-weight:850;font-variant-numeric:tabular-nums}
+.gp-buy span{font-size:13.5px;font-weight:750;opacity:.9}
+.gp-buy b{font-size:18.5px;font-weight:850;font-variant-numeric:tabular-nums}
 .gp-buy:hover{filter:brightness(1.15)}
 .gp-buy:active{transform:scale(.96)}
 .gp-buy:disabled{opacity:.4;cursor:default;filter:none;transform:none}
-.gp-ourpick-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:13px;margin-top:10px}
-.gp-ourpick-row b{display:block;font-size:19px;font-weight:850;letter-spacing:-.01em}
+.gp-ourpick-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:8px}
+.gp-ourpick-row b{display:block;font-size:17px;font-weight:850;letter-spacing:-.01em}
 .gp-ourpick-row small{display:block;margin-top:2px;color:var(--gp-muted);font-size:12.5px;font-weight:650}
-.gp-ourpick-row strong{font-size:30px;font-weight:850;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.gp-ourpick-score{margin:12px 0 0;color:var(--gp-muted);font-size:13.5px;font-weight:600}
+.gp-ourpick-row strong{font-size:25px;font-weight:850;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.gp-ourpick-score{margin:9px 0 0;color:var(--gp-muted);font-size:13px;font-weight:600}
 .gp-ourpick-score b{color:var(--gp-text);font-weight:800}
 .gp-views-flat{padding-top:0;border-top:0}
 
