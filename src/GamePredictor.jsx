@@ -2,29 +2,27 @@
 // action=game-*), one full page (Nov 6, the owner: "I hate how it's all
 // floating I want to look like a full page not random floating islands"):
 // a header with the record and the league, then three tabs.
-//  - Predict: the slate by day; tap a game and its prediction opens under
-//    it (the winner, the final score, our model alone and with the line,
-//    each moneyline's value, what to check first, what moved the number,
-//    who's out, each side's best matchup, the teams side by side).
+//  - Predict: the slate by day; tapping a game opens its own page (Nov 6,
+//    the owner: "a page when we click on it not a dropdown ... not just a
+//    long scroll down page ... make tabs in the game page"): the two teams
+//    and their chance now, then Chance, Odds, Why and Players tabs.
 //  - Generator: a day (today to six days ahead), the NBA, the NFL or both,
 //    the most likely winners that day and moneyline parlays by payout or by
 //    legs (the owner: "a moneyline generator for certain days").
 //  - History: only the picks the member saves (Nov 6, the owner: "only if
 //    I add the prediction"), settled, with what each won or lost.
-// Each open game is a market, Kalshi-style (the owner: "a Kalshi look"):
-// each team's chance in big numbers and its price in cents, over a chart of
-// the market's chance moving with the odds (ESPN's lines, sampled; in a
+// A game's chance chart moves with the odds (ESPN's lines, sampled; in a
 // game ESPN's win probability after every play), read again every few
-// seconds. Tapping a team opens a sheet from the bottom with a stake and
-// what it pays; swiping up saves the pick (the owner: "the poly market
-// swipe up to buy thing that would save it to the history").
+// seconds. Tapping a team's price opens a full-screen pick (the owner: "the
+// slide up should be a full screen. That's how Polymarket looks"): an amount
+// on a keypad, what it wins, and swipe up to save it to the history.
 // A section the admin switches on (site_controls 'predictor'), off until then.
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertTriangle,CalendarDays,Check,ChevronDown,ChevronsUp,Flame,Gauge,Info,Layers,RefreshCw,ShieldCheck,Trophy,UserX,X} from 'lucide-react';
+import {AlertTriangle,ArrowLeft,CalendarDays,Check,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,evText,groupByDay,likeliest,lineText,mergeBoards,moneyText,odds,parlays,paysText,pct,pull,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,likeliest,lineText,mergeBoards,moneyText,odds,parlays,paysText,pct,pull,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import './game-predictor.css';
 
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
@@ -93,7 +91,9 @@ const Empty=({icon:Icon=CalendarDays,title,text,children})=><div className="gp-e
 
 // ------------------------------------------------------------------ predict
 
-function PredictView({slate,results,open,onOpen,admin,onRetry,sport,onPick}){
+// The slate by day; tapping a game opens its own page (Nov 6, the owner:
+// "Make them a page when we click on it not a dropdown").
+function PredictView({slate,onOpen,admin,onRetry}){
  const games=slate.games||[];
  if(slate.loading&&!games.length)return <Shimmer rows={5}/>;
  if(slate.error&&!games.length)return <Empty icon={RefreshCw} title="The games can't load right now" text={admin?slate.error:null}>
@@ -101,191 +101,202 @@ function PredictView({slate,results,open,onOpen,admin,onRetry,sport,onPick}){
  if(!games.length)return <Empty title="No games on the schedule" text="Check back closer to the next games."/>;
  return <div className="gp-days">{groupByDay(games).map(day=><section key={day.key} className="gp-day">
   <h3 className="gp-day-head">{day.label}<small>{day.games.length} {day.games.length===1?'game':'games'}</small></h3>
-  <ul className="gp-games">{day.games.map((game,index)=><GameItem key={game.id} game={game} index={index} open={open===game.id}
-   result={results[game.id]} onOpen={()=>onOpen(game)} admin={admin} sport={sport} onPick={onPick}/>)}</ul>
+  <ul className="gp-games">{day.games.map((game,index)=>{const live=game.state==='in';
+   const team=side=><span className="gp-team"><Logo team={game[side]} size={30}/><span><b>{game[side]?.abbr}</b>{game[side]?.record&&<small>{game[side].record}</small>}</span></span>;
+   return <li key={game.id} className="gp-game" style={{'--i':index}}>
+    <button type="button" className="gp-game-row" onClick={()=>onOpen(game)}>
+     <span className="gp-matchup">{team('away')}<i>@</i>{team('home')}</span>
+     <span className="gp-game-meta">{live?<em className="gp-live">Live</em>:<b>{clockText(game.startsAt)}</b>}{lineText(game)&&<small>{lineText(game)}</small>}</span>
+     <ChevronRight className="gp-chev" size={18} aria-hidden="true"/>
+    </button>
+   </li>;})}</ul>
  </section>)}</div>;
-}
-
-function GameItem({game,index,open,result,onOpen,admin,sport,onPick}){
- const host=useRef(null);
- const ready=Boolean(result?.data);
- const chart=useChart(sport,open?game.id:null);
- useEffect(()=>{if(open&&ready)host.current?.scrollIntoView({behavior:'smooth',block:'start'});},[open,ready]);
- const live=game.state==='in';
- const team=side=><span className="gp-team"><Logo team={game[side]} size={30}/><span><b>{game[side]?.abbr}</b>{game[side]?.record&&<small>{game[side].record}</small>}</span></span>;
- return <li ref={host} className="gp-game" data-open={open?'':undefined} style={{'--i':index}}>
-  <button type="button" className="gp-game-row" aria-expanded={open} onClick={onOpen}>
-   <span className="gp-matchup">{team('away')}<i>@</i>{team('home')}</span>
-   <span className="gp-game-meta">{live?<em className="gp-live">Live</em>:<b>{clockText(game.startsAt)}</b>}{lineText(game)&&<small>{lineText(game)}</small>}</span>
-   <ChevronDown className="gp-chev" size={18} aria-hidden="true"/>
-  </button>
-  <div className="gp-drawer" aria-hidden={!open}><div className="gp-drawer-inner">
-   {open&&(game.state!=='pre'?<p className="gp-note">This game has started. Its prediction is in the history if one was made before tip-off.</p>
-    :result?.loading?<Shimmer rows={3} tall/>
-    :result?.error?<p className="gp-note">{admin?result.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p>
-    :ready?<Prediction prediction={result.data} chart={chart} onPick={(side,now)=>onPick(result.data,side,now)}/>:null)}
-  </div></div>
- </li>;
-}
-
-function Prediction({prediction,chart,onPick}){
- return <div className="gp-prediction">
-  <Verdict prediction={prediction}/>
-  <Market prediction={prediction} chart={chart} onPick={onPick}/>
-  <TwoCalls prediction={prediction}/>
-  <Value prediction={prediction}/>
-  <Warnings prediction={prediction}/>
-  <Factors prediction={prediction}/>
-  <WhosOut prediction={prediction}/>
-  <Players prediction={prediction}/>
-  <Compare prediction={prediction}/>
- </div>;
 }
 
 const Section=({title,icon:Icon,children,className=''})=><section className={`gp-sec ${className}`}>
  {title&&<h4 className="gp-sec-head">{Icon&&<Icon size={15} aria-hidden="true"/>}{title}</h4>}{children}
 </section>;
+const teamColor=team=>/^[0-9a-f]{6}$/i.test(team?.color||'')?`#${team.color}`:null;
+// Each team's chance now: ESPN's live win probability in a game, else the
+// market's (the latest line), else the prediction's.
+function chancesNow(prediction,chart){
+ const live=chart?.live||[],market=chart?.market||[];
+ const home=live.length?live[live.length-1][1]:chart?.now?.market??(market.length?market[market.length-1][1]:prediction?.market?.chance?.home??prediction?.chance?.home);
+ return home==null?null:{home,away:1-home};
+}
 
-function ChanceBar({chance,winner,away,home}){
- return <div className="gp-chance">
-  <div className="gp-chance-track" role="img" aria-label={`${away.abbr} ${pct(chance.away)}, ${home.abbr} ${pct(chance.home)}`}>
-   <span className={winner==='away'?'is-pick':''} style={{'--w':Math.max(chance.away,0.03)}}/>
-   <span className={winner==='home'?'is-pick':''} style={{'--w':Math.max(chance.home,0.03)}}/>
+const GAME_TABS=[['chance','Chance'],['odds','Odds'],['why','Why'],['players','Players']];
+// One game's page: the two teams and their chance now, then four tabs.
+//  - Chance: both teams' chance over time (the market's from ESPN's lines,
+//    in a game ESPN's win probability), our pick, and a button each.
+//  - Odds: the moneylines in cents and prices with their value, the line,
+//    our model alone and with it.
+//  - Why: what to check first, what moves our number, who's out.
+//  - Players: each side's best matchup and the teams side by side.
+function GamePage({game,sport,result,admin,onBack,onPick}){
+ const [tab,setTab]=useState('chance');
+ const chart=useChart(sport,game.id);
+ const prediction=result?.data;
+ const live=(chart?.state||game.state)==='in';
+ const now=chancesNow(prediction,chart);
+ const home=prediction?.home||game.home,away=prediction?.away||game.away;
+ const status=live?<><i className="gp-pulse" aria-hidden="true"/>{chart?.detail||'Live'}</>:(chart?.state||game.state)==='post'?'Final':startText(game.startsAt);
+ const tabsRow=useRef(null),ink=useInk(tabsRow,tab,'[aria-selected=true]');
+ const row=(side,team)=>{const color=teamColor(prediction?.[side]||team);const score=chart?.[side]?.score;
+  return <li style={color?{'--team':color}:undefined}>
+   <Logo team={team} size={40}/>
+   <span className="gp-board-name"><b>{team.name||team.short||team.abbr}</b><small>{team.record||team.abbr}</small></span>
+   {(live||chart?.state==='post')&&score!=null&&<strong className="gp-board-score">{score}</strong>}
+   <strong className="gp-board-pct">{now?pct(now[side]):'—'}</strong>
+  </li>;};
+ return <div className="gp-page">
+  <header className="gp-page-top">
+   <button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>
+   <div><b>{away.abbr} @ {home.abbr}</b><small>{status}</small></div>
+   <span className="gp-back-space" aria-hidden="true"/>
+  </header>
+  <ul className="gp-board">{row('away',away)}{row('home',home)}</ul>
+  <nav className="gp-tabs gp-page-tabs" role="tablist" aria-label="This game" ref={tabsRow}>
+   {GAME_TABS.map(([key,text])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>setTab(key)}>{text}</button>)}
+   <span className="gp-tabs-ink" style={inkStyle(ink)} aria-hidden="true"/>
+  </nav>
+  <div className="gp-page-body" key={tab}>
+   {result?.loading&&!prediction?<Shimmer rows={3} tall/>
+   :result?.error&&!prediction?<p className="gp-note gp-page-note">{admin?result.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p>
+   :prediction?<>
+    {tab==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
+    {tab==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
+    {tab==='why'&&<><Warnings prediction={prediction}/><Factors prediction={prediction}/><WhosOut prediction={prediction}/></>}
+    {tab==='players'&&<><Players prediction={prediction}/><Compare prediction={prediction}/></>}
+   </>:null}
   </div>
-  <div className="gp-chance-labels"><span>{away.abbr} <b>{pct(chance.away)}</b></span><span><b>{pct(chance.home)}</b> {home.abbr}</span></div>
  </div>;
 }
 
-function Verdict({prediction}){
- const side=prediction.winner,winner=prediction[side],score=prediction.score;
- const color=/^[0-9a-f]{6}$/i.test(winner.color||'')?`#${winner.color}`:undefined;
- return <section className="gp-hero" style={color?{'--team':color}:undefined}>
-  <div className="gp-hero-main">
-   <span className="gp-hero-logo"><Logo team={winner} size={64}/></span>
-   <div>
-    <span className="gp-kicker">Predicted winner</span>
-    <h3>{winner.name||winner.short||winner.abbr}</h3>
-    <p><b>{pct(prediction.chance[side])}</b> to win</p>
-   </div>
-  </div>
-  {score&&<div className="gp-scoreline" aria-label="Predicted final score">
-   {['away','home'].map(key=><div key={key} className={side===key?'is-pick':''}><Logo team={prediction[key]} size={26}/><span>{prediction[key].abbr}</span><b>{score[key]}</b></div>)}
-  </div>}
-  <ChanceBar chance={prediction.chance} winner={side} away={prediction.away} home={prediction.home}/>
-  <div className="gp-facts">
-   <span data-level={prediction.confidence}><ShieldCheck size={15} aria-hidden="true"/>{prediction.confidence} confidence</span>
-   <span data-level={prediction.blowout.level}><Flame size={15} aria-hidden="true"/>Blowout {pct(prediction.blowout.chance)}<small>by {prediction.blowout.by}+</small></span>
-   {prediction.pace&&<span data-level={prediction.pace.level}><Gauge size={15} aria-hidden="true"/>{prediction.pace.level} pace<small>{prediction.pace.value} {prediction.pace.unit}</small></span>}
-  </div>
-  {prediction.confidenceWhy?.length>0&&<p className="gp-why-line">{prediction.confidenceWhy.join(' · ')}</p>}
-  <dl className="gp-views">
-   {prediction.market?.spread!=null&&<div><dt>The line</dt><dd>{byText(-prediction.market.spread,prediction)}</dd></div>}
-   {prediction.market?.total!=null&&<div><dt>Total</dt><dd>{prediction.market.total}</dd></div>}
-   {prediction.espn&&<div><dt>ESPN</dt><dd>{prediction.espn.home>=0.5?prediction.home.abbr:prediction.away.abbr} {pct(Math.max(prediction.espn.home,prediction.espn.away))}</dd></div>}
-  </dl>
- </section>;
-}
-
-// The market, Kalshi-style: the predicted winner's chance now and how it
-// moved, a chart of it (the market's from ESPN's lines; in a game ESPN's win
-// probability after every play; our pick as a dashed line), then each team
-// with its chance and its price in cents, tapped to pick it.
-const W=600,H=170;
-function Chart({prediction,chart,side}){
+// Both teams' chance over time, Polymarket-style: a line each in its team's
+// color, the latest chance at each line's end, a touch readout of both.
+const W=600,H=190;
+function TwoLineChart({prediction,chart}){
  const host=useRef(null);
  const [hover,setHover]=useState(null);
- const now=Date.now()/1000;
- const market=sideSeries(chart?.market,side),live=sideSeries(chart?.live,side);
- const fallback=prediction.market?.chance?.[side];
- const shown=market.length?market:fallback!=null?[[now-3600,fallback],[now,fallback]]:[];
- const ours=prediction.chance[side];
- const frame=chartFrame([shown,live].filter(series=>series.length),[ours]);
+ const nowT=Date.now()/1000;
+ const live=chart?.live||[],market=chart?.market||[];
+ const fallback=prediction.market?.chance?.home??prediction.chance.home;
+ const base=live.length>1?live:market.length?market:[[nowT-3600,fallback],[nowT,fallback]];
+ const series={home:sideSeries(base,'home'),away:sideSeries(base,'away')};
+ const frame=chartFrame([series.home,series.away]);
  if(!frame)return null;
- const end=Math.max(frame.end,now);
- const box={...frame,end};
+ const box={...frame,low:Math.max(0,Math.min(frame.low,0.2)),high:Math.min(1,Math.max(frame.high,0.8)),end:Math.max(frame.end,nowT)};
+ box.lines=[0.25,0.5,0.75].filter(value=>value>box.low&&value<box.high);
  const y=value=>(1-(value-box.low)/(box.high-box.low))*100;
- const main=live.length?live:shown;
  const pick=event=>{
   const rect=host.current?.getBoundingClientRect();if(!rect)return;
-  const span=Math.max(1,rect.width-44);
+  const span=Math.max(1,rect.width-64);
   const t=box.start+(Math.min(Math.max(event.clientX-rect.left,0),span)/span)*(box.end-box.start);
-  let found=main[0];for(const point of main){if(point[0]<=t)found=point;else break;}
-  setHover({x:(found[0]-box.start)/(box.end-box.start||1)*100,value:found[1],t:found[0]});
+  let found=base[0];for(const point of base){if(point[0]<=t)found=point;else break;}
+  setHover({x:(found[0]-box.start)/(box.end-box.start||1),home:found[1],t:found[0]});
  };
- return <div className="gp-chart" ref={host} onPointerMove={pick} onPointerDown={pick} onPointerLeave={()=>setHover(null)}>
-  <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${prediction[side].abbr} chance over time, now ${pct(main[main.length-1][1])}`}>
+ const last=base[base.length-1][1];
+ const ends={home:last,away:1-last};
+ // Two end labels never overlap: pushed apart when the chances are close.
+ const gap=Math.abs(y(ends.home)-y(ends.away))<14;
+ const labelY=side=>{const value=y(ends[side]);if(!gap)return value;const up=ends[side]>=ends[side==='home'?'away':'home'];return up?Math.min(value,y(0.5)-7):Math.max(value,y(0.5)+7);};
+ const colorOf=side=>teamColor(prediction[side]);
+ return <div className="gp-chart2" ref={host} onPointerMove={pick} onPointerDown={pick} onPointerLeave={()=>setHover(null)}
+  style={{'--home':colorOf('home')||'#e9e9e9','--away':colorOf('away')||'#8f8f8f'}}>
+  <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${prediction.away.abbr} ${pct(ends.away)}, ${prediction.home.abbr} ${pct(ends.home)}`}>
    {box.lines.map(value=><line key={value} className="gp-chart-grid" x1="0" x2={W} y1={y(value)*H/100} y2={y(value)*H/100}/>)}
-   <line className="gp-chart-ours" x1="0" x2={W} y1={y(ours)*H/100} y2={y(ours)*H/100}/>
-   {live.length>0&&shown.length>0&&<path className="gp-chart-line is-faint" d={chartPath(shown,box,W,H)}/>}
-   <path className="gp-chart-line" d={chartPath(main,box,W,H)}/>
+   {['away','home'].map(side=><path key={side} className={`gp-chart2-line is-${side}`} d={chartPath(series[side],box,W,H)}/>)}
   </svg>
-  {box.lines.map(value=><span key={value} className="gp-chart-y" style={{top:`${y(value)}%`}}>{Math.round(value*100)}%</span>)}
-  <span className="gp-chart-tag" style={{top:`${y(ours)}%`}}>Our pick {pct(ours)}</span>
-  <span className="gp-chart-dot" style={{top:`${y(main[main.length-1][1])}%`}}/>
-  {hover&&<><span className="gp-chart-cross" style={{left:`calc((100% - 44px) * ${hover.x/100})`}}/>
-   <span className="gp-chart-tip" style={{left:`calc((100% - 44px) * ${Math.min(Math.max(hover.x,14),86)/100})`}}><b>{pct(hover.value)}</b>{clockText(new Date(hover.t*1000).toISOString())}</span></>}
+  {['away','home'].map(side=><span key={side} className={`gp-chart2-end is-${side}`} style={{top:`${labelY(side)}%`}}>
+   <small>{prediction[side].abbr}</small><b>{pct(ends[side])}</b>
+  </span>)}
+  {hover&&<><span className="gp-chart-cross" style={{left:`calc((100% - 64px) * ${hover.x})`}}/>
+   <span className="gp-chart-tip" style={{left:`calc((100% - 64px) * ${Math.min(Math.max(hover.x,0.16),0.84)})`}}>
+    <span>{prediction.away.abbr} <b>{pct(1-hover.home)}</b> · {prediction.home.abbr} <b>{pct(hover.home)}</b></span>{clockText(new Date(hover.t*1000).toISOString())}
+   </span></>}
  </div>;
 }
 
-function Market({prediction,chart,onPick}){
- const side=prediction.winner,team=prediction[side];
- const live=chart?.state==='in';
- const market=sideSeries(chart?.market,side),inGame=sideSeries(chart?.live,side);
- const latest=inGame.length?inGame[inGame.length-1][1]:market.length?market[market.length-1][1]:prediction.market?.chance?.[side];
- const first=market.length?market[0][1]:null;
- const moved=latest!=null&&first!=null?latest-first:null;
+// A button for each team: its price in cents, tapped to pick it.
+function PickButtons({prediction,chart,onPick}){
  const open=prediction.state==='pre'&&(chart?.state||'pre')==='pre';
- return <section className="gp-sec gp-market">
-  <div className="gp-market-head">
-   <div>
-    <span className="gp-kicker">{live?<><i className="gp-pulse" aria-hidden="true"/>Live · {chart.detail}</>:'Market chance'}</span>
-    <p className="gp-market-now"><b>{pct(latest)}</b> {team.abbr}{moved!=null&&Math.abs(moved)>=0.005&&<em data-tone={moved>0?'up':'down'}>{moved>0?'▲':'▼'} {Math.abs(moved*100).toFixed(1)}</em>}</p>
-   </div>
-   <div className="gp-legend"><span className="is-line">{live?'Live win chance':'Market'}</span><span className="is-ours">Our pick</span></div>
-  </div>
-  <Chart prediction={prediction} chart={chart} side={side}/>
-  {live&&chart.home?.score!=null&&<p className="gp-live-score">{chart.away.abbr} {chart.away.score} · {chart.home.abbr} {chart.home.score}</p>}
-  <ul className="gp-outcomes">{['away','home'].map(key=>{const item=prediction[key];
-   const price=chart?.now?.moneyline?.[key]??prediction.market?.moneyline?.[key];
-   const homeNow=chart?.now?.market;const marketChance=homeNow!=null?(key==='home'?homeNow:1-homeNow):prediction.market?.chance?.[key];
-   const color=/^[0-9a-f]{6}$/i.test(item.color||'')?`#${item.color}`:undefined;
-   return <li key={key} style={color?{'--team':color}:undefined}>
-    <Logo team={item} size={34}/>
-    <span className="gp-outcome-name"><b>{item.short||item.abbr}</b><small>{price!=null?odds(price):'No line'}{prediction.ours?<> · our model {pct(prediction.ours.chance[key])}</>:null}</small></span>
-    <strong className="gp-outcome-pct">{pct(prediction.chance[key])}</strong>
-    <button type="button" className="gp-buy" disabled={!open||price==null} onClick={()=>onPick(key,{price,marketChance})}>
-     <span>{item.abbr}</span><b>{cents(marketChance)}</b>
-    </button>
-   </li>;})}</ul>
- </section>;
+ return <div className="gp-pick-buttons">{['away','home'].map(side=>{const team=prediction[side];
+  const price=chart?.now?.moneyline?.[side]??prediction.market?.moneyline?.[side];
+  const homeNow=chart?.now?.market;const marketChance=homeNow!=null?(side==='home'?homeNow:1-homeNow):prediction.market?.chance?.[side];
+  const color=teamColor(team);
+  return <button type="button" key={side} className="gp-buy" style={color?{'--team':color}:undefined} disabled={!open||price==null}
+   onClick={()=>onPick(side,{price,marketChance})}>
+   <span>{team.abbr}</span><b>{cents(marketChance)}</b>
+  </button>;})}</div>;
 }
 
-// Swipe up to save (Polymarket's "swipe up to buy"): drag the knob up past
-// the line; a tap only nudges it, Enter or Space saves from the keyboard.
-function SwipeUp({onDone,disabled,label}){
+function ChanceTab({prediction,chart,onPick}){
+ const side=prediction.winner,team=prediction[side];
+ const live=chart?.state==='in'&&(chart?.live||[]).length>1;
+ return <>
+  <section className="gp-sec gp-chance-sec">
+   <span className="gp-kicker">{live?'Live win chance':'Market chance'}</span>
+   <TwoLineChart prediction={prediction} chart={chart}/>
+   <PickButtons prediction={prediction} chart={chart} onPick={onPick}/>
+  </section>
+  <section className="gp-sec gp-ourpick" style={teamColor(team)?{'--team':teamColor(team)}:undefined}>
+   <span className="gp-kicker">Our pick</span>
+   <div className="gp-ourpick-row">
+    <Logo team={team} size={44}/>
+    <span><b>{team.short||team.abbr}</b><small>{prediction.confidence} confidence</small></span>
+    <strong>{pct(prediction.chance[side])}</strong>
+   </div>
+   {prediction.score&&<p className="gp-ourpick-score">Final score <b>{prediction.away.abbr} {prediction.score.away} – {prediction.score.home} {prediction.home.abbr}</b></p>}
+  </section>
+ </>;
+}
+
+function OddsTab({prediction,chart,onPick}){
+ const market=prediction.market||{};
+ return <>
+  <Value prediction={prediction}/>
+  {(market.spread!=null||market.total!=null)&&<Section title="The line">
+   <dl className="gp-views gp-views-flat">
+    {market.spread!=null&&<div><dt>Spread</dt><dd>{byText(-market.spread,prediction)}</dd></div>}
+    {market.total!=null&&<div><dt>Total</dt><dd>{market.total}</dd></div>}
+    {prediction.espn&&<div><dt>ESPN</dt><dd>{prediction.espn.home>=0.5?prediction.home.abbr:prediction.away.abbr} {pct(Math.max(prediction.espn.home,prediction.espn.away))}</dd></div>}
+   </dl>
+  </Section>}
+  <TwoCalls prediction={prediction}/>
+  <Section><PickButtons prediction={prediction} chart={chart} onPick={onPick}/></Section>
+ </>;
+}
+
+// Swipe up to save: drag the bar up past the line (Polymarket's "swipe to
+// buy"); a tap only nudges it, Enter or Space saves from the keyboard.
+function SwipeBar({onDone,disabled,label,sub}){
  const [lift,setLift]=useState(0),[hint,setHint]=useState(false);
  const from=useRef(null),liftRef=useRef(0);
- const LIMIT=84;
+ const LIMIT=90;
  const set=value=>{liftRef.current=value;setLift(value);};
  const down=event=>{if(disabled)return;from.current=event.clientY;event.currentTarget.setPointerCapture?.(event.pointerId);};
- const move=event=>{if(from.current==null)return;set(Math.min(LIMIT*1.15,Math.max(0,from.current-event.clientY)));};
+ const move=event=>{if(from.current==null)return;set(Math.min(LIMIT*1.2,Math.max(0,from.current-event.clientY)));};
  const up=()=>{
   if(from.current==null)return;from.current=null;
-  if(liftRef.current>=LIMIT){set(LIMIT);navigator.vibrate?.(12);onDone();return;}
+  if(liftRef.current>=LIMIT){navigator.vibrate?.(12);onDone();set(0);return;}
   if(liftRef.current<6){setHint(true);setTimeout(()=>setHint(false),650);}
   set(0);
  };
- return <button type="button" className="gp-swipe" disabled={disabled} data-hint={hint?'':undefined}
+ return <button type="button" className="gp-swipebar" disabled={disabled} data-hint={hint?'':undefined}
   style={{'--lift':`${lift}px`,'--progress':Math.min(1,lift/LIMIT)}} aria-label={`${label}: swipe up, or press Enter`}
   onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
   onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();if(!disabled)onDone();}}}>
-  <span className="gp-swipe-knob"><ChevronsUp size={22} aria-hidden="true"/></span>
-  <span className="gp-swipe-text">{label}</span>
+  <ChevronUp size={22} aria-hidden="true"/><b>{label}</b>{sub&&<small>{sub}</small>}
  </button>;
 }
 
+// The pick, full screen (Polymarket's order screen): the amount in big
+// numbers with a keypad, what it wins, then swipe up; saved, the screen
+// turns the team's color with what was picked.
 const QUICK=[10,25,50,100];
-function PickSheet({pick,onClose,onSaved}){
+const KEYS=['1','2','3','4','5','6','7','8','9','.','0','back'];
+function PickScreen({pick,onClose,onSaved}){
  const {prediction,side}=pick;
  const team=prediction[side],other=prediction[side==='home'?'away':'home'];
  const price=pick.now?.price??prediction.market?.moneyline?.[side];
@@ -294,53 +305,67 @@ function PickSheet({pick,onClose,onSaved}){
  const [phase,setPhase]=useState('idle');
  const [error,setError]=useState(null);
  const [shown,setShown]=useState(false);
- const [drag,setDrag]=useState(0);
- const from=useRef(null);
+ const press=key=>setStake(old=>{
+  if(key==='back')return old.slice(0,-1);
+  if(key==='.')return old.includes('.')?old:(old||'0')+'.';
+  const next=(old==='0'?'':old)+key;
+  return /^\d{0,6}(\.\d{0,2})?$/.test(next)?next:old;
+ });
  useEffect(()=>{
   const frame=requestAnimationFrame(()=>setShown(true));
-  const key=event=>{if(event.key==='Escape')close();};
+  const key=event=>{
+   if(event.key==='Escape')close();
+   else if(/^[0-9.]$/.test(event.key))press(event.key);
+   else if(event.key==='Backspace')press('back');
+  };
   document.addEventListener('keydown',key);
   const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
   return()=>{cancelAnimationFrame(frame);document.removeEventListener('keydown',key);document.body.style.overflow=overflow;};
  },[]);
- const close=()=>{setShown(false);setTimeout(onClose,320);};
+ const close=()=>{setShown(false);setTimeout(onClose,360);};
  const amount=Number(stake)>0?Number(stake):null;
  const win=winOf(amount,price);
- const ev=prediction.ev?.blend?.[side]?.ev;
  const save=()=>{
   if(phase==='saving')return;
   setPhase('saving');setError(null);
-  post('game-save',{sport:prediction.sport,event:prediction.id,side,stake:amount}).then(data=>{setPhase('saved');onSaved?.(data.pick);setTimeout(close,1300);})
+  post('game-save',{sport:prediction.sport,event:prediction.id,side,stake:amount}).then(data=>{setPhase('saved');onSaved?.(data.pick);})
    .catch(failure=>{setPhase('idle');setError(failure.message);});
  };
- const color=/^[0-9a-f]{6}$/i.test(team.color||'')?`#${team.color}`:undefined;
- return createPortal(<div className={`gp-sheet-layer${shown?' is-open':''}`}>
-  <button type="button" className="gp-sheet-scrim" aria-label="Close" onClick={close}/>
-  <div className="gp-sheet" role="dialog" aria-modal="true" aria-label={`Pick ${team.short||team.abbr}`} style={{'--drag':`${drag}px`,...(color?{'--team':color}:{})}}>
-   <div className="gp-sheet-grab" onPointerDown={event=>{from.current=event.clientY;event.currentTarget.setPointerCapture?.(event.pointerId);}}
-    onPointerMove={event=>{if(from.current!=null)setDrag(Math.max(0,event.clientY-from.current));}}
-    onPointerUp={()=>{from.current=null;if(drag>90)close();setDrag(0);}} onPointerCancel={()=>{from.current=null;setDrag(0);}}><span/></div>
-   {phase==='saved'?<div className="gp-sheet-done"><span><Check size={30} aria-hidden="true"/></span><b>Saved to your history</b><p>{team.abbr} to win{amount?` · ${moneyText(amount)}`:''}</p></div>:<>
-    <header className="gp-sheet-head">
-     <Logo team={team} size={46}/>
-     <div><b>{team.short||team.abbr} to win</b><small>{side==='home'?'vs':'@'} {other.abbr} · {startText(prediction.startsAt)}</small></div>
-     <button type="button" className="gp-sheet-x" aria-label="Close" onClick={close}><X size={18}/></button>
-    </header>
-    <dl className="gp-sheet-facts">
-     <div><dt>Price</dt><dd>{cents(marketChance)}<small>{odds(price)}</small></dd></div>
-     <div><dt>Our chance</dt><dd>{pct(prediction.chance[side])}<small>{prediction.ours?`model ${pct(prediction.ours.chance[side])}`:''}</small></dd></div>
-     <div><dt>Value</dt><dd data-tone={ev>0?'up':ev<0?'down':undefined}>{evText(ev)}</dd></div>
-    </dl>
-    <label className="gp-amount"><span>Amount</span>
-     <span className="gp-amount-box"><i>$</i><input inputMode="decimal" placeholder="0" value={stake} onChange={event=>setStake(event.target.value.replace(/[^0-9.]/g,'').slice(0,9))} aria-label="Amount in dollars"/></span>
-    </label>
-    <div className="gp-chips">{QUICK.map(value=><button type="button" key={value} onClick={()=>setStake(String((Number(stake)||0)+value))}>+${value}</button>)}
-     {stake&&<button type="button" onClick={()=>setStake('')}>Clear</button>}</div>
-    <div className="gp-sheet-win"><span>To win</span><b>{win!=null?moneyText(win):'—'}</b><small>{win!=null?`Payout ${moneyText(win+amount)}`:'Optional: saves as one unit without it'}</small></div>
-    {error&&<p className="gp-note" data-tone="down">{error}</p>}
-    <SwipeUp onDone={save} disabled={phase==='saving'||price==null} label={phase==='saving'?'Saving…':'Swipe up to save'}/>
-   </>}
-  </div>
+ const color=teamColor(team);
+ return createPortal(<div className={`gp-screen${shown?' is-open':''}${phase==='saved'?' is-saved':''}`} role="dialog" aria-modal="true"
+  aria-label={`Pick ${team.short||team.abbr}`} style={color?{'--team':color}:undefined}>
+  {phase==='saved'?<div className="gp-screen-done">
+   <button type="button" className="gp-screen-x" aria-label="Close" onClick={close}><X size={20}/></button>
+   <div className="gp-done-main">
+    <Logo team={team} size={56}/>
+    <small>{prediction.away.abbr} @ {prediction.home.abbr}</small>
+    <h3>You picked <span>{team.short||team.abbr}</span></h3>
+   </div>
+   <dl className="gp-done-rows">
+    <div><dt>Amount</dt><dd>{amount?moneyText(amount):'1 unit'}</dd></div>
+    <div><dt>Odds</dt><dd>{cents(marketChance)} · {odds(price)}</dd></div>
+    <div><dt>To win</dt><dd>{win!=null?moneyText(win,true):`${decimal(price)?`+${(decimal(price)-1).toFixed(2)}`:'—'} units`}</dd></div>
+    <div className="is-big"><dt>Payout</dt><dd>{win!=null?moneyText(win+amount):'—'}</dd></div>
+   </dl>
+   <button type="button" className="gp-done-ok" onClick={close}>Done</button>
+  </div>:<>
+   <header className="gp-screen-top">
+    <button type="button" className="gp-screen-x" aria-label="Close" onClick={close}><X size={20}/></button>
+    <div><Logo team={team} size={30}/><span><small>{prediction.away.abbr} @ {prediction.home.abbr} · {startText(prediction.startsAt)}</small><b>{team.short||team.abbr} to win</b></span></div>
+    <span className="gp-back-space" aria-hidden="true"/>
+   </header>
+   <div className="gp-screen-amount">
+    <p className={`gp-amount-big${stake?'':' is-empty'}`}>${stake||'0'}</p>
+    <p className="gp-amount-win">{win!=null?<>To win <b>{moneyText(win)}</b></>:'Enter an amount, or save it as one unit'}</p>
+    <small>Price {cents(marketChance)} · {odds(price)} · our chance {pct(prediction.chance[side])}</small>
+   </div>
+   <div className="gp-chips gp-screen-chips">{QUICK.map(value=><button type="button" key={value} onClick={()=>setStake(old=>String(Math.round(((Number(old)||0)+value)*100)/100))}>+${value}</button>)}</div>
+   <div className="gp-keypad">{KEYS.map(key=><button type="button" key={key} onClick={()=>press(key)} aria-label={key==='back'?'Delete':key}>
+    {key==='back'?<Delete size={22} aria-hidden="true"/>:key}</button>)}</div>
+   {error&&<p className="gp-note gp-screen-error" data-tone="down">{error}</p>}
+   <SwipeBar onDone={save} disabled={phase==='saving'||price==null} label={phase==='saving'?'Saving…':`Swipe up to pick ${team.abbr}`}
+    sub={`${side==='home'?'vs':'@'} ${other.abbr} · saved to your history`}/>
+  </>}
  </div>,document.body);
 }
 
@@ -363,7 +388,7 @@ function Value({prediction}){
  return <Section title="Moneyline value">
   <ul className="gp-rows">{rows.map(row=><li key={row.side} className="gp-value" data-best={row.best?'':undefined}>
    <Logo team={row.team} size={26}/>
-   <span><b>{row.team.abbr} <em>{row.price}</em></b><small>{row.chance} to win · fair {row.fair}{row.ours?<> · our model {row.ours}</>:null}</small></span>
+   <span><b>{row.team.abbr} <em>{row.price}</em></b><small>{row.chance} to win · fair {row.fair}</small></span>
    <strong data-tone={row.ev>0?'up':'down'}>{row.text}</strong>
   </li>)}</ul>
  </Section>;
@@ -583,6 +608,7 @@ export function GamePredictor(){
  const [slate,setSlate]=useState({loading:true,games:[]});
  const [history,setHistory]=useState({loading:true});
  const [open,setOpen]=useState(null);
+ const mark=useRef(null),depth=useRef(0),listScroll=useRef(0);
  const [results,setResults]=useState({});
  const [tries,setTries]=useState(0);
  const [sheet,setSheet]=useState(null);
@@ -596,10 +622,22 @@ export function GamePredictor(){
  const loadHistory=useMemo(()=>signal=>call({action:'game-history',sport},signal)
   .then(data=>setHistory({data})).catch(error=>{if(error.name!=='AbortError')setHistory(old=>({data:old.data,error:error.message}));}),[sport]);
  useEffect(()=>{const control=new AbortController();setHistory({loading:true});loadHistory(control.signal);return()=>control.abort();},[loadHistory]);
+ // A game's page marks its own history entry, so the phone's back closes
+ // it (the Props tab's matchup page does the same); only this visit's mark counts.
+ // (window.history: `history` here is the picks.)
+ const marked=()=>Boolean(mark.current)&&window.history.state?.gpGame===mark.current;
+ const clearMark=()=>{if(window.history.state?.gpGame){const {gpGame,...rest}=window.history.state;window.history.replaceState(rest,'',location.href);}};
+ useEffect(()=>{clearMark();const onPop=()=>{if(!marked()){mark.current=null;setOpen(null);}};
+  window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop);},[]);
+ useEffect(()=>{if(!open)requestAnimationFrame(()=>window.scrollTo(0,listScroll.current));},[open]);
+ const closeGame=()=>{if(marked()&&window.history.length===depth.current){window.history.back();return;}mark.current=null;clearMark();setOpen(null);};
  const openGame=game=>{
-  if(open===game.id){setOpen(null);return;}
-  setOpen(game.id);
-  if(game.state!=='pre'||results[game.id]?.data||results[game.id]?.loading)return;
+  listScroll.current=window.scrollY;
+  mark.current=`${game.id}:${Date.now()}`;
+  window.history.pushState({...window.history.state,gpGame:mark.current},'',location.href);
+  depth.current=window.history.length;
+  setOpen(game.id);window.scrollTo(0,0);
+  if(results[game.id]?.data||results[game.id]?.loading)return;
   setResults(old=>({...old,[game.id]:{loading:true}}));
   call({action:'game-predict',sport,event:game.id}).then(data=>setResults(old=>({...old,[game.id]:{data}})))
    .catch(error=>setResults(old=>({...old,[game.id]:{error:error.message}})));
@@ -608,6 +646,12 @@ export function GamePredictor(){
  const pickSport=value=>{setSport(value);save('game-predictor-sport',value);};
  const pickView=value=>{setView(value);save('game-predictor-view',value);};
  const record=history.data?.record;
+ const openedGame=open&&(slate.games||[]).find(game=>game.id===open);
+ if(openedGame)return <div className="game-predictor">
+  <GamePage game={openedGame} sport={sport} result={results[open]} admin={admin} onBack={closeGame}
+   onPick={(side,now)=>results[open]?.data&&setSheet({prediction:results[open].data,side,now})}/>
+  {sheet&&<PickScreen pick={sheet} onClose={()=>setSheet(null)} onSaved={()=>loadHistory()}/>}
+ </div>;
  return <div className="game-predictor">
   <div className="gp-aurora" aria-hidden="true"/>
   <header className="gp-top">
@@ -619,11 +663,10 @@ export function GamePredictor(){
   </header>
   <Tabs value={view} onChange={pickView}/>
   <div className="gp-view" key={view}>
-   {view==='predict'&&<PredictView slate={slate} results={results} open={open} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}
-    sport={sport} onPick={(prediction,side,now)=>setSheet({prediction,side,now})}/>}
+   {view==='predict'&&<PredictView slate={slate} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>}
    {view==='generate'&&<Generator league={sport} admin={admin}/>}
    {view==='history'&&<HistoryView state={history} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
   </div>
-  {sheet&&<PickSheet pick={sheet} onClose={()=>setSheet(null)} onSaved={()=>loadHistory()}/>}
+
  </div>;
 }

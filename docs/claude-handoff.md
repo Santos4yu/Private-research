@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-06 (Game Predictor: picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,34 @@ Last updated 2026-11-06 (Game Predictor: picks only when saved, Kalshi-style mar
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 6 (last): Game Predictor — each game its own page with tabs; the pick full screen
+
+- The owner, with Polymarket screenshots: "Make them a page when we click on
+  it not a dropdown ... not a bunch of useless information ... not just a
+  long scroll down page ... keep the odds and % seperate like make tabs in
+  the game page ... the slide up should be a full screen".
+- Predict's list rows open `GamePage` (no drawer): a back arrow and
+  "AWAY @ HOME" with the time or "Live · Q2 5:00", the two teams with their
+  chance now in team color (live win probability, else the latest market,
+  else the prediction; `chancesNow`) and the score live, then tabs:
+  Chance (`TwoLineChart`: both teams' lines in their colors, the latest at
+  each end, a touch readout of both; two big price buttons; "Our pick" with
+  confidence and the final score), Odds (moneyline value, the line, our model
+  vs with the line, the buttons), Why (check first, what moves the number,
+  who's out), Players (best matchups, side by side). Gone: the pace / blowout
+  facts and the confidence-reasons line.
+- Back: the page pushes a history entry marked `gpGame` (as MatchupList's
+  `nbaMatchup`), so the phone's back closes it; the list's scroll comes back.
+  Careful: inside `GamePredictor` the name `history` is the picks state, so
+  the browser's is always `window.history` (the first try silently failed on
+  that).
+- `PickScreen` (portaled, fixed, full screen, slides up): close, the team
+  "to win", the amount in big numbers with +$10/25/50/100 and a keypad (or
+  the keyboard), "To win" in green, then `SwipeBar`, a team-colored bar at the
+  bottom ("Swipe up to pick BOS"; drag up 90 px; Enter / Space). Saved, the
+  whole screen turns the team's color: "You picked Celtics", amount, odds,
+  to win, payout, Done.
 
 ### Nov 6 (latest): Game Predictor — picks only when saved, Kalshi-style markets, swipe up to save, live charts
 
