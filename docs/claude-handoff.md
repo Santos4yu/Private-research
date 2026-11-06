@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-06 (Game Predictor best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-06 (Game Predictor redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,42 @@ Last updated 2026-11-06 (Game Predictor best picks and parlay builder; v2 live: 
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 6 (later): Game Predictor redesigned as one full page; a day-by-day generator
+
+- The owner, with a phone screenshot: "this all looks super cheap ... I hate
+  how it's all floating I want to look like a full page not random floating
+  islands use nicer buttons and layout smooth visuals and effects ... a
+  moneyline generator for certain days like ... tmrw or another day or today
+  ... for what sports or a mix".
+- src/GamePredictor.jsx rewritten, src/game-predictor.css rewritten: no
+  outlined cards anywhere. A header (title, record, league with a gliding
+  pill, `Segmented` on use-ink.js) over a soft accent glow (`.gp-aurora`,
+  radial-masked so it never shows an edge; `.game-predictor` is
+  `overflow-x: clip` so it can't widen the page), then tabs Predict /
+  Generator / History (sliding underline; the last tab is remembered in
+  `game-predictor-view`).
+  - Predict: the slate by day ("Today", "Tomorrow", weekday); tapping a game
+    opens its prediction in place (grid-rows drawer) and scrolls to it; the
+    old "Select a game" menu and "Predict winner" button are gone. The
+    prediction is flat sections split by hairlines: the winner (with a glow
+    in the team's ESPN color), the score, the chance bar (grows in), facts,
+    line / total / ESPN, our model and with the line, moneyline value, check
+    first, what moves the number, who's out, best matchups, side by side.
+  - Generator: a day strip (today and six more, `dayOptions`), NBA / NFL /
+    Both, Most likely / Best value, Payout (2x+ to 10x+) or Legs (2 to 4).
+    Both leagues load as two `game-board` calls merged (`mergeBoards`); legs
+    then show their league. The most likely winner that day leads, the next
+    five under it, then the top three parlays with a chance meter.
+  - History: the record as big numbers, then the list.
+  - Motion: rise-in with a stagger, gliding pills, drawer, growing bars, a
+    slow drift on the glow, shimmer while loading; all off under
+    prefers-reduced-motion.
+- Server: `game_predictor.day_games(sport, day)` (NBA: that date's
+  scoreboard; NFL: this week's and next week's boards, kept to that US
+  date) and `board(sport, day=...)` (cached per day). api/prediction.py
+  `game-board&day=YYYYMMDD` takes the US East's yesterday to a week ahead
+  (the member's own today, whatever their time zone).
 
 ### Nov 6: Game Predictor — best picks and a moneyline parlay builder
 

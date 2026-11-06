@@ -22,6 +22,47 @@ export function startText(iso,now=new Date()){
  return `${date.toLocaleDateString('en-US',{month:'short',day:'numeric'})} ${clock}`;
 }
 
+/** A local date as the server's day key: "20261106". */
+export const dayKey=date=>`${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}`;
+const midnight=date=>{const day=new Date(date);day.setHours(0,0,0,0);return day;};
+
+/** The generator's days, today and the next ones: {key, top: "Today" / "Tomorrow" / "Sat", date: "Nov 8"}. */
+export function dayOptions(now=new Date(),count=7){
+ return Array.from({length:count},(_,offset)=>{
+  const day=midnight(now);day.setDate(day.getDate()+offset);
+  return {key:dayKey(day),top:offset===0?'Today':offset===1?'Tomorrow':day.toLocaleDateString('en-US',{weekday:'short'}),
+   date:day.toLocaleDateString('en-US',{month:'short',day:'numeric'})};
+ });
+}
+
+/** A start time's day in words: "Today", "Tomorrow", "Sunday, Nov 9". */
+export function dayLabel(iso,now=new Date()){
+ const time=Date.parse(iso||'');
+ if(!Number.isFinite(time))return 'Later';
+ const days=Math.round((midnight(new Date(time))-midnight(now))/864e5);
+ if(days===0)return 'Today';
+ if(days===1)return 'Tomorrow';
+ return new Date(time).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+}
+
+/** "7:30 PM". */
+export const clockText=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'';};
+
+/** The slate's games by day, soonest first: [{key, label, games}]. */
+export function groupByDay(games,now=new Date()){
+ const days=new Map();
+ for(const game of [...(games||[])].sort((a,b)=>String(a.startsAt).localeCompare(String(b.startsAt)))){
+  const time=Date.parse(game.startsAt||'');
+  const key=Number.isFinite(time)?dayKey(new Date(time)):'later';
+  if(!days.has(key))days.set(key,{key,label:dayLabel(game.startsAt,now),games:[]});
+  days.get(key).games.push(game);
+ }
+ return [...days.values()];
+}
+
+/** Boards from several leagues as one (the generator's "Both"). */
+export const mergeBoards=boards=>({games:boards.flatMap(board=>(board?.games||[]).map(game=>({...game,sport:game.sport||board.sport})))});
+
 /** A game's line in a few characters: "DEN -6.5 · O/U 231.5". */
 export function lineText(game){
  const line=game?.line||game?.market;
@@ -96,7 +137,7 @@ export function boardLegs(board){
  return (board?.games||[]).filter(game=>!game.held).flatMap(game=>['away','home'].map(side=>{
   const price=game.prices?.[side],chance=game.chance?.[side],dec=decimal(price);
   return dec&&chance!=null?{game:game.id,side,team:game[side],opponent:game[side==='home'?'away':'home'],home:side==='home',
-   price,chance,dec,startsAt:game.startsAt,confidence:game.confidence}:null;
+   price,chance,dec,startsAt:game.startsAt,confidence:game.confidence,sport:game.sport}:null;
  }).filter(Boolean));
 }
 

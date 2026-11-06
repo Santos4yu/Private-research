@@ -1344,22 +1344,47 @@ def board_game(found) -> dict:
     prices = ((found.get("market") or {}).get("moneyline")) or {}
     high = [item["text"] for item in found.get("warnings") or [] if item["level"] == "high"]
     priced = all(prices.get(side) is not None and abs(prices[side]) >= 100 for side in ("home", "away"))
-    return {"id": found["id"], "startsAt": found["startsAt"], "home": team("home"), "away": team("away"), "winner": found["winner"],
+    return {"id": found["id"], "sport": found["sport"], "startsAt": found["startsAt"], "home": team("home"), "away": team("away"), "winner": found["winner"],
             "chance": found["chance"], "prices": {side: prices.get(side) for side in ("home", "away")},
             "ev": {side: item["ev"] for side, item in ((found.get("ev") or {}).get("blend") or {}).items()},
             "score": found.get("score"), "confidence": found["confidence"], "model": found.get("model"),
             "held": "No moneyline yet" if not priced else high[0] if high else None}
 
 
-def board(sport, now=None, store=None) -> dict:
-    """{sport, games}: every game still to start predicted (each kept for the
-    record too), soonest first."""
+def day_games(sport, day, now=None) -> list:
+    """The games on one US date ("YYYYMMDD"): the NBA's scoreboard for that
+    date; the NFL's this week and next (its scoreboard won't take a date
+    range), on that date."""
+    now = now or datetime.now(timezone.utc)
+
+    def load():
+        if sport == "nba":
+            return [_event(sport, event) for event in _espn(sport, "/scoreboard", {"dates": day, "limit": 100}).get("events") or []]
+        board_now = _espn(sport, "/scoreboard")
+        games = [_event(sport, event) for event in board_now.get("events") or []]
+        week, kind = (board_now.get("week") or {}).get("number"), (board_now.get("season") or {}).get("type")
+        if week and kind:
+            try:
+                games += [_event(sport, event) for event in _espn(sport, "/scoreboard", {"week": week + 1, "seasontype": kind}).get("events") or []]
+            except Exception:  # noqa: BLE001 -- this week's games stand
+                pass
+        return games
+    games = _kept(f"day:{sport}:{day if sport == 'nba' else _us_day(now)}", SLATE_SECONDS, load)
+    on_day = [game for game in games if game["home"] and game["away"] and (start := _when(game["startsAt"])) and _us_day(start) == day]
+    return sorted({game["id"]: game for game in on_day}.values(), key=lambda game: game["startsAt"] or "")
+
+
+def board(sport, now=None, store=None, day=None) -> dict:
+    """{sport, day, games}: every game still to start predicted (each kept
+    for the record too), soonest first: the slate's (the NBA's today and
+    tomorrow, the NFL's week), or one US date's ("YYYYMMDD", the generator)."""
     if sport not in SPORTS:
         raise ValueError("Unknown sport")
     now = now or datetime.now(timezone.utc)
 
     def load():
-        games = [game for game in slate(sport, now)["games"] if game["state"] == "pre" and (start := _when(game["startsAt"])) and start > now]
+        listed = day_games(sport, day, now) if day else slate(sport, now)["games"]
+        games = [game for game in listed if game["state"] == "pre" and (start := _when(game["startsAt"])) and start > now]
         results = _predict_many(sport, games[:BOARD_GAMES], now, store)
         made = [found for found, _ in results if found and _still_to_start(found, now)]
         if made:
@@ -1367,8 +1392,8 @@ def board(sport, now=None, store=None) -> dict:
                 record_many(sport, made, store)
             except Exception:  # noqa: BLE001 -- the history is never worth failing the board
                 pass
-        return {"sport": sport, "games": [board_game(found) for found in made], "fetchedAt": now.isoformat()}
-    return _kept(f"board:{sport}", BOARD_SECONDS, load)
+        return {"sport": sport, "day": day, "games": [board_game(found) for found in made], "fetchedAt": now.isoformat()}
+    return _kept(f"board:{sport}:{day or 'next'}", BOARD_SECONDS, load)
 
 
 # ------------------------------------------------------------------ the history

@@ -300,7 +300,7 @@ class BoardTests(unittest.TestCase):
         # Game 0's line agrees with our model (BOS by about 5), game 2's is 25 points the other way.
         summaries = {"0": game(spread=5.5, home_ml=190, away_ml=-230), "1": game(spread=5.5, home_ml=None, away_ml=None),
                      "2": game(spread=-25.5, home_ml=-5000, away_ml=2000)}
-        gp._memory.pop("board:nba", None)
+        gp._memory.pop("board:nba:next", None)
         with patch.object(gp, "slate", return_value={"games": upcoming}), patch.object(gp, "_nba_v2", return_value=context), \
                 patch.object(gp, "_summary", side_effect=lambda sport, event: {**summaries[event], "id": event}):
             found = gp.board("nba", now=NOW, store=store)
@@ -314,7 +314,24 @@ class BoardTests(unittest.TestCase):
         self.assertIn("points apart", games["2"]["held"])
         # Each kept for the record too.
         self.assertEqual(len(json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])), 3)
-        gp._memory.pop("board:nba", None)
+        self.assertEqual(games["0"]["sport"], "nba")
+        gp._memory.pop("board:nba:next", None)
+
+    def test_one_day(self):
+        # The NFL: this week's board and next week's, kept to the day asked for.
+        def scoreboard(sport, path, params=None):
+            event = lambda id_, date: {"id": id_, "date": date, "competitions": [{"status": {"type": {"state": "pre"}},
+                "competitors": [{"homeAway": "home", "team": {"abbreviation": "KC"}}, {"homeAway": "away", "team": {"abbreviation": "BUF"}}]}]}
+            if not params:
+                return {"week": {"number": 10}, "season": {"type": 2}, "events": [event("1", "2026-11-08T18:00Z"), event("2", "2026-11-10T01:15Z")]}
+            return {"events": [event("3", "2026-11-15T18:00Z")]}
+        gp._memory.clear()
+        with patch.object(gp, "_espn", side_effect=scoreboard):
+            self.assertEqual([g["id"] for g in gp.day_games("nfl", "20261108", now=NOW)], ["1"])
+            # A Monday night kickoff (01:15 UTC Tuesday) is Monday's game in the US.
+            self.assertEqual([g["id"] for g in gp.day_games("nfl", "20261109", now=NOW)], ["2"])
+            self.assertEqual([g["id"] for g in gp.day_games("nfl", "20261115", now=NOW)], ["3"])
+        gp._memory.clear()
 
 
 class FakeStore:

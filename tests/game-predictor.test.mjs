@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {americanOf,boardLegs,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
+import {americanOf,boardLegs,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
 
@@ -108,4 +108,25 @@ test('parlays: paying at least 2x, two to four legs, never two sides of one game
  for(let index=1;index<value.length;index++)assert.ok(value[index-1].ev>=value[index].ev);
  // Nothing on these games pays 1000x.
  assert.deepEqual(parlays(board,{payout:1000}),[]);
+});
+
+test('the generator\'s days and the slate by day',()=>{
+ const now=new Date(2026,10,6,15,0);
+ const days=dayOptions(now,4);
+ assert.deepEqual(days.map(day=>[day.key,day.top]),[['20261106','Today'],['20261107','Tomorrow'],['20261108','Sun'],['20261109','Mon']]);
+ assert.equal(days[2].date,'Nov 8');
+ assert.equal(dayKey(new Date(2026,0,5)),'20260105');
+ const at=(day,hour)=>new Date(2026,10,day,hour).toISOString();
+ assert.equal(dayLabel(at(6,19),now),'Today');
+ assert.equal(dayLabel(at(7,19),now),'Tomorrow');
+ assert.equal(dayLabel(at(9,13),now),'Monday, Nov 9');
+ const grouped=groupByDay([{id:'b',startsAt:at(7,19)},{id:'a',startsAt:at(6,20)},{id:'c',startsAt:at(6,19)}],now);
+ assert.deepEqual(grouped.map(day=>[day.label,day.games.map(game=>game.id)]),[['Today',['c','a']],['Tomorrow',['b']]]);
+});
+
+test('both leagues on one board, each leg keeping its league',()=>{
+ const both=mergeBoards([{sport:'nba',games:[board.games[0]]},{sport:'nfl',games:[{...board.games[1],id:'9'}]}]);
+ assert.deepEqual(both.games.map(game=>game.sport),['nba','nfl']);
+ const [best]=parlays(both,{legs:2});
+ assert.deepEqual(best.legs.map(leg=>leg.sport),['nba','nfl']);
 });

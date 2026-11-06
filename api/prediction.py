@@ -274,7 +274,17 @@ class handler(BaseHTTPRequestHandler):
             if action == "game-history":
                 return self._send(200, game_predictor.history(sport))
             if action == "game-board":
-                return self._send(200, game_predictor.board(sport))
+                # A date (the generator, the member's own today to a week
+                # ahead: a day either side of the US East's for time zones),
+                # or the slate.
+                day = arg("day")
+                if day:
+                    from datetime import datetime, timedelta, timezone
+                    today = datetime.now(timezone.utc) - timedelta(hours=5)
+                    allowed_days = {(today + timedelta(days=offset)).strftime("%Y%m%d") for offset in range(-1, 8)}
+                    if day not in allowed_days:
+                        return self._send(400, {"error": "Pick a day this week."})
+                return self._send(200, game_predictor.board(sport, day=day or None))
             if action == "game-predict":
                 event = arg("event")
                 if not event.isdigit() or len(event) > 14:
