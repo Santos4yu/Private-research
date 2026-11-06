@@ -268,26 +268,57 @@ function OddsTab({prediction,chart,onPick}){
  </>;
 }
 
-// Swipe up to save: drag the bar up past the line (Polymarket's "swipe to
-// buy"); a tap only nudges it, Enter or Space saves from the keyboard.
-function SwipeBar({onDone,disabled,label,sub}){
- const [lift,setLift]=useState(0),[hint,setHint]=useState(false);
- const from=useRef(null),liftRef=useRef(0);
- const LIMIT=90;
- const set=value=>{liftRef.current=value;setLift(value);};
- const down=event=>{if(disabled)return;from.current=event.clientY;event.currentTarget.setPointerCapture?.(event.pointerId);};
- const move=event=>{if(from.current==null)return;set(Math.min(LIMIT*1.2,Math.max(0,from.current-event.clientY)));};
- const up=()=>{
-  if(from.current==null)return;from.current=null;
-  if(liftRef.current>=LIMIT){navigator.vibrate?.(12);onDone();set(0);return;}
-  if(liftRef.current<6){setHint(true);setTimeout(()=>setHint(false),650);}
-  set(0);
+// Swipe up to save (Polymarket's "swipe to buy"). The bar follows the
+// finger up and down as it moves (Nov 6, the owner: "actually move up and
+// down smoothly when am swiping on it"): written straight to the bar each
+// frame, no spring while dragging; a little give below its rest and past
+// the line. Let go past the line and it flies up and saves; short of it, it
+// springs back. A tap only nudges it; Enter or Space saves from the keyboard.
+function SwipeBar({onDone,disabled,label,armedLabel,sub}){
+ const bar=useRef(null),from=useRef(null),lift=useRef(0),frame=useRef(0);
+ const [hint,setHint]=useState(false),[armed,setArmed]=useState(false);
+ const LIMIT=110;
+ const paint=value=>{
+  lift.current=value;
+  cancelAnimationFrame(frame.current);
+  frame.current=requestAnimationFrame(()=>{const node=bar.current;if(!node)return;
+   node.style.setProperty('--lift',`${value}px`);node.style.setProperty('--progress',String(Math.max(0,Math.min(1,value/LIMIT))));});
  };
- return <button type="button" className="gp-swipebar" disabled={disabled} data-hint={hint?'':undefined}
-  style={{'--lift':`${lift}px`,'--progress':Math.min(1,lift/LIMIT)}} aria-label={`${label}: swipe up, or press Enter`}
+ useEffect(()=>()=>cancelAnimationFrame(frame.current),[]);
+ const down=event=>{
+  if(disabled)return;
+  from.current=event.clientY;bar.current.dataset.dragging='';
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+ };
+ const move=event=>{
+  if(from.current==null)return;
+  event.preventDefault();
+  const raw=from.current-event.clientY;
+  // Rubber-banded: a quarter of the pull below rest, a third past the line.
+  const value=raw<0?Math.max(-28,raw*0.25):raw<=LIMIT?raw:LIMIT+(raw-LIMIT)*0.35;
+  paint(value);
+  const now=value>=LIMIT;
+  setArmed(old=>old===now?old:now);
+ };
+ const up=()=>{
+  if(from.current==null)return;
+  from.current=null;delete bar.current.dataset.dragging;setArmed(false);
+  if(lift.current>=LIMIT){
+   navigator.vibrate?.(12);
+   bar.current.dataset.flying='';paint(window.innerHeight);
+   setTimeout(onDone,260);
+   return;
+  }
+  if(Math.abs(lift.current)<6){setHint(true);setTimeout(()=>setHint(false),650);}
+  paint(0);
+ };
+ // A new attempt after a failed save starts from rest.
+ useEffect(()=>{if(!disabled&&bar.current?.dataset.flying!==undefined){delete bar.current.dataset.flying;paint(0);}},[disabled]);
+ return <button type="button" ref={bar} className="gp-swipebar" disabled={disabled} data-hint={hint?'':undefined} data-armed={armed?'':undefined}
+  aria-label={`${label}: swipe up, or press Enter`}
   onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
   onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();if(!disabled)onDone();}}}>
-  <ChevronUp size={22} aria-hidden="true"/><b>{label}</b>{sub&&<small>{sub}</small>}
+  <ChevronUp size={22} aria-hidden="true"/><b>{armed&&armedLabel?armedLabel:label}</b>{sub&&<small>{sub}</small>}
  </button>;
 }
 
@@ -364,6 +395,7 @@ function PickScreen({pick,onClose,onSaved}){
     {key==='back'?<Delete size={22} aria-hidden="true"/>:key}</button>)}</div>
    {error&&<p className="gp-note gp-screen-error" data-tone="down">{error}</p>}
    <SwipeBar onDone={save} disabled={phase==='saving'||price==null} label={phase==='saving'?'Saving…':`Swipe up to pick ${team.abbr}`}
+    armedLabel={`Release to pick ${team.abbr}`}
     sub={`${side==='home'?'vs':'@'} ${other.abbr} · saved to your history`}/>
   </>}
  </div>,document.body);

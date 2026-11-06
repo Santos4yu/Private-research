@@ -103,6 +103,15 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   bottom ("Swipe up to pick BOS"; drag up 90 px; Enter / Space). Saved, the
   whole screen turns the team's color: "You picked Celtics", amount, odds,
   to win, payout, Done.
+- Then: "I want this swipe thing to actually move up and down smoothly".
+  `SwipeBar` writes `--lift` straight to the bar each frame (no React render
+  per move), no transition while `data-dragging`, rubber-banded below rest
+  and past the line (110 px), "Release to pick ATL" past it, flies up then
+  saves, springs back short of it; its color runs on below it (`::after`).
+  The real reason it never moved on phones: styles.css
+  `button:active:not(:disabled){transform:scale(.965)}` replaced the lift
+  while the finger was down; `.gp-screen .gp-swipebar` now sets its own
+  transform with !important.
 
 ### Nov 6 (latest): Game Predictor — picks only when saved, Kalshi-style markets, swipe up to save, live charts
 

@@ -308,8 +308,18 @@
 .gp-swipebar{display:grid;justify-items:center;gap:2px;width:calc(100% + 36px);max-width:none;margin:0 -18px;padding:14px 18px calc(20px + env(safe-area-inset-bottom,0px));border:0;border-radius:28px 28px 0 0;
  background:color-mix(in srgb,var(--team,var(--gp-accent)) 82%,#fff);color:#fff;cursor:grab;touch-action:none;
  filter:brightness(calc(1 + var(--progress,0) * .25));transform:translateY(calc(-1 * var(--lift,0px)))}
-.gp-swipebar:not(:active){transition:transform .4s var(--gp-spring),filter .3s}
-.gp-swipebar svg{animation:gp-nudge 1.4s ease-in-out infinite}
+.gp-swipebar{position:relative;transition:transform .5s var(--gp-spring),filter .25s;will-change:transform}
+/* While the finger is on it, the bar is exactly where the finger is. */
+/* The site's press effect (a pressed button shrinks a little) would replace
+   the lift while the finger is down: the bar's own movement wins. */
+.gp-screen .gp-swipebar,.gp-screen .gp-swipebar:active{transform:translateY(calc(-1 * var(--lift,0px)))!important}
+.gp-swipebar[data-dragging]{transition:filter .25s;cursor:grabbing}
+.gp-swipebar[data-flying]{transition:transform .32s cubic-bezier(.5,0,.9,.6)}
+/* The bar's color carries on below it, so a lifted bar leaves no gap. */
+.gp-swipebar::after{content:"";position:absolute;left:0;right:0;top:calc(100% - 1px);height:100vh;background:inherit;pointer-events:none}
+.gp-swipebar svg{transition:transform .2s var(--gp-ease)}
+.gp-swipebar[data-armed] svg{animation:none;transform:translateY(-4px) scale(1.15)}
+.gp-swipebar:not([data-dragging]) svg{animation:gp-nudge 1.4s ease-in-out infinite}
 .gp-swipebar b{font-size:16.5px;font-weight:850;text-shadow:0 1px 2px rgba(0,0,0,.25)}
 .gp-swipebar small{font-size:12px;font-weight:600;opacity:.85}
 .gp-swipebar[data-hint]{animation:gp-hint .65s var(--gp-ease)}
@@ -330,6 +340,7 @@
 .gp-done-ok{min-height:54px;border:0;border-radius:16px;background:rgba(255,255,255,.94);color:#111;font-size:16px;font-weight:850;cursor:pointer}
 @media (min-width:700px){
  .gp-swipebar{width:100%;max-width:520px;margin:0 auto 20px;border-radius:22px;padding-bottom:16px}
+ .gp-swipebar::after{display:none}
 }
 
 /* History: the record in big numbers, then one row a prediction. */
