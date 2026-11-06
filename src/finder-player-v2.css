@@ -345,3 +345,87 @@ html:root .fp2 .fp2-research :is(.mlb-average-grid, .wnba-season-grid) > .is-act
 /* CS2: how many of his results are recorded, a plain line under the chart. */
 html:root .fp2 .cs2-coverage { display: flex; flex-wrap: wrap; gap: 4px 10px; min-height: 0; margin: 2px 0 0; padding: 0 2px; border: 0 !important; border-radius: 0; background: none !important; box-shadow: none !important; color: var(--fp-faint); font: 500 12.5px/1.3 var(--font-sans); }
 html:root .fp2 .cs2-coverage strong { color: var(--fp-muted); font-weight: 600; }
+
+/* ------------------------------------------------------------ Nov 6: filters and windows, after the trends screen the owner sent
+   ("I want this ... I like their design more", the colors left out): each
+   filter its name above a soft field, three to a row, the sliders button
+   last for More filters (minutes played as a range, days of rest); each
+   window its hit rate and its average. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel {
+  display: flex !important; flex-wrap: wrap !important; align-items: flex-end; gap: 10px 8px;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field:not([hidden]) {
+  display: grid !important; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 40px; justify-content: stretch !important; align-items: stretch; gap: 6px; flex: 1 1 0 !important; min-width: 0;
+  height: auto !important; padding: 0 !important; border-radius: 0 !important; background: none !important;
+}
+/* The season-part menu ("No preseason") takes a little more of the row. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel #gl-kind-field:not([hidden]) { flex: 1.6 1 0 !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field > span {
+  padding-left: 2px; overflow: hidden; color: var(--fp-muted); font: 600 12.5px/1 var(--font-sans); white-space: nowrap; text-overflow: ellipsis;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field > div,
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-filter-field > div > * { display: block; width: 100% !important; min-width: 0 !important; max-width: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .ace-select-trigger {
+  width: 100% !important; height: 40px !important; padding: 0 12px !important; justify-content: space-between; border-radius: 11px !important;
+  background: rgba(255, 255, 255, .055) !important; font: 600 14px/1 var(--font-sans) !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .ace-select-trigger:hover { background: rgba(255, 255, 255, .08) !important; }
+@media (max-width: 760px) {
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .ace-select-trigger { padding: 0 10px !important; font-size: 13px !important; }
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .gamelog-ext-chips:not([hidden]) { flex: 1 0 100%; order: 9; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-filter-panel .ace-select-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+html:root .fp2 .gl-more { position: relative; flex: none; align-self: flex-end; }
+html:root .fp2 .gl-more[hidden] { display: none; }
+html:root .fp2 #gamelog-overlay .gl-more-btn {
+  position: relative; display: grid; place-items: center; width: 44px !important; min-width: 0 !important; height: 40px !important; min-height: 0 !important;
+  padding: 0 !important; border: 0 !important; border-radius: 11px !important; box-shadow: none !important;
+  background: rgba(255, 255, 255, .055); color: var(--fp-text); cursor: pointer; transition: background-color .15s ease;
+}
+html:root .fp2 .gl-more-btn:hover, html:root .fp2 .gl-more-btn[aria-expanded=true] { background: rgba(255, 255, 255, .1); }
+html:root .fp2 .gl-more-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+html:root .fp2 .gl-more-btn[data-count]:not([data-count=""])::after {
+  content: attr(data-count); position: absolute; top: -5px; right: -5px; display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 9px; background: var(--fp-text); color: #111; font: 800 10.5px/1 var(--font-sans);
+}
+/* The sheet: on the page's top layer (app.js moves it to <body>), so it
+   carries its own colors rather than the page's. */
+html:root body > #gl-more-pop.gl-more-pop {
+  --gm-text: #F3F4F6; --gm-muted: #A1A5AB;
+  position: fixed; z-index: 1000; display: grid; gap: 20px; padding: 18px 18px 14px; color: var(--gm-text);
+  border-radius: 18px; background: #151515; box-shadow: 0 18px 50px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .07);
+  font-family: var(--font-sans, Inter, system-ui, sans-serif);
+  animation: fp2-pop .22s cubic-bezier(.2, .8, .2, 1) both; transform-origin: top right;
+}
+html:root body > #gl-more-pop.gl-more-pop[hidden] { display: none; }
+@keyframes fp2-pop { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
+html:root body > #gl-more-pop .gl-more-field { display: grid; gap: 12px; }
+html:root body > #gl-more-pop .gl-more-field[hidden] { display: none; }
+html:root body > #gl-more-pop .gl-more-field > span { color: var(--gm-muted); font: 600 13px/1.2 var(--font-sans, sans-serif); }
+/* The range: two sliders on one track, the part between them lit. */
+html:root body > #gl-more-pop .gl-range { position: relative; height: 26px; }
+html:root body > #gl-more-pop .gl-range::before, html:root body > #gl-more-pop .gl-range::after { content: ""; position: absolute; top: 11px; height: 4px; border-radius: 4px; pointer-events: none; }
+html:root body > #gl-more-pop .gl-range::before { right: 11px; left: 11px; background: rgba(255, 255, 255, .12); }
+html:root body > #gl-more-pop .gl-range::after { left: calc(11px + (100% - 22px) * var(--lo, 0)); right: calc(11px + (100% - 22px) * (1 - var(--hi, 1))); background: var(--gm-text); }
+html:root body > #gl-more-pop .gl-range input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 26px; margin: 0; padding: 0; border: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+html:root body > #gl-more-pop .gl-range input::-webkit-slider-runnable-track { height: 26px; background: none; }
+html:root body > #gl-more-pop .gl-range input::-moz-range-track { height: 26px; background: none; }
+html:root body > #gl-more-pop .gl-range input::-webkit-slider-thumb {
+  width: 22px; height: 22px; margin-top: 2px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); cursor: grab; pointer-events: auto; -webkit-appearance: none; appearance: none;
+}
+html:root body > #gl-more-pop .gl-range input::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); cursor: grab; pointer-events: auto; }
+html:root body > #gl-more-pop .gl-range-nums { display: flex; justify-content: space-between; margin-top: -4px; font: 700 13px/1 var(--font-sans, sans-serif); font-variant-numeric: tabular-nums; }
+html:root body > #gl-more-pop .gl-rest-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+html:root body > #gl-more-pop .gl-rest-chips button {
+  height: 34px; min-height: 0; margin: 0; padding: 0 12px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, .07); box-shadow: none; color: var(--gm-muted);
+  font: 600 13px/1 var(--font-sans, sans-serif); cursor: pointer; transition: background-color .15s ease, color .15s ease;
+}
+html:root body > #gl-more-pop .gl-rest-chips button[aria-pressed=true] { background: var(--gm-text); color: #111; }
+html:root body > #gl-more-pop .gl-more-reset { justify-self: end; height: 30px; min-height: 0; padding: 0 4px; border: 0; background: none; box-shadow: none; color: var(--gm-muted); font: 600 13px/1 var(--font-sans, sans-serif); cursor: pointer; }
+html:root body > #gl-more-pop .gl-more-reset:hover { color: var(--gm-text); }
+
+/* The windows: name, hit rate in its color, the average under it. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button { grid-template-areas: "label" "pct" "avg" !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-rec { display: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs .gl-window-avg { grid-area: avg; color: var(--fp-muted); font: 500 11.5px/1 var(--font-sans); font-variant-numeric: tabular-nums; }

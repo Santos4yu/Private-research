@@ -76,6 +76,40 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (Finder player page): More filters (minutes, days rest); filters and windows after PickFinder's layout
+
+- The owner, with PickFinder's player page and its filter sheet (Minutes
+  Played range, Days Rest "(Upcoming: 1 day)", Spread): "I want this and
+  also I want the finder to look like this this design is clean just with
+  out colors but I like their design more". Layout only: no PickFinder
+  name, colors or wording.
+- More filters (app.js, after `filterGames`): `gameLogState.minRange`
+  ([low, high] or null) and `restFilter` ("any" or a bucket), reset for a
+  new player. Minutes: the game card's `details.min` (basketball; the field
+  hides when no game has minutes). Rest: `restGap` (days since his previous
+  game in the log, cached per chart), `restBucket`: basketball and the rest
+  count days off (0 back-to-back, 1, 2, 3+), football the days between
+  (short week 6 or less, normal 7, extra 8+). `upcomingRestText`: tonight's
+  from the config's `startsAt`. Spread isn't offered: there are no past
+  game lines to filter by (free data).
+- The sheet: `#gl-more` (index.html) last in the filter row, a sliders
+  button with a count when on; `#gl-more-pop` moves to `<body>` on first
+  use (the panels around the filters clip it) and sits under the button,
+  or over it with no room; two range inputs on one track, rest chips,
+  Reset. Shown on the Finder's player pages only (`EXTERNAL_TREND_ADAPTER`).
+  Gotcha: a chip is redrawn during its own click, so outside-click closing
+  checks `composedPath()`, not `contains`.
+- Layout (finder-player-v2.css, the Nov 6 section at the end): each filter
+  its name above a 40px soft field, all on one row with the button
+  (`flex: 1 1 0`, the season part 1.6; the grid needed
+  `grid-template-columns: minmax(0, 1fr)` and `justify-content: stretch`
+  or an older `space-between` shrank the field to its text). The season
+  part's "Regular + Playoffs" is now "No preseason". The windows show the
+  hit rate and "Avg 5.6" (the record moved to the tooltip).
+- Checked in Chromium, phone and computer (the mock can open a player's
+  page again once its matchup answer is an error: the Win predictor reads
+  `teams` from it).
+
 ### Nov 6 (Finder): the phone board as one full page, solid, no frame
 
 - The owner, with a phone screenshot of the NFL Finder: "I want this to be

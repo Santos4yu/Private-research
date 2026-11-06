@@ -391,6 +391,27 @@
       </div>
       <!-- Filters a host sport applied to the chart itself (WNBA's "W/O
            <teammate>"), one removable chip each. MLB never sets any. -->
+      <!-- More filters (app.js renderMoreFilters): minutes played as a
+           range (basketball, where the box score has minutes) and days of
+           rest before the game, with tonight's beside it. -->
+      <div class="gl-more" id="gl-more" hidden>
+        <button type="button" class="gl-more-btn" id="gl-more-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="gl-more-pop" aria-label="More filters"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
+        <div class="gl-more-pop" id="gl-more-pop" role="dialog" aria-label="More filters" hidden>
+          <div class="gl-more-field" id="gl-min-field">
+            <span>Minutes played</span>
+            <div class="gl-range" id="gl-min-range">
+              <input type="range" id="gl-min-lo" min="0" max="60" step="1" value="0" aria-label="Fewest minutes">
+              <input type="range" id="gl-min-hi" min="0" max="60" step="1" value="60" aria-label="Most minutes">
+            </div>
+            <div class="gl-range-nums"><b id="gl-min-lo-text">0</b><b id="gl-min-hi-text">60</b></div>
+          </div>
+          <div class="gl-more-field">
+            <span id="gl-rest-label">Days rest</span>
+            <div class="gl-rest-chips" id="gl-rest-chips"></div>
+          </div>
+          <button type="button" class="gl-more-reset" id="gl-more-reset">Reset</button>
+        </div>
+      </div>
       <div class="gamelog-ext-chips" id="gamelog-ext-chips" aria-label="Applied lineup filters" hidden></div>
     </div>
     <!-- Real per-line sportsbook odds (PrizePicks/DraftKings/BetRivers --

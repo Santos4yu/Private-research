@@ -2803,6 +2803,9 @@ function renderReport(p) {
 let gameLogState = {
   chart: null, line: null, player: "", opponent: "", window: "recent",
   handFilter: "all", venueFilter: "all", handDataLoaded: false, teamId: null,
+  // More filters (the sliders button): minutes played [low, high] (null:
+  // every game) and days of rest before the game ("any" or a bucket key).
+  minRange: null, restFilter: "any",
   stat: "", isPitcher: false, fetchToken: 0, gameCount: 10, season: "all",
   // Which window button is selected, kept separately from gameCount because
   // gameCount gets clamped to however many games survive the filters -- pick
@@ -3142,6 +3145,8 @@ function openGameLogModal(p, adapter = MLB_TREND_ADAPTER) {
   gameLogState.handFilter = "all";
   gameLogState.venueFilter = "all";
   gameLogState.extraFilters = {};
+  gameLogState.minRange = null;
+  gameLogState.restFilter = "any";
   // A page may start without preseason games (basketball at tip-off: the
   // last five would be preseason minutes, the Finder's aren't).
   gameLogState.seasonKind = (trendAdapter === EXTERNAL_TREND_ADAPTER && externalTrendConfig?.seasonKind) || "all";
@@ -3327,7 +3332,7 @@ function extraFilterOn(field) {
 // Season part (config.filters "seasonKind"): every game by default (or the
 // page's config.seasonKind), every game but the preseason, or only
 // preseason, regular season or postseason games.
-const GL_KIND_PAIRS = [["all", "All"], ["games", "Regular + Playoffs"], ["preseason", "Preseason"], ["regular", "Regular Season"], ["postseason", "Postseason"]];
+const GL_KIND_PAIRS = [["all", "All"], ["games", "No preseason"], ["preseason", "Preseason"], ["regular", "Regular Season"], ["postseason", "Postseason"]];
 const seasonKindOn = () => extraFilterOn("seasonKind");
 
 function filterGames(games) {
@@ -3342,7 +3347,152 @@ function filterGames(games) {
     if (gameLogState.handFilter !== "all" && g.oppHand !== gameLogState.handFilter) return false;
     if (gameLogState.venueFilter === "home" && g.isHome !== true) return false;
     if (gameLogState.venueFilter === "road" && g.isHome !== false) return false;
+    const minutes = gameLogState.minRange;
+    if (minutes) {
+      const played = Number(g.details?.min);
+      if (!Number.isFinite(played) || played < minutes[0] || played > minutes[1]) return false;
+    }
+    if (gameLogState.restFilter !== "any") {
+      const bucket = restBucket(restGap(g));
+      if (bucket !== gameLogState.restFilter) return false;
+    }
     return true;
+  });
+}
+
+// ---------- More filters: minutes played and days of rest ----------
+// (Nov 6, the owner, with a trends screen's filter sheet: Minutes Played
+// as a range, Days Rest with tonight's beside it.) A game's rest is the
+// days since his previous game in the log; basketball and hockey count the
+// days off between (0 is a back-to-back), football the days between games
+// (a short week, a normal one, extra rest).
+const GL_MINUTES_MAX = 60;
+const dayNumber = (date) => { const time = Date.parse(date || ""); return Number.isFinite(time) ? Math.floor((time - 5 * 3600e3) / 864e5) : null; };
+const restSport = () => String(externalTrendConfig?.sport || "").toLowerCase();
+const footballRest = () => ["nfl", "cfb"].includes(restSport());
+const GL_REST_HOOPS = [["any", "Any"], ["0", "Back-to-back"], ["1", "1 day"], ["2", "2 days"], ["3", "3+ days"]];
+const GL_REST_FOOTBALL = [["any", "Any"], ["short", "Short week"], ["normal", "Normal week"], ["long", "Extra rest"]];
+const restPairs = () => footballRest() ? GL_REST_FOOTBALL : GL_REST_HOOPS;
+let restCache = new WeakMap();
+// Days from his previous game to this one (null for his first game in the log).
+function restGap(game) {
+  if (!restCache.has(game)) {
+    const all = [...(gameLogState.chart?.all || recentGameLogSource())].filter((item) => dayNumber(item.fullDate) != null)
+      .sort((a, b) => dayNumber(a.fullDate) - dayNumber(b.fullDate));
+    all.forEach((item, index) => restCache.set(item, index ? dayNumber(item.fullDate) - dayNumber(all[index - 1].fullDate) : null));
+    if (!restCache.has(game)) restCache.set(game, null);
+  }
+  return restCache.get(game);
+}
+function restBucket(gap) {
+  if (gap == null) return null;
+  if (footballRest()) return gap <= 6 ? "short" : gap === 7 ? "normal" : "long";
+  const off = Math.max(0, gap - 1);
+  return off >= 3 ? "3" : String(off);
+}
+// Tonight's: the days from his last game in the log to this one.
+function upcomingRestText() {
+  const games = gameLogState.chart?.all || recentGameLogSource();
+  const last = games.reduce((latest, game) => Math.max(latest, dayNumber(game.fullDate) ?? -Infinity), -Infinity);
+  const next = dayNumber(externalTrendConfig?.startsAt || activeFinderProp?.startsAt || "");
+  if (!Number.isFinite(last) || next == null || next <= last) return "";
+  const gap = next - last;
+  if (gap > 30) return "";
+  if (footballRest()) return `${gap} days since his last game`;
+  const off = gap - 1;
+  return off === 0 ? "tonight: back-to-back" : `tonight: ${off} day${off === 1 ? "" : "s"}`;
+}
+const minutesKnown = () => (gameLogState.chart?.all || recentGameLogSource()).some((game) => Number.isFinite(Number(game.details?.min)));
+function renderMoreFilters() {
+  const wrap = document.getElementById("gl-more");
+  if (!wrap) return;
+  // The Finder's player pages only (their stylesheet draws it).
+  wrap.hidden = trendAdapter !== EXTERNAL_TREND_ADAPTER;
+  const sheet = document.getElementById("gl-more-pop");
+  if (wrap.hidden && sheet) sheet.hidden = true;
+  const minField = document.getElementById("gl-min-field");
+  const known = minutesKnown();
+  if (minField) minField.hidden = !known;
+  if (!known && gameLogState.minRange) gameLogState.minRange = null;
+  const [low, high] = gameLogState.minRange || [0, GL_MINUTES_MAX];
+  const lowInput = document.getElementById("gl-min-lo"), highInput = document.getElementById("gl-min-hi");
+  if (lowInput && document.activeElement !== lowInput) lowInput.value = String(low);
+  if (highInput && document.activeElement !== highInput) highInput.value = String(high);
+  const range = document.getElementById("gl-min-range");
+  range?.style.setProperty("--lo", String(low / GL_MINUTES_MAX));
+  range?.style.setProperty("--hi", String(high / GL_MINUTES_MAX));
+  const lowText = document.getElementById("gl-min-lo-text"), highText = document.getElementById("gl-min-hi-text");
+  if (lowText) lowText.textContent = String(low);
+  if (highText) highText.textContent = String(high);
+  const label = document.getElementById("gl-rest-label");
+  const tonight = upcomingRestText();
+  if (label) label.textContent = tonight ? `Days rest (${tonight})` : "Days rest";
+  const chips = document.getElementById("gl-rest-chips");
+  if (!restPairs().some(([key]) => key === gameLogState.restFilter)) gameLogState.restFilter = "any";
+  if (chips) chips.innerHTML = restPairs().map(([key, text]) =>
+    `<button type="button" data-rest="${key}" aria-pressed="${gameLogState.restFilter === key}">${text}</button>`).join("");
+  const count = (gameLogState.minRange ? 1 : 0) + (gameLogState.restFilter !== "any" ? 1 : 0);
+  const button = document.getElementById("gl-more-btn");
+  if (button) {
+    button.dataset.count = count ? String(count) : "";
+    button.setAttribute("aria-label", count ? `More filters (${count} on)` : "More filters");
+  }
+}
+function applyMoreFilters() {
+  renderMoreFilters();
+  renderGameLogTabs();
+  renderGameLogChart();
+}
+function wireMoreFilters() {
+  const wrap = document.getElementById("gl-more");
+  if (!wrap || wrap.dataset.wired) return;
+  wrap.dataset.wired = "1";
+  const button = document.getElementById("gl-more-btn"), pop = document.getElementById("gl-more-pop");
+  if (!button || !pop) return;
+  // The sheet lives on the page's top layer (the panels around the filters
+  // clip what reaches past them), placed under the button, or over it when
+  // there's no room below.
+  document.body.appendChild(pop);
+  const place = () => {
+    const rect = button.getBoundingClientRect(), width = Math.min(320, window.innerWidth - 32);
+    const left = Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16));
+    pop.style.width = `${width}px`;
+    pop.style.left = `${left}px`;
+    const height = pop.offsetHeight, room = window.innerHeight - rect.bottom - 96;
+    pop.style.top = `${room >= height ? rect.bottom + 8 : Math.max(16, rect.top - height - 8)}px`;
+  };
+  const close = () => { pop.hidden = true; button.setAttribute("aria-expanded", "false"); };
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = pop.hidden;
+    if (open) { renderMoreFilters(); pop.hidden = false; place(); } else close();
+    button.setAttribute("aria-expanded", String(open));
+  });
+  window.addEventListener("resize", () => { if (!pop.hidden) place(); });
+  window.addEventListener("scroll", () => { if (!pop.hidden) close(); }, { passive: true });
+  // composedPath: a chip tapped inside is redrawn before this runs, so it's no longer in the sheet.
+  document.addEventListener("click", (event) => { if (!pop.hidden && !event.composedPath().some((node) => node === pop || node === wrap)) close(); });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !pop.hidden) { close(); button.focus(); } });
+  const lowInput = document.getElementById("gl-min-lo"), highInput = document.getElementById("gl-min-hi");
+  const slide = (moved) => {
+    let low = Number(lowInput.value), high = Number(highInput.value);
+    if (low > high) { if (moved === lowInput) low = high; else high = low; }
+    gameLogState.minRange = low <= 0 && high >= GL_MINUTES_MAX ? null : [low, high];
+    lowInput.value = String(low); highInput.value = String(high);
+    applyMoreFilters();
+  };
+  lowInput?.addEventListener("input", () => slide(lowInput));
+  highInput?.addEventListener("input", () => slide(highInput));
+  document.getElementById("gl-rest-chips")?.addEventListener("click", (event) => {
+    const chip = event.target.closest("button[data-rest]");
+    if (!chip) return;
+    gameLogState.restFilter = chip.dataset.rest;
+    applyMoreFilters();
+  });
+  document.getElementById("gl-more-reset")?.addEventListener("click", () => {
+    gameLogState.minRange = null;
+    gameLogState.restFilter = "any";
+    applyMoreFilters();
   });
 }
 
@@ -3365,6 +3515,8 @@ const pairOptions = (pairs) => pairs.map(([, label]) => ({ value: label, label }
 const labelForKey = (pairs, key) => (pairs.find(([k]) => k === key) || pairs[0])[1];
 const keyForLabel = (pairs, label) => (pairs.find(([, l]) => l === label) || pairs[0])[0];
 function renderGameLogSubfilters() {
+  wireMoreFilters();
+  renderMoreFilters();
   els.glHandFilterBridge?.setOptions(pairOptions(GL_HAND_PAIRS));
   els.glHandFilterBridge?.setValue(labelForKey(GL_HAND_PAIRS, gameLogState.handFilter));
   els.glVenueFilterBridge?.setOptions(pairOptions(GL_VENUE_PAIRS));
@@ -3491,10 +3643,11 @@ function renderGameLogTabs() {
     els.gamelogTabs.innerHTML = windows.map((w, index) => {
       const active = w.key === gameLogState.windowKey;
       // Each window's record over its games and the hit rate, toned.
+      const avg = w.avg == null ? "" : `<span class="gl-window-avg">Avg ${Number(w.avg).toFixed(1)}</span>`;
       const stat = w.hitRate == null ? '<span class="gl-window-rec">0/0</span><span class="gl-window-pct">-</span>'
-        : `<span class="gl-window-rec">${w.hits}/${w.games}</span><span class="gl-window-pct">${w.hitRate}%</span>`;
+        : `<span class="gl-window-rec">${w.hits}/${w.games}</span><span class="gl-window-pct">${w.hitRate}%</span>${avg}`;
       const titleText = w.key === 'h2h' && gameLogState.chart?.meta?.h2hLabel ? gameLogState.chart.meta.h2hLabel
-        : w.capped ? `Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters` : '';
+        : w.capped ? `Only ${w.sample} game${w.sample === 1 ? "" : "s"} match the current filters` : w.hitRate != null ? `${w.hits} of ${w.games} over the line` : '';
       const title = titleText ? ` title="${escapeHtml(titleText)}"` : '';
       const menu = w.menu ? ' data-window-menu="true" aria-haspopup="menu"' : "";
       const chevron = w.menu ? '<svg class="gl-window-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>' : "";
