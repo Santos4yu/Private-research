@@ -89,7 +89,7 @@ jobs:
               for game in gp.slate(sport)["games"][:8]:
                   found = gp.dk_match(game, events)
                   print("   ", game["away"]["short"], "@", game["home"]["short"], "| DraftKings", found, "| page", (game["line"] or {}).get("moneyline"),
-                        (game["line"] or {}).get("source", "espn"))
+                        (game["line"] or {}).get("source", "espn"), "| opened", (game["line"] or {}).get("open"))
       - name: v2's NFL model on this week's games
         shell: python
         run: |

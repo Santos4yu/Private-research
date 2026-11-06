@@ -22,7 +22,7 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,lineText,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,lineText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import './game-predictor.css';
 
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
@@ -231,7 +231,8 @@ function TwoLineChart({prediction,chart}){
  </div>;
 }
 
-// A button for each team: its price in cents, tapped to pick it.
+// A button for each team: its price in cents and the book's own odds
+// (DraftKings' -241 / +199: the same price), tapped to pick it.
 function PickButtons({prediction,chart,onPick}){
  const open=prediction.state==='pre'&&(chart?.state||'pre')==='pre';
  return <div className="gp-pick-buttons">{['away','home'].map(side=>{const team=prediction[side];
@@ -240,7 +241,7 @@ function PickButtons({prediction,chart,onPick}){
   const color=teamColor(team);
   return <button type="button" key={side} className="gp-buy" style={color?{'--team':color}:undefined} disabled={!open||price==null}
    onClick={()=>onPick(side,{price,marketChance})}>
-   <span>{team.abbr}</span><b>{cents(marketChance)}</b>
+   <span>{team.abbr}</span><b>{cents(marketChance)}</b>{price!=null&&<small>{odds(price)}</small>}
   </button>;})}</div>;
 }
 
@@ -251,6 +252,7 @@ function ChanceTab({prediction,chart,onPick}){
   <section className="gp-sec gp-chance-sec">
    <span className="gp-kicker">{live?'Live win chance':'Market chance'}</span>
    <TwoLineChart prediction={prediction} chart={chart}/>
+   {!live&&marketNote(chart,prediction)&&<p className="gp-chart-note">{marketNote(chart,prediction)}</p>}
    <PickButtons prediction={prediction} chart={chart} onPick={onPick}/>
   </section>
   <section className="gp-sec gp-ourpick" style={teamColor(team)?{'--team':teamColor(team)}:undefined}>
@@ -430,7 +432,7 @@ function TwoCalls({prediction}){
 function Value({prediction}){
  const rows=valueRows(prediction);
  if(!rows.length)return null;
- return <Section title="Moneyline value">
+ return <Section title={prediction.market?.provider==='DraftKings'?'DraftKings moneylines':'Moneyline value'}>
   <ul className="gp-rows">{rows.map(row=><li key={row.side} className="gp-value" data-best={row.best?'':undefined}>
    <Logo team={row.team} size={26}/>
    <span><b>{row.team.abbr} <em>{row.price}</em></b><small>{row.chance} to win · fair {row.fair}</small></span>

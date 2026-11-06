@@ -233,6 +233,10 @@ def _line(raw, sides):
     price = lambda side: (found.get(side) or {}).get("moneyline") if (found.get(side) or {}).get("moneyline") is not None else _price(listed.get(side))
     line = {"provider": found.get("provider"), "spread": home.get("spread"), "total": found.get("total"),
             "moneyline": {"home": price("home"), "away": price("away")}, "chance": None}
+    # Where the book opened each moneyline ({"open": {"odds": "-218"}}), on the scoreboard's lines.
+    opened = {side: _price({"open": (listed.get(side) or {}).get("open")}) for side in ("home", "away")}
+    if opened["home"] is not None and opened["away"] is not None:
+        line["open"] = opened
     home_p, away_p = implied(line["moneyline"]["home"]), implied(line["moneyline"]["away"])
     if home_p and away_p:
         line["chance"] = {"home": home_p / (home_p + away_p), "away": away_p / (home_p + away_p)}
@@ -1998,11 +2002,21 @@ def chart(sport, event_id, now=None, store=None) -> dict:
         sample_odds(sport, [game], store=store, now=now)
     series = _read(ODDS_KEY.format(sport=sport, event=event_id), store)
     live = live_series(summary, competition.get("date"), now) if status.get("state") in ("in", "post") else []
+    opened = None
+    if status.get("state") == "pre":
+        try:  # The slate's lines (ESPN's scoreboard, kept 5 minutes) carry the opening moneylines.
+            listed = next((item for item in slate(sport, now)["games"] if item["id"] == str(event_id)), None)
+            prices = ((listed or {}).get("line") or {}).get("open")
+            home_p, away_p = (implied(prices["home"]), implied(prices["away"])) if prices else (None, None)
+            if home_p and away_p:
+                opened = {"moneyline": prices, "market": round(home_p / (home_p + away_p), 4)}
+        except Exception:  # noqa: BLE001 -- the chart stands without it
+            opened = None
     team = lambda side: {key: sides[side].get(key) for key in ("abbr", "short", "logo", "color", "score")}
     return {"id": str(event_id), "sport": sport, "state": status.get("state"), "detail": status.get("shortDetail") or status.get("detail"),
             "startsAt": competition.get("date"), "home": team("home"), "away": team("away"),
             "market": [[point[0], point[1]] for point in series], "live": live,
-            "source": (line or {}).get("source") or "espn",
+            "source": (line or {}).get("source") or "espn", "open": opened,
             "now": {"market": (line or {}).get("chance", {}).get("home") if line else None, "live": live[-1][1] if live else None,
                     "moneyline": (line or {}).get("moneyline")},
             "updatedAt": now.isoformat()}

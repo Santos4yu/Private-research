@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {colorGap,keyInjuries,pairColors,readGuide} from '../src/game-predictor-core.js';
+import {colorGap,keyInjuries,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
 import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
@@ -189,4 +189,21 @@ test('how to read the numbers, with the game\'s own',()=>{
  assert.match(rows.Total,/230\.5/);
  assert.ok(rows.Value&&rows.Confidence);
  assert.deepEqual(readGuide(null),[]);
+});
+
+test('the note under a flat chart',()=>{
+ const prediction={home:{abbr:'ATL'},away:{abbr:'WSH'},market:{chance:{home:0.68}}};
+ const now=Date.parse('2026-11-06T16:48:00Z');
+ const t=iso=>Date.parse(iso)/1000;
+ const flat=[[t('2026-11-06T06:26:00Z'),0.6787],[t('2026-11-06T09:00:00Z'),0.6787],[t('2026-11-06T16:40:00Z'),0.6788]];
+ assert.equal(steadySince(flat),flat[0][0]);
+ assert.equal(steadySince([[1,0.6],[2,0.65],[3,0.65]]),2);
+ const base={state:'pre',source:'draftkings',now:{market:0.6787,moneyline:{home:-241,away:199}},market:flat};
+ // DraftKings moved off its opening price: where it opened and where it is.
+ assert.equal(marketNote({...base,open:{moneyline:{home:-218,away:180}}},prediction,now),'DraftKings · ATL opened -218, now -241');
+ assert.equal(marketNote({...base,open:{moneyline:{home:-241,away:199}}},prediction,now),'DraftKings · no change since it opened');
+ // No opening price: how long it hasn't moved.
+ assert.match(marketNote(base,prediction,now),/^DraftKings · no change since \d{1,2}:26 [AP]M$/);
+ assert.equal(marketNote({...base,market:flat.slice(-1)},prediction,now),'DraftKings');
+ assert.equal(marketNote({...base,state:'in'},prediction,now),null);
 });

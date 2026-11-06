@@ -76,6 +76,27 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (after final): "these aren't draft king odds" and "why are the lines just flat?"
+
+- They were DraftKings' odds: the owner's DraftKings screenshot showed WAS
+  +199 / ATL -241, spread 6.5, total 230.5, the same as the Odds tab. The
+  page showed them only as a chance (32% / 68%) and cents, Polymarket-style,
+  so they didn't look like DraftKings'. Now each price button also shows
+  DraftKings' own odds under the cents (`.gp-buy small`), the Odds tab's
+  section is "DraftKings moneylines", and a note under the chart names the
+  book.
+- Flat: DraftKings hadn't moved that game's price all day (-241 / +199 at
+  06:26 UTC and still at 16:48 UTC in their app). Pre-game moneylines often
+  sit for hours; in a game the chart is ESPN's win probability, play by play.
+  The note under the chart (`marketNote`, core) now says so: "DraftKings ·
+  ATL opened -218, now -241" when it moved from its opening price, "no
+  change since it opened", or "no change since 1:26 AM" (`steadySince`, from
+  our own samples) when the opening price isn't known.
+- Opening prices: `_line` keeps ESPN's scoreboard `moneyline.{home,away}.open`
+  as `line.open` (the summary's pick center doesn't carry it), and `chart()`
+  reads it from the slate (`chart.open` {moneyline, market}) for a game still
+  to start. The GitHub check prints each slate game's opening line.
+
 ### Nov 6 (final): Game Predictor — a tighter game page with its own background; Why in plain words
 
 - The owner, with screenshots of WSH @ ATL: "Compact this all a little more

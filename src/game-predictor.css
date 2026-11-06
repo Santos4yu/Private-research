@@ -278,6 +278,7 @@
 .gp-chance-sec{border-top:0;margin-top:2px;padding-top:10px}
 
 /* Both teams' chance over time, a line each, the latest at its end. */
+.gp-chart-note{margin:-6px 0 12px;color:var(--gp-faint);font-size:12px;font-weight:600}
 .gp-chart2{position:relative;height:150px;margin:10px 0 14px;touch-action:pan-y;cursor:crosshair;user-select:none}
 .gp-chart2 svg{position:absolute;top:0;left:0;width:calc(100% - 64px);height:100%;overflow:visible}
 .gp-chart-grid{stroke:rgba(255,255,255,.07);stroke-width:1;vector-effect:non-scaling-stroke}
@@ -299,6 +300,7 @@
 .gp-buy{display:grid;grid-auto-flow:column;align-items:baseline;align-content:center;justify-content:center;gap:8px;min-height:48px;padding:0 14px;border:0;border-radius:14px;color:#fff;cursor:pointer;
  background:color-mix(in srgb,var(--team,var(--gp-accent)) 40%,rgba(255,255,255,.07));box-shadow:inset 0 1px 0 rgba(255,255,255,.09);transition:transform .15s var(--gp-ease),filter .2s}
 .gp-buy span{font-size:13.5px;font-weight:750;opacity:.9}
+.gp-buy small{font-size:12.5px;font-weight:700;opacity:.62;font-variant-numeric:tabular-nums}
 .gp-buy b{font-size:18.5px;font-weight:850;font-variant-numeric:tabular-nums}
 .gp-buy:hover{filter:brightness(1.15)}
 .gp-buy:active{transform:scale(.96)}

@@ -291,3 +291,36 @@ export function readGuide(prediction,chart){
  if(market.total!=null)rows.push({term:'Total',text:`Both teams' points added up. The line is ${market.total}: over if they score more together, under if less.`});
  return rows;
 }
+
+/** Since when (epoch seconds) the market's chance has sat where it is now, within a fifth of a point. */
+export function steadySince(series,tolerance=0.002){
+ if(!series?.length)return null;
+ const last=series[series.length-1][1];
+ let since=series[series.length-1][0];
+ for(let index=series.length-1;index>=0;index--){if(Math.abs(series[index][1]-last)>tolerance)break;since=series[index][0];}
+ return since;
+}
+const sinceText=(seconds,now)=>{
+ const date=new Date(seconds*1000),today=new Date(now);
+ const clock=date.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+ const days=Math.round((new Date(today).setHours(0,0,0,0)-new Date(date).setHours(0,0,0,0))/864e5);
+ return days===0?clock:days===1?`yesterday ${clock}`:`${date.toLocaleDateString('en-US',{weekday:'short'})} ${clock}`;
+};
+/** The line under a game's chart before it starts (Nov 6, the owner: "why
+ * are the lines just flat?"): whose price it is, and where the favorite's
+ * moneyline opened against now, or how long it hasn't moved. */
+export function marketNote(chart,prediction,now=Date.now()){
+ if(!chart||chart.state!=='pre')return null;
+ const book=chart.source==='draftkings'?'DraftKings':prediction?.market?.provider||null;
+ const prices=chart.now?.moneyline,open=chart.open?.moneyline;
+ const side=(chart.now?.market??prediction?.market?.chance?.home??0.5)>=0.5?'home':'away';
+ const team=prediction?.[side]?.abbr||'';
+ let detail=null;
+ if(open&&prices&&prices[side]!=null&&open[side]!==prices[side])detail=`${team} opened ${odds(open[side])}, now ${odds(prices[side])}`;
+ else if(open&&prices)detail='no change since it opened';
+ else{
+  const series=chart.market||[],since=steadySince(series);
+  if(series.length>=2&&since!=null&&now/1000-since>=1800)detail=`no change since ${sinceText(since,now)}`;
+ }
+ return [book,detail].filter(Boolean).join(' · ')||null;
+}

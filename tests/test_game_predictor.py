@@ -243,6 +243,11 @@ class LineTests(unittest.TestCase):
         self.assertEqual((found["spread"], found["total"], found["moneyline"]), (-4.5, 226.5, {"home": -190, "away": 160}))
         self.assertAlmostEqual(found["chance"]["home"] + found["chance"]["away"], 1)
         # The away team favored: ESPN gives the favorite's number.
+        self.assertNotIn("open", found)
+        # The scoreboard's lines also say where each moneyline opened.
+        board = {**raw, "moneyline": {"home": {"open": {"odds": "-160"}, "close": {"odds": "-190"}},
+                                      "away": {"open": {"odds": "+140"}, "close": {"odds": "+160"}}}}
+        self.assertEqual(gp._line(board, sides)["open"], {"home": -160, "away": 140})
         flipped = gp._line({**raw, "details": "BOS -3", "spread": -3}, sides)
         self.assertEqual(flipped["spread"], 3)
         self.assertIsNone(gp._line(None, sides))
@@ -477,7 +482,20 @@ class DraftKingsTests(unittest.TestCase):
             found = gp.chart("nba", "401", now=datetime(2026, 11, 5, 23, 0, tzinfo=timezone.utc), store=store)
         gp._memory.clear()
         self.assertEqual((found["source"], found["now"]["moneyline"]), ("draftkings", {"home": -190.0, "away": 160.0}))
+        self.assertIsNone(found["open"])
         self.assertEqual(json.loads(store.data[gp.ODDS_KEY.format(sport="nba", event="401")])[-1][2:], [-190.0, 160.0])
+
+
+class OpenTests(unittest.TestCase):
+    def test_the_chart_says_where_the_line_opened(self):
+        summary = ChartTests().summary(state="pre")
+        listed = {"games": [{"id": "401", "line": {"moneyline": {"home": -190, "away": 160}, "open": {"home": -150, "away": 130}}}]}
+        gp._memory.clear()
+        with patch.object(gp, "_espn", return_value=summary), patch.object(gp, "slate", return_value=listed):
+            found = gp.chart("nba", "401", now=datetime(2026, 11, 5, 23, 0, tzinfo=timezone.utc), store=FakeStore())
+        gp._memory.clear()
+        self.assertEqual(found["open"]["moneyline"], {"home": -150, "away": 130})
+        self.assertAlmostEqual(found["open"]["market"], 0.6 / (0.6 + 100 / 230), places=3)
 
 
 class BoardTests(unittest.TestCase):
