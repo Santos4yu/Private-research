@@ -278,16 +278,27 @@
 .gp-chance-sec{border-top:0;margin-top:2px;padding-top:10px}
 
 /* Both teams' chance over time, a line each, the latest at its end. */
-.gp-chart-note{margin:-6px 0 12px;color:var(--gp-faint);font-size:12px;font-weight:600}
-.gp-chart2{position:relative;height:150px;margin:10px 0 14px;touch-action:pan-y;cursor:crosshair;user-select:none}
-.gp-chart2 svg{position:absolute;top:0;left:0;width:calc(100% - 64px);height:100%;overflow:visible}
-.gp-chart-grid{stroke:rgba(255,255,255,.07);stroke-width:1;vector-effect:non-scaling-stroke}
-.gp-chart2-line{fill:none;stroke-width:2.5;stroke-linejoin:round;vector-effect:non-scaling-stroke;animation:gp-fade .6s var(--gp-ease) both}
+.gp-chart-note{margin:-2px 0 12px;color:var(--gp-faint);font-size:12px;font-weight:600}
+.gp-chart2{position:relative;touch-action:pan-y;cursor:crosshair;user-select:none}
+/* The chart after DraftKings' game chart: dotted rules every 15 points with
+   their numbers down the right; each line ends in a dot, then its team in a
+   small label in its color and the chance big under it. */
+.gp-chart2{height:176px;margin:14px 0 16px}
+.gp-chart2 svg{position:absolute;top:0;left:0;width:calc(100% - 112px);height:100%;overflow:visible}
+.gp-chart-rule{position:absolute;left:0;right:38px;height:0;border-top:1px dotted rgba(255,255,255,.14);pointer-events:none}
+.gp-chart-rule small{position:absolute;right:-38px;top:0;width:34px;transform:translateY(-50%);text-align:right;
+ color:var(--gp-faint);font-size:10.5px;font-weight:650;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.gp-chart2-line{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;animation:gp-fade .6s var(--gp-ease) both}
 .gp-chart2-line.is-home{stroke:color-mix(in srgb,var(--home) 72%,#fff)}
 .gp-chart2-line.is-away{stroke:color-mix(in srgb,var(--away) 72%,#fff)}
-.gp-chart2-end{position:absolute;right:0;display:grid;width:58px;transform:translateY(-50%);transition:top .6s var(--gp-ease)}
-.gp-chart2-end small{color:var(--gp-muted);font-size:11px;font-weight:700}
-.gp-chart2-end b{font-size:17px;font-weight:850;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.gp-chart2-dot{position:absolute;left:calc(100% - 112px);width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);transition:top .6s var(--gp-ease);pointer-events:none}
+.gp-chart2-dot.is-home{background:color-mix(in srgb,var(--home) 72%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--home) 25%,transparent)}
+.gp-chart2-dot.is-away{background:color-mix(in srgb,var(--away) 72%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--away) 25%,transparent)}
+.gp-chart2-end{position:absolute;left:calc(100% - 100px);display:grid;justify-items:start;gap:2px;transform:translateY(-50%);transition:top .6s var(--gp-ease);pointer-events:none}
+.gp-chart2-end small{padding:2px 6px;border-radius:6px;font-size:11px;font-weight:800;line-height:1.2;letter-spacing:.02em}
+.gp-chart2-end.is-home small{background:color-mix(in srgb,var(--home) 82%,#fff);color:var(--home-ink,#fff)}
+.gp-chart2-end.is-away small{background:color-mix(in srgb,var(--away) 82%,#fff);color:var(--away-ink,#fff)}
+.gp-chart2-end b{font-size:22px;font-weight:850;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .gp-chart2-end.is-home b{color:color-mix(in srgb,var(--home) 72%,#fff)}
 .gp-chart2-end.is-away b{color:color-mix(in srgb,var(--away) 72%,#fff)}
 .gp-chart-cross{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.22);pointer-events:none}

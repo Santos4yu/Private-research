@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {colorGap,keyInjuries,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
+import {colorGap,inkOn,keyInjuries,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
 import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
@@ -206,4 +206,11 @@ test('the note under a flat chart',()=>{
  assert.match(marketNote(base,prediction,now),/^DraftKings · no change since \d{1,2}:26 [AP]M$/);
  assert.equal(marketNote({...base,market:flat.slice(-1)},prediction,now),'DraftKings');
  assert.equal(marketNote({...base,state:'in'},prediction,now),null);
+});
+
+test('a team label\'s text stays readable',()=>{
+ assert.equal(inkOn('c8102e'),'#ffffff');
+ assert.equal(inkOn('002b5c'),'#ffffff');
+ assert.equal(inkOn('fdb927'),'#141414');
+ assert.equal(inkOn(null),'#ffffff');
 });

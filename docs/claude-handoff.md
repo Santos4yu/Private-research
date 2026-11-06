@@ -76,6 +76,40 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (latest of all): home edge from the records, this season's ranks, the DraftKings-style chart
+
+- The owner: "don't just automatically give the team a plus for being at
+  home check are they performing well at home? Or are they performing
+  better away and also make sure we use mainly this seasons stats for
+  defense and offensive rankings". And, of DraftKings' game chart: "look how
+  nice theirs looks love that".
+- `season_numbers` (game_predictor): each team's offense and defense from
+  this season's finished games only (NBA: per 100 possessions from the
+  stored season's box scores; NFL: points a game from the nflverse games
+  index, regular season), league ranks, and its record and average margin
+  at home and on the road. On the contexts as `seasonTable` (not "season":
+  the NFL context already has `season`, the year).
+- Ranks: the teams' `ortg` / `drtg` (NBA, after 3 games) and `pf` / `pa`
+  (NFL, after 2) are now this season's numbers, `basis: "season"`; the
+  write-up says "this season". The model's ratings are unchanged (they
+  start from last season and lean on this one more every game, as
+  backtested); only what the page shows as ranks changed.
+- Home edge: `_with_home` swaps the model's flat home edge (NBA 2.05, NFL
+  1.02 points) for tonight's: each team's own edge, half its home margin
+  less its road margin this season, pulled toward the usual by
+  `HOME_SHRINK` games (NBA 25, NFL 20; 5 home and 5 road games move it a
+  sixth of the way), the home team's and the visitor's averaged, kept
+  between half and twice the usual. Moves the margin, the questionable
+  scenarios and the "Home court" part ("ATL 1-4 at home · WSH 1-4 on the
+  road"). Not backtested (a few games are mostly noise, hence the pull).
+  The write-up's home line gives both records and says whether home court
+  counts more or less than usual tonight.
+- Chart (`TwoLineChart`): after DraftKings' layout, our own colors: dotted
+  rules every 15 points (the range snapped to them, at least 35-65%) with
+  the numbers down the right, each line running on to now at the latest
+  price with a dot at its end, then the team in a small label in its color
+  (`inkOn` picks dark or white text) and the chance big under it.
+
 ### Nov 6 (after final): "these aren't draft king odds" and "why are the lines just flat?"
 
 - They were DraftKings' odds: the owner's DraftKings screenshot showed WAS

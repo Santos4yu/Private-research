@@ -124,6 +124,7 @@ jobs:
                     f"| {made['confidence']} | EV best {made['ev']['best']}")
               print("   QBs:", built and built["starters"], "| warnings:", [item["text"] for item in made["warnings"]])
               print("   parts:", [(part["key"], part["points"], part["text"]) for part in made["factors"]])
+              print("   write-up:", [point["text"] for point in (made.get("story") or {}).get("points", []) if point["key"] in ("teams", "extras")])
       - name: The charts' data (a finished game's win probability, a game to come's line)
         shell: python
         run: |

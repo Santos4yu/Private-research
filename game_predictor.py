@@ -981,6 +981,93 @@ def _day_text(day) -> str:
     return f"{day:%b} {day.day}"
 
 
+# This season only (Nov 6, the owner: "use mainly this seasons stats for
+# defense and offensive rankings ... these are new teams"): each team's
+# offense and defense from this season's games alone (the NBA per 100
+# possessions, the NFL per game) with their league ranks, and its record and
+# average margin at home and on the road. The model's ratings still start
+# from last season and lean on this one more with every game; the ranks the
+# page shows are this season's.
+#
+# Home edge (the owner: "don't just automatically give the team a plus for
+# being at home: check are they performing well at home or better away"):
+# half of how much better a team does at home than on the road this season,
+# pulled toward the usual edge by HOME_SHRINK games (a few games prove
+# little: about 5 at home and 5 away moves it a sixth of the way), the home
+# team's and the visitor's averaged.
+HOME_SHRINK = {"nba": 25, "nfl": 20}
+
+
+def season_numbers(games, per_100) -> dict:
+    """{team: {off, def, offRank, defRank, games, home {w, l, games, margin},
+    away {...}}} from this season's finished games [(home, away, home
+    points, away points, possessions)]."""
+    rows = defaultdict(lambda: {"pts": 0.0, "opp": 0.0, "poss": 0.0, "games": 0,
+                                "home": [0, 0, 0, 0.0], "away": [0, 0, 0, 0.0]})
+    for home, away, home_pts, away_pts, poss in games:
+        for team, own, other, venue in ((home, home_pts, away_pts, "home"), (away, away_pts, home_pts, "away")):
+            row = rows[team]
+            row["pts"] += own
+            row["opp"] += other
+            row["poss"] += poss or 0
+            row["games"] += 1
+            spot = row[venue]
+            spot[0] += own > other
+            spot[1] += own < other
+            spot[2] += 1
+            spot[3] += own - other
+    out = {}
+    for team, row in rows.items():
+        base = row["poss"] / 100 if per_100 and row["poss"] else row["games"]
+        out[team] = {"off": row["pts"] / base, "def": row["opp"] / base, "games": row["games"],
+                     **{venue: {"w": row[venue][0], "l": row[venue][1], "games": row[venue][2],
+                                "margin": row[venue][3] / row[venue][2] if row[venue][2] else None} for venue in ("home", "away")}}
+    offense, defense = {team: row["off"] for team, row in out.items()}, {team: row["def"] for team, row in out.items()}
+    for team, row in out.items():
+        row["offRank"], row["defRank"] = _rank_of(offense, team), _rank_of(defense, team, high_first=False)
+    return out
+
+
+def own_home_edge(row, usual, shrink) -> float:
+    """A team's own home edge: half its home margin less its road margin this season, pulled toward `usual`."""
+    home, away = (row or {}).get("home") or {}, (row or {}).get("away") or {}
+    if not home.get("games") or not away.get("games"):
+        return usual
+    raw = (home["margin"] - away["margin"]) / 2
+    count = 2 / (1 / home["games"] + 1 / away["games"])
+    return usual + count / (count + shrink) * (raw - usual)
+
+
+def home_edge(season, home, away, usual, shrink) -> float:
+    """Tonight's home edge in points: the home team's own and the visitor's, averaged, kept between half and twice the usual."""
+    edge = (own_home_edge((season or {}).get(home), usual, shrink) + own_home_edge((season or {}).get(away), usual, shrink)) / 2
+    return max(-usual / 2, min(2 * usual, edge))
+
+
+def _with_home(sport, built, game, season, home, away, usual):
+    """The model's flat home edge swapped for tonight's (home_edge), with the
+    records behind it for the write-up."""
+    rows = season or {}
+    built["homeInfo"] = {"home": (rows.get(home) or {}).get("home"), "away": (rows.get(away) or {}).get("away"), "usual": round(usual, 1)}
+    if game.get("neutral"):
+        built["homeInfo"]["edge"] = 0.0
+        return built
+    edge = home_edge(rows, home, away, usual, HOME_SHRINK[sport])
+    delta = edge - usual
+    built["margin"] += delta
+    for scenario in built.get("scenarios") or []:
+        scenario["ifOut"] += delta
+    built["homeInfo"]["edge"] = round(edge, 1)
+    record = lambda spot: f"{spot['w']}-{spot['l']}" if spot else None
+    at_home, on_road = record(built["homeInfo"]["home"]), record(built["homeInfo"]["away"])
+    for part in built.get("parts") or []:
+        if part.get("key") == "home":
+            part["points"] = round(edge, 1)
+            part["text"] = " · ".join(text for text in (f"{home} {at_home} at home" if at_home else f"{home} at home",
+                                                         f"{away} {on_road} on the road" if on_road else None) if text)
+    return built
+
+
 def nba_context(payload, prior, today) -> dict:
     """v2's NBA numbers as of `today` (games before it only): the ratings,
     each team's regulars, its results and what defenses allow each position."""
@@ -994,6 +1081,7 @@ def nba_context(payload, prior, today) -> dict:
         results[g["home"]].append(g["hs"] > g["as"])
         results[g["away"]].append(g["as"] > g["hs"])
     return {"rt": predictor_nba.rate(games, today, params, prior),
+            "seasonTable": season_numbers([(g["home"], g["away"], g["hs"], g["as"], g["poss"]) for g in past], per_100=True),
             "states": predictor_nba.team_states(games, index, today, params, players),
             "dvp": predictor_nba.defense_by_position(games, index, players, today),
             "results": dict(results), "lastDate": past[-1]["date"] if past else None, "today": today, "prior": bool(prior)}
@@ -1071,10 +1159,17 @@ def nba_model_v2(game, context) -> dict | None:
     drtg = {team: rt["mu"] + rt["def"][team] for team in rated}
     pace = {team: rt["pace_mu"] + rt["pace"].get(team, 0.0) for team in rated}
 
+    season = context.get("seasonTable") or {}
+
     def profile(side):
         abbr = game[side]["abbr"]
         results = (context["results"].get(abbr) or [])[-10:]
         offense, defense, speed = rt["mu"] + rt["off"][abbr], rt["mu"] + rt["def"][abbr], rt["pace_mu"] + rt["pace"].get(abbr, 0.0)
+        mine = season.get(abbr) or {}
+        if mine.get("games", 0) >= 3:  # this season's own numbers and ranks
+            return {"ortg": [round(mine["off"], 1), mine["offRank"]], "drtg": [round(mine["def"], 1), mine["defRank"]],
+                    "pace": [round(speed, 1), _rank_of(pace, abbr)], "net": round(mine["off"] - mine["def"], 1), "basis": "season",
+                    "last10": [sum(results), len(results) - sum(results)] if len(results) >= 5 else None, "games": played[side]}
         return {"ortg": [round(offense, 1), _rank_of(ortg, abbr)], "drtg": [round(defense, 1), _rank_of(drtg, abbr, high_first=False)],
                 "pace": [round(speed, 1), _rank_of(pace, abbr)], "net": round(offense - defense, 1),
                 "last10": [sum(results), len(results) - sum(results)] if len(results) >= 5 else None, "games": played[side]}
@@ -1094,7 +1189,7 @@ def nba_model_v2(game, context) -> dict | None:
     built.update({"rest": {side: (rest[side] or {}).get("days") for side in rest}, "restInfo": rest,
                   "teams": {"home": profile("home"), "away": profile("away")}, "leaguePace": rt["pace_mu"],
                   "sigma": _staged_sigma(fewest, params["sigma_by_games"]), "model": "v2", "warnings": warnings})
-    return built
+    return _with_home("nba", built, game, season, home, away, params["home"])
 
 
 def nba_players_v2(game, context, built) -> dict:
@@ -1118,7 +1213,10 @@ def nfl_context(table, last, games, today, season) -> dict:
         if str(game.get("season")) == str(season) and game.get("final") and game.get("kickoff"):
             for team in (game["home"], game["away"]):
                 kickoffs[team] = max(kickoffs.get(team) or 0, game["kickoff"])
-    return {"rt": predictor_nfl.rate(rows, today, params, prior),
+    finals = [(game["home"], game["away"], _num(game.get("home_score")), _num(game.get("away_score")), None) for game in games.values()
+              if str(game.get("season")) == str(season) and game.get("final") and str(game.get("game_type") or "REG").upper() == "REG"
+              and _num(game.get("home_score")) is not None and _num(game.get("away_score")) is not None]
+    return {"rt": predictor_nfl.rate(rows, today, params, prior), "seasonTable": season_numbers(finals, per_100=False),
             "values": predictor_nfl.qb_values([item for item in (last, table) if item], games, today, params),
             "table": table, "last": last, "games": games, "today": today, "season": season,
             "lastEnd": max(r[0] for r in last_rows) + timedelta(days=1) if last_rows else today,
@@ -1197,8 +1295,14 @@ def nfl_model_v2(game, context, tables=None) -> dict | None:
     allowed = {team: rt["pts"]["mu"] + rt["pts"]["def"][team] for team in known}
     epa_off = {team: rt["epa"]["off"][team] for team in known}
     epa_def = {team: rt["epa"]["def"][team] for team in known}
-    profile = lambda team: {"pf": [round(rt["pts"]["mu"] + rt["pts"]["off"].get(team, 0.0), 1), _rank_of(scored, team)],
-                            "pa": [round(rt["pts"]["mu"] + rt["pts"]["def"].get(team, 0.0), 1), _rank_of(allowed, team, high_first=False)],
+    table_now = context.get("seasonTable") or {}
+    mine = lambda team: table_now.get(team) if (table_now.get(team) or {}).get("games", 0) >= 2 else None
+    # Points a game this season and their ranks (the ratings' until a team has played 2 games).
+    profile = lambda team: {"pf": [round(mine(team)["off"], 1), mine(team)["offRank"]] if mine(team) else
+                                  [round(rt["pts"]["mu"] + rt["pts"]["off"].get(team, 0.0), 1), _rank_of(scored, team)],
+                            "pa": [round(mine(team)["def"], 1), mine(team)["defRank"]] if mine(team) else
+                                  [round(rt["pts"]["mu"] + rt["pts"]["def"].get(team, 0.0), 1), _rank_of(allowed, team, high_first=False)],
+                            "basis": "season" if mine(team) else "ratings",
                             "epaOff": [round(rt["epa"]["off"].get(team, 0.0), 3), _rank_of(epa_off, team)],
                             "epaDef": [round(rt["epa"]["def"].get(team, 0.0), 3), _rank_of(epa_def, team, high_first=False)],
                             "games": rt["games"].get(team, 0), "qb": starters[team][1]}
@@ -1216,13 +1320,14 @@ def nfl_model_v2(game, context, tables=None) -> dict | None:
     built_at = _when(context.get("builtAt"))
     if built_at and start and (start - built_at).days >= 8:
         warnings.append(_warn("medium", f"The play-by-play stops at {_day_text(built_at)}: newer games aren't counted yet."))
-    return {"margin": margin, "total": total, "out": out, "rest": rest, "model": "v2", "sigma": params["sigma"], "warnings": warnings,
+    return _with_home("nfl", {"margin": margin, "total": total, "out": out, "rest": rest, "model": "v2", "sigma": params["sigma"], "warnings": warnings,
             "parts": [{"key": key, "label": label, "points": round(points, 1), "text": texts.get(key)} for key, label, points in parts],
             "teams": {"home": profile(home), "away": profile(away)},
             "plays": _nfl_pace((tables or {}).get("league_data"), home, away),
             "starters": {side: {"name": starters[team][1], "how": starters[team][2]} for side, team in (("home", home), ("away", away))},
             "qbOut": {side: healthy[team][1] for side, team in (("home", home), ("away", away))
-                      if healthy[team][1] and starters[team][1] and healthy[team][1] != starters[team][1]}}
+                      if healthy[team][1] and starters[team][1] and healthy[team][1] != starters[team][1]}},
+        game, table_now, home, away, params["margin"]["home"])
 
 
 def _model(sport, game, now):
@@ -1374,6 +1479,7 @@ def _team_line(made, win, lose) -> list:
     one = l[def_key][1] - w[off_key][1]   # the winner's offense against the loser's defense
     two = l[off_key][1] - w[def_key][1]   # the loser's offense against the winner's defense
     lines = []
+    unit += " this season" if w.get("basis") == "season" else ""
     attack = (f"{_cap(_whose(made, win))} offense scores {w[off_key][0]:g} {unit} ({ordinal(w[off_key][1])} in the {league}), "
               f"and {_whose(made, lose)} defense allows {l[def_key][0]:g} ({ordinal(l[def_key][1])}).")
     hold = (f"On the other end, {_whose(made, lose)} offense ranks {ordinal(l[off_key][1])} against "
@@ -1448,7 +1554,33 @@ def _injury_lines(made, built) -> list:
     return lines
 
 
-def _extras(made, win) -> str | None:
+def _home_line(made, built) -> str | None:
+    """Home court as it stands tonight: both teams' records where they play
+    it this season and what that makes the home edge."""
+    place = "home court" if made["sport"] == "nba" else "home field"
+    if made.get("neutral"):
+        return f"It's at a neutral site, so nobody gets {place}."
+    info = (built or {}).get("homeInfo") or {}
+    edge, usual = info.get("edge"), info.get("usual")
+    if edge is None:
+        home = {item.get("key"): item for item in made.get("factors") or []}.get("home")
+        return (f"{_cap(_the(made, 'home'))} are at home, worth about {abs(home['points']):.1f} points."
+                if home and abs(home.get("points") or 0) >= 0.5 else None)
+    records = []
+    if (info.get("home") or {}).get("games"):
+        spot = info["home"]
+        records.append(f"{_the(made, 'home')} are {spot['w']}-{spot['l']} at home this season ({spot['margin']:+.1f} a game)")
+    if (info.get("away") or {}).get("games"):
+        spot = info["away"]
+        records.append(f"{_the(made, 'away')} are {spot['w']}-{spot['l']} on the road ({spot['margin']:+.1f})")
+    if not records:
+        return f"{_cap(_the(made, 'home'))} are at home, worth about {edge:.1f} points."
+    verdict = (f"so {place} counts more than usual tonight" if edge >= usual + 0.3 else
+               f"so {place} counts less than usual tonight" if edge <= usual - 0.3 else f"about the usual {place} edge")
+    return f"{_cap('; '.join(records))}: {verdict}, about {edge:.1f} points."
+
+
+def _extras(made, win, built=None) -> str | None:
     """Rest, home and form, a short sentence each."""
     lose = "away" if win == "home" else "home"
     bits = []
@@ -1458,11 +1590,9 @@ def _extras(made, win) -> str | None:
         if made["sport"] == "nba" and days is not None and days <= 1:
             bits.append(f"{_cap(_the(made, side))} played last night, and tired legs usually cost about a point.")
     factors = {item.get("key"): item for item in made.get("factors") or []}
-    home = factors.get("home")
-    if made.get("neutral"):
-        bits.append("It's at a neutral site, so nobody gets home field.")
-    elif home and abs(home.get("points") or 0) >= 0.5:
-        bits.append(f"{_cap(_the(made, 'home'))} are at home, worth about {abs(home['points']):.1f} points.")
+    home_text = _home_line(made, built)
+    if home_text:
+        bits.append(home_text)
     if made["sport"] == "nfl" and factors.get("rest") and abs(factors["rest"].get("points") or 0) >= 0.3:
         rested = "home" if factors["rest"]["points"] > 0 else "away"
         days = (made.get("rest") or {})
@@ -1539,7 +1669,7 @@ def story(made, built=None) -> dict | None:
             points.append({"key": "player", "text": text})
     for text in _injury_lines(made, built):
         points.append({"key": "injuries", "text": text})
-    extra = _extras(made, win)
+    extra = _extras(made, win, built)
     if extra:
         points.append({"key": "extras", "text": extra})
     points.append({"key": "confidence", "text": _confidence_line(made)})

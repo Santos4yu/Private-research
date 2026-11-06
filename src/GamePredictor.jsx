@@ -22,7 +22,7 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,lineText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,inkOn,lineText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import './game-predictor.css';
 
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
@@ -186,46 +186,58 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
  </>;
 }
 
-// Both teams' chance over time, Polymarket-style: a line each in its team's
-// color, the latest chance at each line's end, a touch readout of both.
-const W=600,H=190;
+// Both teams' chance over time (Nov 6, the owner, with DraftKings' game
+// chart: "look how nice theirs looks love that"): dotted lines every 15
+// points labeled down the right side, a line each in its team's color
+// running up to now with a dot where it ends, and there the team in a small
+// label in its color with its chance big under it. A touch reads both.
+const W=600,H=190,PLOT='(100% - 112px)';
 function TwoLineChart({prediction,chart}){
  const host=useRef(null);
  const [hover,setHover]=useState(null);
  const nowT=Date.now()/1000;
  const live=chart?.live||[],market=chart?.market||[];
  const fallback=prediction.market?.chance?.home??prediction.chance.home;
- const base=live.length>1?live:market.length?market:[[nowT-3600,fallback],[nowT,fallback]];
+ const inGame=live.length>1;
+ const raw=inGame?live:market.length?market:[[nowT-3600,fallback]];
+ // The price stands until it moves: before the game, the line runs on to now at the latest price.
+ const latest=inGame?null:chart?.now?.market??raw[raw.length-1][1];
+ const base=latest!=null&&raw[raw.length-1][0]<nowT-30?[...raw,[nowT,latest]]:raw;
  const series={home:sideSeries(base,'home'),away:sideSeries(base,'away')};
  const frame=chartFrame([series.home,series.away]);
  if(!frame)return null;
- const box={...frame,low:Math.max(0,Math.min(frame.low,0.2)),high:Math.min(1,Math.max(frame.high,0.8)),end:Math.max(frame.end,nowT)};
- box.lines=[0.25,0.5,0.75].filter(value=>value>box.low&&value<box.high);
+ const step=0.15,below=Math.min(frame.low,0.35),above=Math.max(frame.high,0.65);
+ const low=Math.max(0,0.5-step*Math.ceil((0.5-below)/step-1e-9)),high=Math.min(1,0.5+step*Math.ceil((above-0.5)/step-1e-9));
+ const box={...frame,low,high,end:Math.max(frame.end,nowT)};
+ const grid=[];for(let value=low;value<=high+1e-9;value+=step)grid.push(Math.round(value*100)/100);
  const y=value=>(1-(value-box.low)/(box.high-box.low))*100;
  const pick=event=>{
   const rect=host.current?.getBoundingClientRect();if(!rect)return;
-  const span=Math.max(1,rect.width-64);
+  const span=Math.max(1,rect.width-112);
   const t=box.start+(Math.min(Math.max(event.clientX-rect.left,0),span)/span)*(box.end-box.start);
   let found=base[0];for(const point of base){if(point[0]<=t)found=point;else break;}
   setHover({x:(found[0]-box.start)/(box.end-box.start||1),home:found[1],t:found[0]});
  };
  const last=base[base.length-1][1];
  const ends={home:last,away:1-last};
- // Two end labels never overlap: pushed apart when the chances are close.
- const gap=Math.abs(y(ends.home)-y(ends.away))<14;
- const labelY=side=>{const value=y(ends[side]);if(!gap)return value;const up=ends[side]>=ends[side==='home'?'away':'home'];return up?Math.min(value,y(0.5)-7):Math.max(value,y(0.5)+7);};
+ // Two labels never overlap: pushed apart when the chances are close.
+ const gap=Math.abs(y(ends.home)-y(ends.away))<26;
+ const labelY=side=>{const value=y(ends[side]);if(!gap)return value;const up=ends[side]>=ends[side==='home'?'away':'home'];return up?Math.min(value,y(0.5)-13):Math.max(value,y(0.5)+13);};
  const colorOf=side=>teamColor(prediction[side]);
  return <div className="gp-chart2" ref={host} onPointerMove={pick} onPointerDown={pick} onPointerLeave={()=>setHover(null)}
-  style={{'--home':colorOf('home')||'#e9e9e9','--away':colorOf('away')||'#8f8f8f'}}>
+  style={{'--home':colorOf('home')||'#e9e9e9','--away':colorOf('away')||'#8f8f8f','--home-ink':inkOn(prediction.home?.color),'--away-ink':inkOn(prediction.away?.color)}}>
+  {grid.map(value=><span key={value} className="gp-chart-rule" style={{top:`${y(value)}%`}}><small>{Math.round(value*100)}%</small></span>)}
   <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${prediction.away.abbr} ${pct(ends.away)}, ${prediction.home.abbr} ${pct(ends.home)}`}>
-   {box.lines.map(value=><line key={value} className="gp-chart-grid" x1="0" x2={W} y1={y(value)*H/100} y2={y(value)*H/100}/>)}
    {['away','home'].map(side=><path key={side} className={`gp-chart2-line is-${side}`} d={chartPath(series[side],box,W,H)}/>)}
   </svg>
-  {['away','home'].map(side=><span key={side} className={`gp-chart2-end is-${side}`} style={{top:`${labelY(side)}%`}}>
-   <small>{prediction[side].abbr}</small><b>{pct(ends[side])}</b>
-  </span>)}
-  {hover&&<><span className="gp-chart-cross" style={{left:`calc((100% - 64px) * ${hover.x})`}}/>
-   <span className="gp-chart-tip" style={{left:`calc((100% - 64px) * ${Math.min(Math.max(hover.x,0.16),0.84)})`}}>
+  {['away','home'].map(side=><React.Fragment key={side}>
+   <i className={`gp-chart2-dot is-${side}`} style={{top:`${y(ends[side])}%`}} aria-hidden="true"/>
+   <span className={`gp-chart2-end is-${side}`} style={{top:`${labelY(side)}%`}}>
+    <small>{prediction[side].abbr}</small><b>{pct(ends[side])}</b>
+   </span>
+  </React.Fragment>)}
+  {hover&&<><span className="gp-chart-cross" style={{left:`calc(${PLOT} * ${hover.x})`}}/>
+   <span className="gp-chart-tip" style={{left:`calc(${PLOT} * ${Math.min(Math.max(hover.x,0.2),0.8)})`}}>
     <span>{prediction.away.abbr} <b>{pct(1-hover.home)}</b> · {prediction.home.abbr} <b>{pct(hover.home)}</b></span>{clockText(new Date(hover.t*1000).toISOString())}
    </span></>}
  </div>;

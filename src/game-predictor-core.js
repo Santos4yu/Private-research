@@ -324,3 +324,12 @@ export function marketNote(chart,prediction,now=Date.now()){
  }
  return [book,detail].filter(Boolean).join(' · ')||null;
 }
+
+/** Text color for a label filled with a team's color (hex, no "#"): dark on light colors, white on the rest. */
+export function inkOn(hex){
+ const c=rgbOf(hex);
+ if(!c)return '#ffffff';
+ // The label is the color mixed 82% with white.
+ const [r,g,b]=c.map(value=>value*0.82+255*0.18);
+ return 0.2126*r+0.7152*g+0.0722*b>165?'#141414':'#ffffff';
+}
