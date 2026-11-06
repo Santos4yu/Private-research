@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-06 (Game Predictor redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-06 (Game Predictor: picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,44 @@ Last updated 2026-11-06 (Game Predictor redesigned as one full page with a day-b
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 6 (latest): Game Predictor — picks only when saved, Kalshi-style markets, swipe up to save, live charts
+
+- The owner: "I don't want To automatically add props to the history make
+  it only if I add the prediction ... a Kalshi look ... the poly market
+  swipe up to buy thing that would save it to the history ... the % graph
+  ... use espn and make sure it auto updates ... live odds for free".
+- Nothing is kept automatically any more: `predict` and `board` keep
+  nothing, and the cron's `snapshot` only samples odds. A member's history
+  is their own saved picks: `save_pick` / `remove_pick` (POST
+  `action=game-save` {sport, event, side, stake?} / `game-remove`, routed
+  in api/prediction.py `do_POST` → `_game_predictor_post`, member from
+  `_member_id`), `PICKS_KEY = krazy_data:predictor:v2:picks:{member}:{sport}`.
+  One pick a game (a new save replaces it); a pick closes at tip-off; a
+  pending pick can be removed. Settled with `units` (at its saved
+  moneyline) and `profit` (if a stake was given); the record has W-L,
+  units, money staked / profit, pending. The old site-wide histories
+  (`...:v1|v2:history:{sport}`) are left in the store, not shown.
+- Charts: `sample_odds` keeps each game's market chance (no-vig moneyline)
+  under `ODDS_KEY = krazy_data:predictor:v2:odds:{sport}:{event}` when it
+  moves 0.2 points or every 15 minutes, from every fresh slate read, the
+  cron and the chart itself. `chart(sport, event)` (GET `game-chart`)
+  reads ESPN's summary at most every 20 s: the line now, the kept series,
+  and in a game ESPN's win probability after every play (`live_series`,
+  each at its play's wallclock, else spread from tip-off to now). The page
+  polls it every 15 s live, 60 s before (paused while hidden). Free, but
+  only as live as ESPN's lines (they update every few minutes); tick-by-tick
+  sportsbook odds would need a paid feed. The GitHub check now prints a
+  finished game's win probability and a game to come's pickcenter + chart.
+- Page: the open game shows a Market section after the winner: the
+  predicted winner's market chance now and its move, the chart (a step
+  line; our pick as a dashed line; a touch / hover readout; a pulsing dot;
+  live: "Live · Q2 5:00" and the score), then each team with our chance and
+  a price button in cents (team-tinted). The button opens `PickSheet`
+  (portaled to body; slides up, drag the grab bar down or tap outside to
+  close): price, our chance, value, an amount with +$10/25/50/100, to win
+  and payout, and `SwipeUp` (drag the knob up past 84 px; a tap nudges it;
+  Enter / Space saves). History is "Your picks" with remove buttons.
 
 ### Nov 6 (later): Game Predictor redesigned as one full page; a day-by-day generator
 

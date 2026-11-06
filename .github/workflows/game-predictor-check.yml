@@ -94,3 +94,33 @@ jobs:
                     f"| {made['confidence']} | EV best {made['ev']['best']}")
               print("   QBs:", built and built["starters"], "| warnings:", [item["text"] for item in made["warnings"]])
               print("   parts:", [(part["key"], part["points"], part["text"]) for part in made["factors"]])
+      - name: The charts' data (a finished game's win probability, a game to come's line)
+        shell: python
+        run: |
+          import json, sys, traceback
+          sys.path.insert(0, ".")
+          from datetime import datetime, timedelta, timezone
+          import game_predictor as gp
+          now = datetime.now(timezone.utc)
+          day = (now - timedelta(hours=29)).strftime("%Y%m%d")
+          for sport in gp.SPORTS:
+              try:
+                  board = gp._espn(sport, "/scoreboard", {"dates": day}) if sport == "nba" else gp._espn(sport, "/scoreboard")
+                  done = [event["id"] for event in board.get("events") or []
+                          if ((event.get("status") or {}).get("type") or {}).get("state") == "post"][:1]
+                  for event_id in done:
+                      summary = gp._espn(sport, "/summary", {"event": event_id})
+                      points = summary.get("winprobability") or []
+                      print(sport, "final", event_id, "win probability points:", len(points), "first:", points[:2])
+                      print("   plays:", len(summary.get("plays") or []), "drives:", len(((summary.get("drives") or {}).get("previous") or [])),
+                            "a play:", json.dumps(((summary.get("plays") or [{}])[0]))[:300])
+                      found = gp.chart(sport, event_id, now=now, store=None)
+                      print("   chart live points:", len(found["live"]), "first/last:", found["live"][:1], found["live"][-1:], "state:", found["state"])
+                  upcoming = [game for game in gp.slate(sport, now)["games"] if game["state"] == "pre"][:1]
+                  for game in upcoming:
+                      summary = gp._espn(sport, "/summary", {"event": game["id"]})
+                      print(sport, "to come", game["id"], "pickcenter:", json.dumps((summary.get("pickcenter") or [None])[0])[:900])
+                      found = gp.chart(sport, game["id"], now=now, store=None)
+                      print("   chart now:", found["now"], "state:", found["state"])
+              except Exception:  # noqa: BLE001
+                  traceback.print_exc()

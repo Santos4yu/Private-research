@@ -46,11 +46,13 @@ plus data warnings, a confidence level and each moneyline's expected value.
 The older numbers above stay as the fallback when v2 can't run (the NFL's
 play-by-play tables not built yet, or a failed read).
 
-Every prediction made before tip-off is kept (HISTORY_KEY) and settled from
-ESPN's final scores, so the page shows how often it has been right, beside
-how often the market's favorite was. A cron (snapshot, through
-api/v2-admin.py) predicts every game twice a day, so the record isn't only
-the games someone opened.
+A member's history is only the picks they save (save_pick, PICKS_KEY; Nov 6,
+the owner: "only if I add the prediction"), settled from ESPN's final
+scores: right or wrong, and what each won or lost at the moneyline it was
+saved at. Each game's chart is the market's chance over time, from every
+fresh read of the lines (ODDS_KEY, sample_odds: the slate, the twice-daily
+cron, the chart itself), and in a game ESPN's win probability after every
+play (chart).
 """
 from __future__ import annotations
 
@@ -99,8 +101,15 @@ OUT_STATUSES = ("out", "doubtful", "suspension", "suspended", "injured reserve",
 SLATE_SECONDS = 5 * 60
 SUMMARY_SECONDS = 5 * 60
 TABLE_SECONDS = 15 * 60
-# v2's history starts fresh: v1's (krazy_data:predictor:v1:history) is kept, not shown.
-HISTORY_KEY = "krazy_data:predictor:v2:history:{sport}"
+# Each member's saved picks (only what they save; Nov 6). The site-wide
+# histories before it (krazy_data:predictor:v1|v2:history:{sport}) are kept, not shown.
+PICKS_KEY = "krazy_data:predictor:v2:picks:{member}:{sport}"
+# Each game's market chance over time, for its chart: [[epoch s, home chance, home ML, away ML]].
+ODDS_KEY = "krazy_data:predictor:v2:odds:{sport}:{event}"
+# A sample is added when the chance moved this much, or this many seconds passed.
+ODDS_MOVE, ODDS_EVERY, MAX_ODDS = 0.002, 15 * 60, 400
+# The chart's own read of ESPN's summary (the line now, a game's win probability).
+LIVE_SECONDS = 20
 PRIOR_KEY = "krazy_data:predictor:v1:nba-prior:{season}"
 PRIOR2_KEY = "krazy_data:predictor:v2:nba-prior:{season}"
 MAX_HISTORY = 400
@@ -271,7 +280,14 @@ def slate(sport, now=None) -> dict:
             except Exception:  # noqa: BLE001 -- this week's list stands
                 pass
         return games
-    games = _kept(f"slate:{sport}:{_us_day(now)}", SLATE_SECONDS, load)
+    def fresh():
+        found = load()
+        try:  # Every fresh read of the lines is a point on the games' charts.
+            sample_odds(sport, found, now=now)
+        except Exception:  # noqa: BLE001
+            pass
+        return found
+    games = _kept(f"slate:{sport}:{_us_day(now)}", SLATE_SECONDS, fresh)
     games = [game for game in games if game["home"] and game["away"] and game["state"] in ("pre", "in")]
     games.sort(key=lambda game: game["startsAt"] or "")
     return {"sport": sport, "games": games, "fetchedAt": now.isoformat()}
@@ -1269,9 +1285,10 @@ def _pace(sport, built):
             "home": plays["home"], "away": plays["away"]}
 
 
-def predict(sport, event_id, now=None, store=None, keep=True) -> dict:
-    """Predict one game (ESPN's event id) and keep it for the history while
-    the game is still to start (`keep`; the snapshot keeps its own in one write)."""
+def predict(sport, event_id, now=None, store=None) -> dict:
+    """Predict one game (ESPN's event id). Nothing is kept: a member saves a
+    pick (save_pick) when they want it in their history (Nov 6, the owner:
+    "only if I add the prediction")."""
     if sport not in SPORTS:
         raise ValueError("Unknown sport")
     now = now or datetime.now(timezone.utc)
@@ -1285,11 +1302,6 @@ def predict(sport, event_id, now=None, store=None, keep=True) -> dict:
     found = prediction(sport, game, built, players, now)
     if not found:
         raise LookupError("There isn't enough on this game yet to predict it.")
-    if keep and _still_to_start(found, now):
-        try:
-            record(sport, found, store=store)
-        except Exception:  # noqa: BLE001 -- the history is never worth failing a prediction
-            pass
     return found
 
 
@@ -1298,20 +1310,14 @@ def _still_to_start(found, now) -> bool:
     return found.get("state") == "pre" and bool(start) and start > now
 
 
-def snapshot(sport, now=None, store=None, hours=36) -> dict:
-    """Predict every game starting within `hours` and keep each (the cron,
-    twice a day), then settle the finished ones: the history covers every
-    game, not only the ones someone opened. One write for all of them."""
+def snapshot(sport, now=None, store=None) -> dict:
+    """The cron, twice a day: each game's market chance from the current
+    lines, for its chart (sample_odds). No predictions are kept: the
+    history is only the picks members save."""
     now = now or datetime.now(timezone.utc)
     store = _store() if store is None else store
-    games = [game for game in slate(sport, now)["games"] if game["state"] == "pre" and (start := _when(game["startsAt"]))
-             and now < start <= now + timedelta(hours=hours)]
-    results = _predict_many(sport, games, now, store)
-    made = [found for found, _ in results if found and _still_to_start(found, now)]
-    if made:
-        record_many(sport, made, store)
-    return {"sport": sport, "games": len(games), "saved": len(made), "models": sorted({found["model"] for found in made}),
-            "failed": [error for _, error in results if error], "record": history(sport, now=now, store=store)["record"]}
+    games = slate(sport, now)["games"]
+    return {"sport": sport, "games": len(games), "sampled": sample_odds(sport, games, store=store, now=now)}
 
 
 def _predict_many(sport, games, now, store):
@@ -1323,7 +1329,7 @@ def _predict_many(sport, games, now, store):
 
     def one(game):
         try:
-            return predict(sport, game["id"], now=now, store=store, keep=False), None
+            return predict(sport, game["id"], now=now, store=store), None
         except Exception as exc:  # noqa: BLE001 -- that game is left out
             return None, type(exc).__name__
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -1375,9 +1381,9 @@ def day_games(sport, day, now=None) -> list:
 
 
 def board(sport, now=None, store=None, day=None) -> dict:
-    """{sport, day, games}: every game still to start predicted (each kept
-    for the record too), soonest first: the slate's (the NBA's today and
-    tomorrow, the NFL's week), or one US date's ("YYYYMMDD", the generator)."""
+    """{sport, day, games}: every game still to start predicted, soonest
+    first: the slate's (the NBA's today and tomorrow, the NFL's week), or one
+    US date's ("YYYYMMDD", the generator). Nothing is kept."""
     if sport not in SPORTS:
         raise ValueError("Unknown sport")
     now = now or datetime.now(timezone.utc)
@@ -1387,11 +1393,6 @@ def board(sport, now=None, store=None, day=None) -> dict:
         games = [game for game in listed if game["state"] == "pre" and (start := _when(game["startsAt"])) and start > now]
         results = _predict_many(sport, games[:BOARD_GAMES], now, store)
         made = [found for found, _ in results if found and _still_to_start(found, now)]
-        if made:
-            try:
-                record_many(sport, made, store)
-            except Exception:  # noqa: BLE001 -- the history is never worth failing the board
-                pass
         return {"sport": sport, "day": day, "games": [board_game(found) for found in made], "fetchedAt": now.isoformat()}
     return _kept(f"board:{sport}:{day or 'next'}", BOARD_SECONDS, load)
 
@@ -1406,50 +1407,71 @@ def _store():
         return None
 
 
-def _entry(found) -> dict:
-    """What the history keeps of a prediction: the blend's pick (the main
-    one), ours alone, the market's favorite and the moneyline with the best
-    expected value, if any was above zero (a one-unit bet, for the record)."""
-    team = lambda side: {key: found[side].get(key) for key in ("abbr", "short", "logo")}
-    market = found.get("market") or {}
-    market_chance = market.get("chance") or {}
-    ours = (found.get("predictions") or {}).get("ours")
-    ev = found.get("ev") or {}
-    bet = (ev.get("blend") or {}).get(ev.get("best")) if ev.get("best") else None
-    return {"id": found["id"], "startsAt": found["startsAt"], "madeAt": found["madeAt"], "home": team("home"), "away": team("away"),
-            "model": found.get("model"), "pick": found["winner"], "chance": found["chance"][found["winner"]], "score": found["score"],
-            "ours": {"pick": ours["winner"], "chance": ours["chance"][ours["winner"]], "score": ours["score"]} if ours else None,
-            "marketPick": ("home" if market_chance.get("home", 0.5) >= 0.5 else "away") if market_chance else None,
-            "spread": market.get("spread"), "total": market.get("total"), "confidence": found.get("confidence"),
-            "bet": {"side": ev["best"], "price": bet["price"], "ev": bet["ev"]} if bet else None, "result": None}
+def _member_key(sport, member) -> str:
+    return PICKS_KEY.format(member=re.sub(r"[^A-Za-z0-9_.:-]", "", str(member))[:80], sport=sport)
 
 
-def _read(sport, store):
+def _read(key, store):
     try:
-        raw = store.get(HISTORY_KEY.format(sport=sport)) if store else None
+        raw = store.get(key) if store else None
         value = json.loads(raw) if raw else []
         return value if isinstance(value, list) else []
     except Exception:  # noqa: BLE001
         return []
 
 
-def _write(sport, items, store):
+def _write(key, items, store, most=MAX_HISTORY):
     if store:
-        store.set(HISTORY_KEY.format(sport=sport), json.dumps(items[:MAX_HISTORY], separators=(",", ":")))
+        store.set(key, json.dumps(items[:most], separators=(",", ":")))
 
 
-def record(sport, found, store=None):
-    """Keep the latest prediction made before the game starts (one per game)."""
-    record_many(sport, [found], store)
+def pick_entry(found, side, stake=None, now=None) -> dict:
+    """A member's pick, as their history keeps it: the team they took, its
+    moneyline then (and what a dollar returns), their stake if they gave
+    one, our chances for that team (the blend and our model alone) and the
+    market's, and the predicted winner and score at the time."""
+    team = lambda key: {key2: found[key].get(key2) for key2 in ("abbr", "short", "logo", "color")}
+    market = found.get("market") or {}
+    price = (market.get("moneyline") or {}).get(side)
+    ours = (found.get("predictions") or {}).get("ours")
+    dec = (1 + price / 100 if price > 0 else 1 + 100 / abs(price)) if price is not None and abs(price) >= 100 else None
+    return {"id": found["id"], "sport": found["sport"], "startsAt": found["startsAt"], "savedAt": (now or datetime.now(timezone.utc)).isoformat(),
+            "home": team("home"), "away": team("away"), "side": side, "price": price, "dec": round(dec, 4) if dec else None,
+            "stake": round(float(stake), 2) if stake else None, "chance": found["chance"][side],
+            "ours": ours["chance"][side] if ours else None, "market": (market.get("chance") or {}).get(side),
+            "winner": found["winner"], "score": found["score"], "spread": market.get("spread"), "result": None}
 
 
-def record_many(sport, founds, store=None):
-    """record() for several games in one read and one write."""
+def save_pick(sport, member, event_id, side, stake=None, now=None, store=None) -> dict:
+    """Keep a member's pick on a game still to start (one a game: a new one
+    replaces it). Returns the entry kept."""
+    if sport not in SPORTS or side not in ("home", "away"):
+        raise ValueError("Pick a team.")
+    if stake is not None and not (0 < float(stake) <= 1_000_000):
+        raise ValueError("Enter an amount above zero.")
+    now = now or datetime.now(timezone.utc)
+    found = predict(sport, event_id, now=now)
+    if not _still_to_start(found, now):
+        raise LookupError("This game has started: picks close at tip-off.")
     store = _store() if store is None else store
-    ids = {found["id"] for found in founds}
-    items = [item for item in _read(sport, store) if item.get("id") not in ids] + [_entry(found) for found in founds]
+    key = _member_key(sport, member)
+    entry = pick_entry(found, side, stake, now)
+    items = [item for item in _read(key, store) if item.get("id") != entry["id"]] + [entry]
     items.sort(key=lambda item: item.get("startsAt") or "", reverse=True)
-    _write(sport, items, store)
+    _write(key, items, store)
+    return entry
+
+
+def remove_pick(sport, member, event_id, store=None) -> bool:
+    """Take back a pick on a game still to start."""
+    store = _store() if store is None else store
+    key = _member_key(sport, member)
+    items = _read(key, store)
+    kept = [item for item in items if not (item.get("id") == str(event_id) and not item.get("result"))]
+    if len(kept) == len(items):
+        return False
+    _write(key, kept, store)
+    return True
 
 
 def final_of(summary):
@@ -1477,45 +1499,43 @@ def _finals(sport, event_ids):
 
 
 def settle(item, final) -> dict:
+    """A pick's result once the game is final: right or wrong, and what it
+    won or lost (its stake, and one unit, at the moneyline it was saved at)."""
     home, away = final
     winner = "home" if home > away else "away" if away > home else None
-    result = {"home": home, "away": away, "winner": winner, "correct": winner is not None and item["pick"] == winner,
-              "market": None if not item.get("marketPick") or winner is None else item["marketPick"] == winner}
+    result = {"home": home, "away": away, "winner": winner, "correct": winner is not None and item.get("side") == winner}
     if item.get("score"):
         result["miss"] = abs(item["score"]["home"] - home) + abs(item["score"]["away"] - away)
-    if item.get("ours") and winner is not None:
-        result["ours"] = item["ours"]["pick"] == winner
-    bet = item.get("bet")
-    if bet:
-        price = bet["price"]
-        # One unit: the price's profit if it won, the unit if it lost, nothing on a tie.
-        result["bet"] = 0.0 if winner is None else round(100 / abs(price) if price < 0 else price / 100, 4) if bet["side"] == winner else -1.0
+    dec = item.get("dec")
+    if dec:
+        # A tie returns the stake.
+        result["units"] = 0.0 if winner is None else round(dec - 1, 4) if result["correct"] else -1.0
+        if item.get("stake"):
+            result["profit"] = round(item["stake"] * result["units"], 2)
     return {**item, "result": result}
 
 
 def record_summary(items) -> dict:
     settled = [item for item in items if item.get("result") and item["result"].get("winner")]
-    market = [item for item in settled if item["result"].get("market") is not None]
-    misses = [item["result"]["miss"] for item in settled if item["result"].get("miss") is not None]
     correct = sum(1 for item in settled if item["result"]["correct"])
-    ours = [item["result"]["ours"] for item in settled if item["result"].get("ours") is not None]
-    bets = [item["result"]["bet"] for item in items if (item.get("result") or {}).get("bet") is not None]
+    units = [item["result"]["units"] for item in items if (item.get("result") or {}).get("units") is not None]
+    staked = [item for item in items if (item.get("result") or {}).get("profit") is not None]
     return {"games": len(settled), "correct": correct, "pct": correct / len(settled) if settled else None,
-            "ours": {"games": len(ours), "correct": sum(ours)},
-            "market": {"games": len(market), "correct": sum(1 for item in market if item["result"]["market"])},
-            "bets": {"count": len(bets), "units": round(sum(bets), 2), "roi": sum(bets) / len(bets) if bets else None},
-            "scoreMiss": sum(misses) / len(misses) / 2 if misses else None,
+            "units": round(sum(units), 2) if units else None,
+            "money": {"staked": round(sum(item["stake"] for item in staked), 2), "profit": round(sum(item["result"]["profit"] for item in staked), 2)}
+            if staked else None,
             "pending": sum(1 for item in items if not item.get("result"))}
 
 
-def history(sport, now=None, store=None, finals=None) -> dict:
-    """{items, record}: the kept predictions, newest first, the finished
+def history(sport, member, now=None, store=None, finals=None) -> dict:
+    """{items, record}: a member's saved picks, newest first, the finished
     ones settled from ESPN's final scores."""
     if sport not in SPORTS:
         raise ValueError("Unknown sport")
     now = now or datetime.now(timezone.utc)
     store = _store() if store is None else store
-    items = _read(sport, store)
+    key = _member_key(sport, member)
+    items = _read(key, store)
     due = [item for item in items if not item.get("result") and (start := _when(item.get("startsAt")))
            and (now - start).total_seconds() >= SETTLE_AFTER[sport]]
     if due:
@@ -1527,7 +1547,106 @@ def history(sport, now=None, store=None, finals=None) -> dict:
                 changed = True
         if changed:
             try:
-                _write(sport, items, store)
+                _write(key, items, store)
             except Exception:  # noqa: BLE001
                 pass
-    return {"sport": sport, "items": items[:60], "record": record_summary(items)}
+    return {"sport": sport, "items": items[:80], "record": record_summary(items)}
+
+
+# ------------------------------------------------------------------ the chart
+
+def sample_odds(sport, games, store=None, now=None) -> int:
+    """Each game's market chance (the moneylines with the margin taken out)
+    added to its series when it moved or ODDS_EVERY has passed: the charts'
+    history, from every fresh read of the lines (the slate, the cron, the
+    chart itself). Returns how many series grew."""
+    store = _store() if store is None else store
+    if not store:
+        return 0
+    stamp = int((now or datetime.now(timezone.utc)).timestamp())
+    grown = 0
+    for game in games:
+        line = game.get("line") or {}
+        chance = (line.get("chance") or {}).get("home")
+        if chance is None or game.get("state") == "post":
+            continue
+        key = ODDS_KEY.format(sport=sport, event=game["id"])
+        series = _read(key, store)
+        last = series[-1] if series else None
+        if last and abs(last[1] - chance) < ODDS_MOVE and stamp - last[0] < ODDS_EVERY:
+            continue
+        prices = line.get("moneyline") or {}
+        series.append([stamp, round(chance, 4), prices.get("home"), prices.get("away")])
+        try:
+            _write(key, series[-MAX_ODDS:], store, most=MAX_ODDS)
+            grown += 1
+        except Exception:  # noqa: BLE001 -- the next read tries again
+            pass
+    return grown
+
+
+def _live_summary(sport, event_id):
+    """ESPN's summary, read at most every LIVE_SECONDS: the line now, the
+    state, and in a game its win probability after every play."""
+    return _kept(f"live:{sport}:{event_id}", LIVE_SECONDS, lambda: _espn(sport, "/summary", {"event": event_id}))
+
+
+def live_series(summary, starts_at=None, now=None) -> list:
+    """ESPN's in-game win probability as [[epoch seconds, home chance]], one
+    a play: each at its play's clock time where ESPN gives one, else spread
+    evenly from the start to now."""
+    points = (summary or {}).get("winprobability") or []
+    if not points:
+        return []
+    clock = {}
+    plays = list((summary or {}).get("plays") or [])
+    for drive in (((summary or {}).get("drives") or {}).get("previous") or []) + [((summary or {}).get("drives") or {}).get("current") or {}]:
+        plays += drive.get("plays") or []
+    for play in plays:
+        when = _when(play.get("wallclock"))
+        if play.get("id") is not None and when:
+            clock[str(play["id"])] = int(when.timestamp())
+    start = _when(starts_at)
+    first = int(start.timestamp()) if start else None
+    last = int((now or datetime.now(timezone.utc)).timestamp())
+    out = []
+    for index, point in enumerate(points):
+        chance = _num(point.get("homeWinPercentage"))
+        if chance is None:
+            continue
+        stamp = clock.get(str(point.get("playId")))
+        if stamp is None and first is not None:
+            stamp = first + (last - first) * index // max(1, len(points) - 1)
+        if stamp is not None:
+            out.append([stamp, round(chance, 4)])
+    out.sort(key=lambda item: item[0])
+    return out
+
+
+def chart(sport, event_id, now=None, store=None) -> dict:
+    """One game's chance over time: the market's from its kept samples (and
+    the line right now), and in a game ESPN's win probability after every
+    play. The page reads it again every few seconds while the game is open."""
+    if sport not in SPORTS:
+        raise ValueError("Unknown sport")
+    now = now or datetime.now(timezone.utc)
+    store = _store() if store is None else store
+    summary = _live_summary(sport, event_id)
+    competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
+    sides = {competitor.get("homeAway"): _competitor(competitor) for competitor in competition.get("competitors") or []}
+    if not sides.get("home") or not sides.get("away"):
+        raise LookupError("That game isn't on ESPN's schedule.")
+    status = (competition.get("status") or {}).get("type") or {}
+    line = _line((summary.get("pickcenter") or [None])[0], sides)
+    game = {"id": str(event_id), "state": status.get("state"), "line": line}
+    if line and status.get("state") != "post":
+        sample_odds(sport, [game], store=store, now=now)
+    series = _read(ODDS_KEY.format(sport=sport, event=event_id), store)
+    live = live_series(summary, competition.get("date"), now) if status.get("state") in ("in", "post") else []
+    team = lambda side: {key: sides[side].get(key) for key in ("abbr", "short", "logo", "color", "score")}
+    return {"id": str(event_id), "sport": sport, "state": status.get("state"), "detail": status.get("shortDetail") or status.get("detail"),
+            "startsAt": competition.get("date"), "home": team("home"), "away": team("away"),
+            "market": [[point[0], point[1]] for point in series], "live": live,
+            "now": {"market": (line or {}).get("chance", {}).get("home") if line else None, "live": live[-1][1] if live else None,
+                    "moneyline": (line or {}).get("moneyline")},
+            "updatedAt": now.isoformat()}

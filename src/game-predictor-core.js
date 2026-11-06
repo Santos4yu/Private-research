@@ -170,6 +170,49 @@ export function parlays(board,{legs=null,payout=null,sort='likely',most=4,top=3}
  return found.sort(order).slice(0,top);
 }
 
+/** A chance as a market price: 0.634 → "63¢". */
+export const cents=chance=>chance==null||!Number.isFinite(chance)?'—':`${Math.round(chance*100)}¢`;
+/** What a stake wins at a moneyline (stake back not included). */
+export const winOf=(stake,price)=>{const dec=decimal(price);return dec&&stake>0?stake*(dec-1):null;};
+/** "$32", "$1,250.50", "+$32", "−$20". */
+export function moneyText(value,signed=false){
+ if(value==null||!Number.isFinite(value))return '—';
+ const round=Math.round(Math.abs(value)*100)/100;
+ const text=round.toLocaleString('en-US',{minimumFractionDigits:Number.isInteger(round)?0:2,maximumFractionDigits:2});
+ return `${value<0?'−':signed&&value>0?'+':''}$${text}`;
+}
+
+/** One side's chance over time: [[t, home chance]] read from `side`'s view. */
+export const sideSeries=(points,side)=>(points||[]).map(([t,home])=>[t,side==='home'?home:1-home]);
+
+/** The chart's frame: the time span and a chance range around the data
+ * (at least 10 points wide, inside 0-100%), and the y lines to draw. */
+export function chartFrame(series,extra=[]){
+ const all=series.flat();
+ const times=all.map(point=>point[0]),values=[...all.map(point=>point[1]),...extra.filter(Number.isFinite)];
+ if(!times.length)return null;
+ let low=Math.min(...values),high=Math.max(...values);
+ const pad=Math.max(0.02,(high-low)*0.15);low-=pad;high+=pad;
+ if(high-low<0.1){const mid=(high+low)/2;low=mid-0.05;high=mid+0.05;}
+ low=Math.max(0,low);high=Math.min(1,high);
+ const step=high-low>0.4?0.2:high-low>0.2?0.1:0.05;
+ const lines=[];for(let value=Math.ceil(low/step)*step;value<=high+1e-9;value+=step)lines.push(Math.round(value*100)/100);
+ return {start:Math.min(...times),end:Math.max(...times),low,high,lines};
+}
+
+/** An SVG path for a series in a w x h box (a step line: a price holds until it moves). */
+export function chartPath(series,frame,w,h){
+ if(!series?.length||!frame)return '';
+ const x=t=>frame.end===frame.start?w:(t-frame.start)/(frame.end-frame.start)*w;
+ const y=v=>h-(v-frame.low)/(frame.high-frame.low)*h;
+ let path='';
+ series.forEach(([t,v],index)=>{
+  const px=x(t).toFixed(1),py=y(v).toFixed(1);
+  path+=index===0?`M${px} ${py}`:`H${px}V${py}`;
+ });
+ return path+`H${w}`;
+}
+
 /** The history's result for one entry: 'win', 'loss', 'push' or 'pending'. */
 export function resultOf(item){
  const result=item?.result;

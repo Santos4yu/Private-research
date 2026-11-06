@@ -276,20 +276,46 @@ class NflV2Tests(unittest.TestCase):
 
 
 class SnapshotTests(unittest.TestCase):
-    def test_every_game_in_one_write(self):
-        store, writes = FakeStore(), []
-        original = store.set
-        store.set = lambda key, value: (writes.append(key), original(key, value))
-        upcoming = [{"id": str(n), "state": "pre", "startsAt": f"2026-11-06T0{n}:00:00Z"} for n in range(3)]
-        upcoming.append({"id": "far", "state": "pre", "startsAt": "2026-11-09T00:00:00Z"})
-        context = gp.nba_context(payload(), None, NOW.date())
-        with patch.object(gp, "slate", return_value={"games": upcoming}), patch.object(gp, "_nba_v2", return_value=context), \
-                patch.object(gp, "_summary", side_effect=lambda sport, event: {**game(), "id": event}):
+    def test_the_cron_only_samples_the_odds(self):
+        store = FakeStore()
+        line = lambda chance: {"chance": {"home": chance, "away": 1 - chance}, "moneyline": {"home": -150, "away": 130}}
+        upcoming = [{"id": "1", "state": "pre", "line": line(0.6)}, {"id": "2", "state": "pre", "line": None}]
+        with patch.object(gp, "slate", return_value={"games": upcoming}):
             done = gp.snapshot("nba", now=NOW, store=store)
-        self.assertEqual((done["games"], done["saved"], done["models"], done["failed"]), (3, 3, ["v2"], []))
-        self.assertEqual(len(writes), 1)
-        kept = json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])
-        self.assertEqual(sorted(item["id"] for item in kept), ["0", "1", "2"])
+        self.assertEqual((done["games"], done["sampled"]), (2, 1))
+        self.assertEqual(json.loads(store.data[gp.ODDS_KEY.format(sport="nba", event="1")]), [[int(NOW.timestamp()), 0.6, -150, 130]])
+        self.assertFalse(any("picks" in key or "history" in key for key in store.data))
+        # The same chance minutes later adds nothing; a move, or a quarter hour, does.
+        later = NOW + timedelta(minutes=5)
+        self.assertEqual(gp.sample_odds("nba", [{"id": "1", "state": "pre", "line": line(0.6)}], store=store, now=later), 0)
+        self.assertEqual(gp.sample_odds("nba", [{"id": "1", "state": "pre", "line": line(0.63)}], store=store, now=later), 1)
+        self.assertEqual(gp.sample_odds("nba", [{"id": "1", "state": "pre", "line": line(0.63)}], store=store, now=later + timedelta(minutes=16)), 1)
+        self.assertEqual(len(json.loads(store.data[gp.ODDS_KEY.format(sport="nba", event="1")])), 3)
+
+
+class ChartTests(unittest.TestCase):
+    def summary(self, state="in"):
+        return {"header": {"competitions": [{"date": "2026-11-06T00:00Z", "status": {"type": {"state": state, "shortDetail": "Q2 5:00"}},
+                                             "competitors": [{"homeAway": "home", "team": {"abbreviation": "DEN"}, "score": "50"},
+                                                             {"homeAway": "away", "team": {"abbreviation": "BOS"}, "score": "44"}]}]},
+                "pickcenter": [], "winprobability": [{"playId": "a", "homeWinPercentage": 0.5}, {"playId": "b", "homeWinPercentage": 0.58},
+                                                      {"playId": "c", "homeWinPercentage": 0.61}],
+                "plays": [{"id": "a", "wallclock": "2026-11-06T00:05:00Z"}, {"id": "b", "wallclock": "2026-11-06T00:20:00Z"}]}
+
+    def test_the_market_before_and_espn_in_the_game(self):
+        store = FakeStore()
+        store.set(gp.ODDS_KEY.format(sport="nba", event="401"), json.dumps([[1, 0.55, -120, 100], [2, 0.57, -130, 110]]))
+        gp._memory.clear()
+        with patch.object(gp, "_espn", return_value=self.summary()):
+            found = gp.chart("nba", "401", now=datetime(2026, 11, 6, 0, 40, tzinfo=timezone.utc), store=store)
+        gp._memory.clear()
+        self.assertEqual(found["market"], [[1, 0.55], [2, 0.57]])
+        # Each play at its clock time; the last one (no clock) spread toward now.
+        stamps = [point[0] for point in found["live"]]
+        self.assertEqual(stamps[:2], [int(datetime(2026, 11, 6, 0, 5, tzinfo=timezone.utc).timestamp()),
+                                      int(datetime(2026, 11, 6, 0, 20, tzinfo=timezone.utc).timestamp())])
+        self.assertEqual([point[1] for point in found["live"]], [0.5, 0.58, 0.61])
+        self.assertEqual((found["state"], found["now"]["live"], found["home"]["score"]), ("in", 0.61, 50))
 
 
 class BoardTests(unittest.TestCase):
@@ -312,8 +338,8 @@ class BoardTests(unittest.TestCase):
         self.assertEqual(games["1"]["held"], "No moneyline yet")
         # 25 points from our model: a data warning holds it back.
         self.assertIn("points apart", games["2"]["held"])
-        # Each kept for the record too.
-        self.assertEqual(len(json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])), 3)
+        # Nothing kept: the history is only what a member saves.
+        self.assertFalse(any("picks" in key or "history" in key for key in store.data))
         self.assertEqual(games["0"]["sport"], "nba")
         gp._memory.pop("board:nba:next", None)
 
@@ -346,43 +372,52 @@ class FakeStore:
 
 
 class HistoryTests(unittest.TestCase):
-    def found(self, event, starts, pick="home", score=(112, 104), market=0.6, ours="home", bet=None):
-        ev = {"blend": {bet[0]: {"price": bet[1], "ev": 0.03}} if bet else {}, "best": bet[0] if bet else None}
-        return {"id": event, "startsAt": starts, "madeAt": "2026-11-01T12:00:00Z", "winner": pick, "chance": {"home": 0.62, "away": 0.38},
-                "home": {"abbr": "DEN", "short": "Nuggets", "logo": None}, "away": {"abbr": "BOS", "short": "Celtics", "logo": None},
-                "score": {"home": score[0], "away": score[1]}, "market": {"spread": -4.5, "total": 226.5, "chance": {"home": market, "away": 1 - market}},
-                "predictions": {"ours": {"winner": ours, "chance": {"home": 0.7, "away": 0.3}, "score": None}}, "ev": ev, "model": "v2"}
+    def save(self, store, event, starts, side="home", stake=None, home_ml=-190, away_ml=160, member="m1"):
+        g = {**game(home_ml=home_ml, away_ml=away_ml), "id": event, "startsAt": starts}
+        context = gp.nba_context(payload(), None, NOW.date())
+        with patch.object(gp, "_summary", return_value=g), patch.object(gp, "_nba_v2", return_value=context):
+            return gp.save_pick("nba", member, event, side, stake, now=NOW - timedelta(days=5), store=store)
 
-    def test_record_settle_and_summary(self):
+    def test_only_saved_picks_settled_with_profit(self):
         store = FakeStore()
-        gp.record("nba", self.found("1", "2026-11-03T00:00:00Z"), store=store)
-        gp.record("nba", self.found("1", "2026-11-03T00:00:00Z", score=(110, 100)), store=store)   # the later one wins
-        gp.record("nba", self.found("2", "2026-11-04T00:00:00Z", pick="away", market=0.7, bet=("away", 150)), store=store)
-        gp.record("nba", self.found("3", "2026-11-06T00:00:00Z"), store=store)                   # not played yet
+        self.save(store, "1", "2026-11-03T00:00:00Z", side="home", stake=50)
+        first = self.save(store, "1", "2026-11-03T00:00:00Z", side="away", stake=20)         # a new pick replaces it
+        self.assertEqual((first["side"], first["price"], first["dec"], first["stake"]), ("away", 160, 2.6, 20.0))
+        self.save(store, "2", "2026-11-04T00:00:00Z", side="home")                              # no amount: units only
+        self.save(store, "3", "2026-11-06T00:00:00Z")                                           # not played yet
+        self.save(store, "9", "2026-11-03T00:00:00Z", member="someone else")
         asked = []
 
         def finals(sport, ids):
             asked.append(sorted(ids))
-            return {"1": (115, 101), "2": (120, 99)}
-        result = gp.history("nba", now=NOW, store=store, finals=finals)
+            return {"1": (101, 115), "2": (99, 120)}
+        result = gp.history("nba", "m1", now=NOW, store=store, finals=finals)
         self.assertEqual(asked, [["1", "2"]])
         items = {item["id"]: item for item in result["items"]}
-        self.assertEqual(len(items), 3)
-        self.assertEqual(items["1"]["score"], {"home": 110, "away": 100})
-        self.assertEqual((items["1"]["result"]["correct"], items["1"]["result"]["miss"]), (True, 6))
-        self.assertEqual((items["2"]["result"]["correct"], items["2"]["result"]["market"]), (False, True))
+        self.assertEqual(sorted(items), ["1", "2", "3"])
+        # BOS (away) at +160 won: 20 staked wins 32.
+        self.assertEqual((items["1"]["result"]["correct"], items["1"]["result"]["profit"], items["1"]["result"]["units"]), (True, 32.0, 1.6))
+        self.assertEqual((items["2"]["result"]["correct"], items["2"]["result"]["units"]), (False, -1.0))
         self.assertIsNone(items["3"]["result"])
-        self.assertEqual(result["record"]["games"], 2)
-        self.assertEqual(result["record"]["correct"], 1)
-        self.assertEqual(result["record"]["market"], {"games": 2, "correct": 2})
-        self.assertEqual(result["record"]["pending"], 1)
-        # Ours alone picked DEN both times; the one value bet (BOS +150) lost.
-        self.assertEqual(result["record"]["ours"], {"games": 2, "correct": 2})
-        self.assertEqual(result["record"]["bets"], {"count": 1, "units": -1.0, "roi": -1.0})
-        # Settled games are kept settled: no more scoreboard reads for them.
-        gp.history("nba", now=NOW, store=store, finals=finals)
+        record = result["record"]
+        self.assertEqual((record["games"], record["correct"], record["units"], record["pending"]), (2, 1, 0.6, 1))
+        self.assertEqual(record["money"], {"staked": 20.0, "profit": 32.0})
+        # Settled once; a pick still to come can be taken back, a settled one can't.
+        gp.history("nba", "m1", now=NOW, store=store, finals=finals)
         self.assertEqual(len(asked), 1)
-        self.assertEqual(len(json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])), 3)
+        self.assertTrue(gp.remove_pick("nba", "m1", "3", store=store))
+        self.assertFalse(gp.remove_pick("nba", "m1", "1", store=store))
+        self.assertEqual(len(gp.history("nba", "someone else", now=NOW, store=store, finals=finals)["items"]), 1)
+
+    def test_no_picks_once_the_game_starts(self):
+        store = FakeStore()
+        g = {**game(state="in"), "id": "5"}
+        context = gp.nba_context(payload(), None, NOW.date())
+        with patch.object(gp, "_summary", return_value=g), patch.object(gp, "_nba_v2", return_value=context):
+            with self.assertRaises(LookupError):
+                gp.save_pick("nba", "m1", "5", "home", now=NOW, store=store)
+            with self.assertRaises(ValueError):
+                gp.save_pick("nba", "m1", "5", "draw", now=NOW, store=store)
 
     def test_a_final_from_the_summary(self):
         summary = {"header": {"competitions": [{"status": {"type": {"state": "post"}},
@@ -404,19 +439,14 @@ class HistoryTests(unittest.TestCase):
             found = gp.slate("nfl", now=NOW)
         self.assertEqual([game["id"] for game in found["games"]], ["2"])
 
-    def test_predict_keeps_only_games_still_to_start(self):
+    def test_predict_keeps_nothing(self):
         store = FakeStore()
         tables = gp.nba_tables(payload(), None)
         context = gp.nba_context(payload(), None, NOW.date())
         with patch.object(gp, "_summary", return_value=game()), patch.object(gp, "_nba_v2", return_value=context):
-            gp.predict("nba", "401", now=NOW, store=store)
-        with patch.object(gp, "_summary", return_value={**game(state="in"), "id": "402"}), patch.object(gp, "_nba_v2", return_value=context):
-            found = gp.predict("nba", "402", now=NOW, store=store)
-        self.assertEqual(found["id"], "402")
-        kept = json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])
-        self.assertEqual([item["id"] for item in kept], ["401"])
-        self.assertEqual(kept[0]["model"], "v2")
-        self.assertIsNotNone(kept[0]["ours"])
+            found = gp.predict("nba", "401", now=NOW, store=store)
+        self.assertEqual((found["id"], found["model"]), ("401", "v2"))
+        self.assertEqual(store.data, {})
         # Without v2's numbers the older model stands in, and says so.
         with patch.object(gp, "_summary", return_value=game()), patch.object(gp, "_nba_v2", side_effect=RuntimeError), \
                 patch.object(gp, "_nba_numbers", return_value=tables):

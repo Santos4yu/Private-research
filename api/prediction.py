@@ -253,10 +253,11 @@ class handler(BaseHTTPRequestHandler):
 
     def _game_predictor(self):
         """The Game Predictor (game_predictor.py), behind its own switch:
-        action=game-slate (the games to pick from), game-predict (one game,
-        kept for the record), game-board (every game still to start, for
-        the best picks and the parlay builder) and game-history (past
-        predictions, settled)."""
+        action=game-slate (the games to pick from), game-predict (one game),
+        game-board (every game still to start, for the best picks and the
+        generator), game-chart (one game's chance over time, read again
+        while it's open) and game-history (the member's saved picks,
+        settled); saving and removing a pick are POSTs (_game_predictor_post)."""
         from site_controls import allowed
         if not allowed(self.headers, 'predictor'):
             return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
@@ -272,7 +273,15 @@ class handler(BaseHTTPRequestHandler):
             if action == "game-slate":
                 return self._send(200, game_predictor.slate(sport))
             if action == "game-history":
-                return self._send(200, game_predictor.history(sport))
+                member = _member_id(self.headers, session_with_live_access(self.headers))
+                if not member:
+                    return self._send(401, {"error": "Sign in to see your picks.", "authRequired": True})
+                return self._send(200, game_predictor.history(sport, member))
+            if action == "game-chart":
+                event = arg("event")
+                if not event.isdigit() or len(event) > 14:
+                    return self._send(400, {"error": "Pick a game first."})
+                return self._send(200, game_predictor.chart(sport, event))
             if action == "game-board":
                 # A date (the generator, the member's own today to a week
                 # ahead: a day either side of the US East's for time zones),
@@ -294,6 +303,42 @@ class handler(BaseHTTPRequestHandler):
             return self._send(404, {"error": str(exc)})
         except Exception:  # noqa: BLE001 -- ESPN or the stored season can't be read right now
             return self._send(503, {"error": "The predictor can't reach its data right now. Try again in a minute."})
+        return self._send(404, {"error": "Unknown predictor action."})
+
+    def _game_predictor_post(self, action):
+        """Save a pick (game-save: {sport, event, side, stake?}) to the
+        member's history, or take one back (game-remove: {sport, event})."""
+        session = session_with_live_access(self.headers)
+        member = _member_id(self.headers, session) if session else None
+        if not member:
+            return self._send(401, {"error": "Sign in to save picks.", "authRequired": True})
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length > 4096:
+            return self._send(413, {"error": "That request is too large."})
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}") if length else {}
+        except ValueError:
+            body = {}
+        import game_predictor
+        sport, event = str(body.get("sport") or "").lower(), str(body.get("event") or "")
+        if sport not in game_predictor.SPORTS or not event.isdigit() or len(event) > 14:
+            return self._send(400, {"error": "Pick a game first."})
+        try:
+            if action == "game-save":
+                stake = body.get("stake")
+                stake = float(stake) if stake not in (None, "") else None
+                return self._send(200, {"pick": game_predictor.save_pick(sport, member, event, str(body.get("side") or ""), stake)})
+            if action == "game-remove":
+                return self._send(200, {"removed": game_predictor.remove_pick(sport, member, event)})
+        except (ValueError, TypeError) as exc:
+            return self._send(400, {"error": str(exc) if isinstance(exc, ValueError) and str(exc) else "Check the amount."})
+        except LookupError as exc:
+            return self._send(409, {"error": str(exc)})
+        except Exception:  # noqa: BLE001
+            return self._send(503, {"error": "Your pick couldn't be saved right now. Try again in a minute."})
         return self._send(404, {"error": "Unknown predictor action."})
 
     def do_GET(self):
@@ -415,8 +460,11 @@ class handler(BaseHTTPRequestHandler):
         # in the side panel is there for everyone, so its export closes only
         # with the site itself (maintenance) or for a suspended member.
         source=(parse_qs(urlparse(self.path).query).get('from') or [''])[0]
-        tab='slip' if 'slip-analyzer' in self.path else 'export' if 'slip-export' in self.path else 'bets' if 'action=bets-' in self.path else 'builder' if source=='parlay' else None
+        tab='slip' if 'slip-analyzer' in self.path else 'export' if 'slip-export' in self.path else 'bets' if 'action=bets-' in self.path else 'predictor' if 'action=game-' in self.path else 'builder' if source=='parlay' else None
         if not allowed(self.headers,tab):return self._send(503,{'error':'This section is temporarily unavailable','featureDisabled':True})
+        game_action = (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower()
+        if game_action in ("game-save", "game-remove"):
+            return self._game_predictor_post(game_action)
         session = session_with_live_access(self.headers)
         if not session:
             return self._send(401, {

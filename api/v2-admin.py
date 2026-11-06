@@ -650,8 +650,9 @@ class handler(BaseHTTPRequestHandler):
         the NFL plays cron: step=epa builds this season's NFL play-by-play
         table (nfl_team_epa.py) once nflverse has the night's games;
         step=epa-last builds last season's if it isn't kept yet (its
-        ratings' starting point); step=snapshot predicts every game of the
-        next day and a half in both leagues and keeps each for the record."""
+        ratings' starting point); step=snapshot adds each game's market
+        chance to its chart in both leagues (no predictions are kept: a
+        member's history is only the picks they save)."""
         import hmac
         secret = os.getenv("CRON_SECRET", "")
         if secret:

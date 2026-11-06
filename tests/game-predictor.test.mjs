@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {americanOf,boardLegs,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
+import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
 
@@ -129,4 +129,27 @@ test('both leagues on one board, each leg keeping its league',()=>{
  assert.deepEqual(both.games.map(game=>game.sport),['nba','nfl']);
  const [best]=parlays(both,{legs:2});
  assert.deepEqual(best.legs.map(leg=>leg.sport),['nba','nfl']);
+});
+
+test('prices in cents, payouts and money',()=>{
+ assert.equal(cents(0.634),'63¢');
+ assert.equal(winOf(20,160),32);
+ assert.equal(winOf(100,-200),50);
+ assert.equal(winOf(0,-200),null);
+ assert.equal(moneyText(32),'$32');
+ assert.equal(moneyText(1250.5),'$1,250.50');
+ assert.equal(moneyText(32,true),'+$32');
+ assert.equal(moneyText(-20,true),'−$20');
+});
+
+test('the chart: one side\'s view, its frame and a step line',()=>{
+ const series=sideSeries([[0,0.6],[10,0.62],[20,0.58]],'away');
+ assert.deepEqual(series.map(point=>point[1].toFixed(2)),['0.40','0.38','0.42']);
+ const frame=chartFrame([series],[0.45]);
+ assert.equal(frame.start,0);assert.equal(frame.end,20);
+ assert.ok(frame.low<=0.38&&frame.high>=0.45&&frame.high-frame.low>=0.1);
+ assert.ok(frame.lines.every(value=>value>=frame.low&&value<=frame.high));
+ const path=chartPath(series,frame,200,100);
+ assert.match(path,/^M0\.0 [\d.]+H100\.0V[\d.]+H200\.0V[\d.]+H200$/);
+ assert.equal(chartFrame([[]]),null);
 });
