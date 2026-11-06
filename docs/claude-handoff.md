@@ -76,6 +76,36 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (Finder): the phone board as one full page, solid, no frame
+
+- The owner, with a phone screenshot of the NFL Finder: "I want this to be
+  full page not floating please and I don't want a transparent background
+  it shouldn't the see through either I need a sleek clean redesign that
+  looks high quality".
+- `src/finder-phone.css` (loaded last by UnifiedFinder.jsx; phones only,
+  rules carry `html:root body` to win over finder-cards / finder-board /
+  unified-finder.css). The computer board is unchanged.
+  - The page: `.unified-finder::before` is now a fixed, full-screen solid
+    layer (`--ace-bg`) inside the Finder's own stacking layer. It replaces
+    the old accent glow over the top 200px (unified-finder.css set its
+    `height`, hence `height: auto` here). `::after` is the same color under
+    the status bar and iOS's glass band (`--site-status-inset`) so the list
+    never scrolls through it; not on a player's page (its banner reaches up
+    there on purpose).
+  - The board: no border, radius, frame or margins; each prop a full-width
+    row with a hairline inset 14px from both edges, no alternating shade.
+  - The sort buttons stay at the top while the list scrolls (sticky under
+    the status inset): words with a soft fill under the sorted one, no
+    outlines. Sticky needed `overflow-x: clip` (not `hidden`) on html and
+    body while the Finder is open: "hidden" made them scroll boxes that
+    never scroll, so nothing could stick.
+  - The controls: soft filled fields, no outlines; the filter row scrolls
+    to the screen's edge.
+- Checked in a 390px Chromium: solid page, the bar stuck at the top after
+  scrolling, no sideways overflow, the computer board unchanged. The mock
+  data here can't open a player's page (a TypeError, the same on the code
+  from before this change).
+
 ### Nov 6 (share): moneyline picks and parlays as a picture to send
 
 - The owner, with a sportsbook's "3 Pick Parlay" screenshot: "a nice

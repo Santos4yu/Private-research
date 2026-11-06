@@ -12,6 +12,7 @@ import './unified-finder.css';
 import './finder-cards.css';
 import './finder-desk.css';
 import './finder-board.css';
+import './finder-phone.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
 import {FinderHitRateFilter,FinderMultiSelect,FinderSportMenu} from './FinderMultiSelect';
 import {PickSideMenu} from './PickSideMenu';

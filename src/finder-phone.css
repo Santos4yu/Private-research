@@ -1,0 +1,150 @@
+/* The Finder on a phone, as one full page (Nov 6, the owner: "I want this
+   to be full page not floating please and I don't want a transparent
+   background it shouldn't the see through either I need a sleek clean
+   redesign that looks high quality").
+
+   - The page: one solid color behind everything (a fixed layer inside the
+     Finder's own stacking layer), nothing of the site showing through.
+   - The board: no frame, no rounded box, no margins. Edge to edge, each
+     prop a full-width row on a hairline inset from both edges.
+   - The sort buttons: a bar that stays at the top while the list scrolls,
+     words on the page with a soft fill under the one sorted (no outlines).
+   - The controls above: soft filled fields, no outlines.
+
+   Loaded after finder-cards.css and finder-board.css; rules carry
+   html:root body to win over theirs (and unified-finder.css's). */
+
+@media (max-width: 760px) {
+  html:root body .unified-finder {
+    --fp-bg: var(--ace-bg, #0c0c0c);
+    --fp-field: #161616;
+    --fp-field-on: #202020;
+    --fp-rule: rgba(255, 255, 255, .07);
+    --fp-text: #F3F4F6;
+    --fp-muted: #9EA2A8;
+    --fp-faint: #6B6F75;
+    --fp-good: #3FE39E;
+    position: relative;
+    isolation: isolate;
+    border-radius: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ------------------------------------------------------------ the page */
+  /* (::before was the accent glow over the top 200px in unified-finder.css; now the whole page, solid.) */
+
+  /* The site clips sideways overflow with "hidden", which makes html and
+     body scroll boxes of their own, and a bar can't stay at the top inside
+     a box that never scrolls. "clip" cuts the same without that. */
+  html:root:has(#panel-finder:not([hidden])),
+  html:root:has(#panel-finder:not([hidden])) body { overflow-x: clip !important; overflow-y: visible !important; }
+
+  html:root body .unified-finder::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    height: auto;
+    background: var(--fp-bg);
+    pointer-events: none;
+  }
+  /* Under the phone's status bar (and iOS's glass band), the same solid
+     color over the list, so nothing scrolls through it. Not on a player's
+     page: its banner reaches up under the status bar on purpose. */
+  html:root body .unified-finder:not(.finder-detail-active)::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 7;
+    height: var(--site-status-inset, 0px);
+    background: var(--fp-bg);
+    pointer-events: none;
+  }
+
+  /* ------------------------------------------------------------ the controls */
+
+  html:root body .unified-finder :is(.finder-app-filter, .finder-filters .finder-multi-select, .finder-search-row > .finder-icon, .finder-search) {
+    border: 0 !important;
+    border-radius: 13px !important;
+    background: var(--fp-field) !important;
+    box-shadow: none !important;
+  }
+  html:root body .unified-finder .finder-filters .finder-multi-select.is-active { background: var(--fp-field-on) !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14) !important; }
+  html:root body .unified-finder .finder-meta { padding: 10px 2px 2px; }
+  /* The filters scroll sideways: to the screen's edge, not cut short of it. */
+  html:root body .unified-finder .finder-filters { margin-right: -12px; padding-right: 12px; scrollbar-width: none; }
+  html:root body .unified-finder .finder-filters::-webkit-scrollbar { display: none; }
+
+  /* ------------------------------------------------------------ the board */
+
+  /* Edge to edge (the Finder's panel is the phone's full width). */
+  html:root body .unified-finder .finder-board {
+    margin: 10px 0 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+  html:root body .unified-finder .finder-scroll { overflow: visible !important; }
+
+  /* The sort bar: stays at the top as the list scrolls, solid behind it. */
+  html:root body .unified-finder .finder-table thead {
+    position: sticky !important;
+    top: var(--site-status-inset, 0px);
+    z-index: 6;
+    background: var(--fp-bg) !important;
+    border: 0 !important;
+    box-shadow: 0 1px 0 var(--fp-rule) !important;
+  }
+  html:root body .unified-finder .finder-table thead tr { gap: 4px; padding: 8px 10px !important; }
+  html:root body .unified-finder .finder-table th > button,
+  html:root body .unified-finder .finder-table th:is(:first-child, :nth-child(2)) > button {
+    height: 34px;
+    padding: 0 13px;
+    border: 0 !important;
+    border-radius: 999px;
+    background: none;
+    color: var(--fp-faint);
+    font: 700 12px/1 var(--font-sans);
+    letter-spacing: .04em;
+    transition: background-color .2s ease, color .2s ease;
+  }
+  html:root body .unified-finder .finder-table th > button.is-sorted { background: rgba(255, 255, 255, .09); color: var(--fp-text); }
+  html:root body .unified-finder .finder-table th > button svg { opacity: .45; }
+  html:root body .unified-finder .finder-table th > button.is-sorted svg { color: var(--fp-good); opacity: 1; }
+
+  /* A prop: a full-width row, a hairline under it inset from both edges. */
+  html:root body .unified-finder .finder-table tbody tr,
+  html:root body .unified-finder .finder-table tbody tr:nth-child(even) {
+    padding: 16px 14px 15px !important;
+    border: 0 !important;
+    background: none !important;
+  }
+  html:root body .unified-finder .finder-table tbody tr::after {
+    content: "";
+    position: absolute;
+    right: 14px;
+    bottom: 0;
+    left: 14px;
+    height: 1px;
+    background: var(--fp-rule);
+    pointer-events: none;
+  }
+  html:root body .unified-finder .finder-table tbody tr:last-child::after { content: none; }
+  html:root body .unified-finder .finder-table tbody tr:active { background: rgba(255, 255, 255, .035) !important; }
+
+  /* Calmer type: names a touch bigger, the small words quieter, the dividers fainter. */
+  html:root body .unified-finder .finder-table .finder-name { font-size: 15.5px; letter-spacing: -.01em; }
+  html:root body .unified-finder .finder-table .finder-game { color: var(--fp-muted); }
+  html:root body .unified-finder .finder-table td.finder-num:is(:nth-child(4), :nth-child(5)) { border-left-color: var(--fp-rule) !important; }
+  html:root body .unified-finder .finder-table td.finder-num::before,
+  html:root body .unified-finder .finder-table .finder-heat::before { color: var(--fp-faint); letter-spacing: .07em; }
+  html:root body .unified-finder .finder-table .finder-portrait { border-color: rgba(255, 255, 255, .08); background: #181818; }
+  html:root body .unified-finder .finder-table .finder-team { background: var(--fp-bg); box-shadow: 0 0 0 1.5px var(--fp-bg); }
+
+  html:root body .unified-finder .finder-pagination { margin: 0 !important; border: 0 !important; border-top: 1px solid var(--fp-rule) !important; background: var(--fp-bg) !important; }
+}
