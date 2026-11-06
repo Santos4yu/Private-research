@@ -27,7 +27,7 @@
     position: relative;
     isolation: isolate;
     border-radius: 0 !important;
-    background: none !important;
+    background: var(--fp-bg) !important;
     box-shadow: none !important;
   }
 
@@ -42,6 +42,8 @@
 
   html:root body .unified-finder::before {
     content: "";
+    /* On a player's page too (unified-finder.css hid it there: it was the glow). */
+    display: block !important;
     position: fixed;
     inset: 0;
     z-index: -1;

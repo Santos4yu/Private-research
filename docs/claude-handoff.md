@@ -101,8 +101,15 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
     never scroll, so nothing could stick.
   - The controls: soft filled fields, no outlines; the filter row scrolls
     to the screen's edge.
+- Then: "now this is just see through" on a player's page. The site showed
+  through there because unified-finder.css hides `.unified-finder::before`
+  on `.finder-detail-active` (it was the glow) and the first version of
+  this file had set the Finder's own background to none. Now the Finder's
+  background is the solid color too and `::before` is `display: block
+  !important` on every page.
 - Checked in a 390px Chromium: solid page, the bar stuck at the top after
-  scrolling, no sideways overflow, the computer board unchanged. The mock
+  scrolling, no sideways overflow, the computer board unchanged; with the
+  player-page class on, the solid layer and background are there. The mock
   data here can't open a player's page (a TypeError, the same on the code
   from before this change).
 
