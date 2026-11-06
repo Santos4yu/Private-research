@@ -91,9 +91,11 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   `cardText` holds the words (tested). `shareMoneyline` hands it to a
   phone's share sheet (the picture alone, so Copy copies the picture), else
   copies it to a computer's clipboard ("Copied"), else downloads it.
-- `ShareButton` (GamePredictor.jsx) on the saved pick screen (over Done),
-  the generator's "Most likely to win" pick and each parlay (an icon only on
-  phones). The saved screen's Payout now reads "1.40 units" when no amount
+- `ShareButton` (GamePredictor.jsx) on the saved pick screen, the
+  generator's "Most likely to win" pick and each parlay (an icon only on
+  phones). On the saved screen it's just the icon in the top right corner,
+  opposite the close button (the owner: "remove that and use the little
+  share icon ... on the top corner"; it was a big button over Done). The saved screen's Payout now reads "1.40 units" when no amount
   was entered (it was a dash).
 - Not changed yet: the saved screen still says "You picked"; the owner was
   offered "Locked in" + "Mavericks to win" and other wordings, no answer yet.

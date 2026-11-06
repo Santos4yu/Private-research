@@ -116,7 +116,7 @@ function PredictView({slate,onOpen,admin,onRetry}){
 
 // The pick or parlay as a picture (game-share.js): the phone's share sheet
 // (Copy, Save, Messages), a computer's clipboard, else a download.
-function ShareButton({legs,stake,label,className='gp-share'}){
+function ShareButton({legs,stake,label,className='gp-share',icon=false}){
  const [state,setState]=useState(null);
  const run=async()=>{
   if(state==='busy')return;
@@ -126,8 +126,8 @@ function ShareButton({legs,stake,label,className='gp-share'}){
   setTimeout(()=>setState(old=>old==='busy'?old:null),1800);
  };
  return <button type="button" className={className} onClick={run} disabled={state==='busy'} aria-label={label}>
-  {state==='Copied'||state==='Saved'?<Check size={16} aria-hidden="true"/>:<Share size={16} aria-hidden="true"/>}
-  <span>{state==='Copied'||state==='Saved'?state:state==='busy'?'Making it…':'Share'}</span>
+  {state==='Copied'||state==='Saved'?<Check size={icon?19:16} aria-hidden="true"/>:<Share size={icon?19:16} aria-hidden="true"/>}
+  {!icon&&<span>{state==='Copied'||state==='Saved'?state:state==='busy'?'Making it…':'Share'}</span>}
  </button>;
 }
 
@@ -411,7 +411,11 @@ function PickScreen({pick,onClose,onSaved}){
  return createPortal(<div className={`gp-screen${shown?' is-open':''}${phase==='saved'?' is-saved':''}`} role="dialog" aria-modal="true"
   aria-label={`Pick ${team.short||team.abbr}`} style={color?{'--team':color}:undefined}>
   {phase==='saved'?<div className="gp-screen-done">
-   <button type="button" className="gp-screen-x" aria-label="Close" onClick={close}><X size={20}/></button>
+   <div className="gp-done-top">
+    <button type="button" className="gp-screen-x" aria-label="Close" onClick={close}><X size={20}/></button>
+    <ShareButton icon className="gp-screen-x gp-done-share" label={`Share the ${team.abbr} pick as a picture`} stake={amount}
+     legs={[{team,opponent:other,home:side==='home',price,chance:prediction.chance?.[side],startsAt:prediction.startsAt,sport:prediction.sport}]}/>
+   </div>
    <div className="gp-done-main">
     <Logo team={team} size={56}/>
     <small>{prediction.away.abbr} @ {prediction.home.abbr}</small>
@@ -423,8 +427,6 @@ function PickScreen({pick,onClose,onSaved}){
     <div><dt>To win</dt><dd>{win!=null?moneyText(win,true):`${decimal(price)?`+${(decimal(price)-1).toFixed(2)}`:'—'} units`}</dd></div>
     <div className="is-big"><dt>Payout</dt><dd>{win!=null?moneyText(win+amount):decimal(price)?`${decimal(price).toFixed(2)} units`:'—'}</dd></div>
    </dl>
-   <ShareButton className="gp-done-share" label={`Share the ${team.abbr} pick as a picture`} stake={amount}
-    legs={[{team,opponent:other,home:side==='home',price,chance:prediction.chance?.[side],startsAt:prediction.startsAt,sport:prediction.sport}]}/>
    <button type="button" className="gp-done-ok" onClick={close}>Done</button>
   </div>:<>
    <header className="gp-screen-top">

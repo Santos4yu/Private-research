@@ -389,9 +389,11 @@
 .gp-done-rows dt{font-weight:650;opacity:.85}
 .gp-done-rows dd{margin:0;font-weight:800;font-variant-numeric:tabular-nums}
 .gp-done-rows .is-big dd{font-size:32px;font-weight:850;letter-spacing:-.02em}
-.gp-done-share{display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;margin-bottom:10px;border:0;border-radius:16px;
- background:rgba(255,255,255,.16);color:#fff;font-size:15.5px;font-weight:800;cursor:pointer}
-.gp-done-share:active{transform:scale(.97)}
+/* Close on the left, share (an icon) on the right. */
+.gp-done-top{display:flex;align-items:center;justify-content:space-between}
+.gp-done-share{transition:transform .15s var(--gp-ease),background-color .2s}
+.gp-done-share:active{transform:scale(.92)}
+.gp-done-share:disabled{opacity:.6}
 .gp-done-ok{min-height:54px;border:0;border-radius:16px;background:rgba(255,255,255,.94);color:#111;font-size:16px;font-weight:850;cursor:pointer}
 @media (min-width:700px){
  .gp-swipebar{width:100%;max-width:520px;margin:0 auto 20px;border-radius:22px;padding-bottom:16px}
