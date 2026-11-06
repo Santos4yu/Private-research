@@ -110,6 +110,14 @@ ODDS_KEY = "krazy_data:predictor:v2:odds:{sport}:{event}"
 ODDS_MOVE, ODDS_EVERY, MAX_ODDS = 0.002, 15 * 60, 400
 # The chart's own read of ESPN's summary (the line now, a game's win probability).
 LIVE_SECONDS = 20
+# DraftKings' own odds (Nov 6, the owner: "use draft king odds"): the public
+# feed its sportsbook pages read, one league at a time, live before and during
+# games (ESPN only copies DraftKings' line every few minutes). Unofficial: if
+# it fails or blocks us, ESPN's copy stands.
+DK_URL = "https://sportsbook-nash.draftkings.com/api/sportscontent/dkusnj/v1/leagues/{league}"
+DK_LEAGUES = {"nba": 42648, "nfl": 88808}
+DK_SECONDS = 15
+DK_RESTING = 120
 PRIOR_KEY = "krazy_data:predictor:v1:nba-prior:{season}"
 PRIOR2_KEY = "krazy_data:predictor:v2:nba-prior:{season}"
 MAX_HISTORY = 400
@@ -253,6 +261,118 @@ def _event(sport, event):
             "line": _line((competition.get("odds") or [None])[0], sides)}
 
 
+def _american(text):
+    """DraftKings' American odds text ("−150" with its Unicode minus, "+130", "EVEN") as a number."""
+    value = str(text or "").strip().upper().replace("\u2212", "-").replace("\u2013", "-").replace("+", "")
+    if value in ("EVEN", "EV"):
+        return 100.0
+    number = _num(value)
+    return number if number is not None and abs(number) >= 100 else None
+
+
+def parse_dk(payload) -> list:
+    """DraftKings' league feed as [{id, start, names {home, away}, moneyline
+    {home, away}, live}]: each event with a moneyline for both sides."""
+    payload = payload or {}
+    events = {str(event.get("id")): event for event in payload.get("events") or [] if event.get("id") is not None}
+    markets = {}
+    for market in payload.get("markets") or []:
+        name = str(market.get("name") or (market.get("marketType") or {}).get("name") or "").strip().lower()
+        if name == "moneyline" and str(market.get("eventId")) in events:
+            markets[str(market.get("id"))] = str(market["eventId"])
+    prices = {}
+    for selection in payload.get("selections") or []:
+        event_id = markets.get(str(selection.get("marketId")))
+        if not event_id:
+            continue
+        role = str(selection.get("outcomeType") or "").lower()
+        if role not in ("home", "away"):
+            role = str(((selection.get("participants") or [{}])[0]).get("venueRole") or "").lower()
+        price = _american((selection.get("displayOdds") or {}).get("american"))
+        if role in ("home", "away") and price is not None:
+            prices.setdefault(event_id, {})[role] = price
+    out = []
+    for event_id, line in prices.items():
+        event = events[event_id]
+        names = {str(team.get("venueRole") or "").lower(): team.get("name") for team in event.get("participants") or []}
+        start = _when(event.get("startEventDate"))
+        if "home" in line and "away" in line and names.get("home") and names.get("away") and start:
+            out.append({"id": event_id, "start": start, "names": {"home": names["home"], "away": names["away"]}, "moneyline": line,
+                        "live": str(event.get("status") or "").upper() in ("STARTED", "LIVE", "IN_PROGRESS")})
+    return out
+
+
+def dk_events(sport) -> list:
+    """DraftKings' events with moneylines for a league, read at most every
+    DK_SECONDS; [] when it can't be read, and then not tried again for
+    DK_RESTING seconds (a page never waits on a feed that's down)."""
+    if sport not in DK_LEAGUES:
+        return []
+    resting = _memory.get(f"dk-down:{sport}")
+    if resting and time.time() - resting[0] < DK_RESTING:
+        return []
+
+    def load():
+        try:
+            response = requests.get(DK_URL.format(league=DK_LEAGUES[sport]), timeout=5,
+                                    headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
+            response.raise_for_status()
+            found = parse_dk(response.json())
+        except Exception:  # noqa: BLE001 -- ESPN's copy of the line stands
+            found = []
+        if not found:
+            _memory[f"dk-down:{sport}"] = (time.time(), True)
+        return found
+    return _kept(f"dk:{sport}", DK_SECONDS, load)
+
+
+def _nick(text) -> str:
+    return re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", str(text or "")).encode("ascii", "ignore").decode().lower())
+
+
+def dk_match(game, events):
+    """The moneyline {home, away} DraftKings has for an ESPN game: both teams'
+    nicknames at the end of DraftKings' names ("ATL Hawks", "POR Trail
+    Blazers"), starting within six hours of ESPN's time. A neutral-site game
+    DraftKings lists the other way round is turned back to ESPN's sides."""
+    start = _when(game.get("startsAt"))
+    wanted = {side: _nick((game.get(side) or {}).get("short") or (game.get(side) or {}).get("name")) for side in ("home", "away")}
+    if not start or not all(wanted.values()):
+        return None
+    for event in events:
+        if abs((event["start"] - start).total_seconds()) > 6 * 3600:
+            continue
+        names = {side: _nick(event["names"][side]) for side in ("home", "away")}
+        if names["home"].endswith(wanted["home"]) and names["away"].endswith(wanted["away"]):
+            return dict(event["moneyline"])
+        if names["home"].endswith(wanted["away"]) and names["away"].endswith(wanted["home"]):
+            return {"home": event["moneyline"]["away"], "away": event["moneyline"]["home"]}
+    return None
+
+
+def with_dk(sport, games, events=None) -> list:
+    """Each game's moneyline from DraftKings itself where it has one (the
+    market chance worked out again from it); ESPN's spread and total kept."""
+    try:
+        events = dk_events(sport) if events is None else events
+    except Exception:  # noqa: BLE001
+        events = []
+    if not events:
+        return list(games)
+    out = []
+    for game in games:
+        prices = dk_match(game, events)
+        home_p, away_p = (implied(prices["home"]), implied(prices["away"])) if prices else (None, None)
+        if not home_p or not away_p:
+            out.append(game)
+            continue
+        line = dict(game.get("line") or {"spread": None, "total": None})
+        line.update({"provider": "DraftKings", "source": "draftkings", "moneyline": prices,
+                     "chance": {"home": home_p / (home_p + away_p), "away": away_p / (home_p + away_p)}})
+        out.append({**game, "line": line})  # a copy: the cached game keeps ESPN's line
+    return out
+
+
 def _us_day(moment: datetime) -> str:
     return (moment - timedelta(hours=5)).strftime("%Y%m%d")
 
@@ -281,13 +401,14 @@ def slate(sport, now=None) -> dict:
                 pass
         return games
     def fresh():
-        found = load()
+        found = with_dk(sport, load())
         try:  # Every fresh read of the lines is a point on the games' charts.
             sample_odds(sport, found, now=now)
         except Exception:  # noqa: BLE001
             pass
         return found
-    games = _kept(f"slate:{sport}:{_us_day(now)}", SLATE_SECONDS, fresh)
+    # DraftKings' moneylines again on the kept list: its read is seconds old.
+    games = with_dk(sport, _kept(f"slate:{sport}:{_us_day(now)}", SLATE_SECONDS, fresh))
     games = [game for game in games if game["home"] and game["away"] and game["state"] in ("pre", "in")]
     games.sort(key=lambda game: game["startsAt"] or "")
     return {"sport": sport, "games": games, "fetchedAt": now.isoformat()}
@@ -313,7 +434,11 @@ def _summary(sport, event_id):
                 "line": _line((summary.get("pickcenter") or [None])[0], sides),
                 "espn": {"home": home_p / 100, "away": away_p / 100} if home_p is not None and away_p is not None else None,
                 "injuries": matchup._injuries(summary), "lastFive": matchup._last_five(summary)}
-    return _kept(f"summary:{sport}:{event_id}", SUMMARY_SECONDS, load)
+    found = _kept(f"summary:{sport}:{event_id}", SUMMARY_SECONDS, load)
+    # DraftKings' moneyline right now (its own read is seconds old, not
+    # minutes) for a game still to start: once it's on, the prediction keeps
+    # the line it had at tip-off (the chart has the live price).
+    return with_dk(sport, [found])[0] if found.get("state") == "pre" else found
 
 
 # ------------------------------------------------------------------ NBA numbers
@@ -1375,7 +1500,7 @@ def day_games(sport, day, now=None) -> list:
             except Exception:  # noqa: BLE001 -- this week's games stand
                 pass
         return games
-    games = _kept(f"day:{sport}:{day if sport == 'nba' else _us_day(now)}", SLATE_SECONDS, load)
+    games = with_dk(sport, _kept(f"day:{sport}:{day if sport == 'nba' else _us_day(now)}", SLATE_SECONDS, load))
     on_day = [game for game in games if game["home"] and game["away"] and (start := _when(game["startsAt"])) and _us_day(start) == day]
     return sorted({game["id"]: game for game in on_day}.values(), key=lambda game: game["startsAt"] or "")
 
@@ -1637,8 +1762,9 @@ def chart(sport, event_id, now=None, store=None) -> dict:
     if not sides.get("home") or not sides.get("away"):
         raise LookupError("That game isn't on ESPN's schedule.")
     status = (competition.get("status") or {}).get("type") or {}
-    line = _line((summary.get("pickcenter") or [None])[0], sides)
-    game = {"id": str(event_id), "state": status.get("state"), "line": line}
+    game = with_dk(sport, [{"id": str(event_id), "state": status.get("state"), "startsAt": competition.get("date"), "home": sides["home"],
+                            "away": sides["away"], "line": _line((summary.get("pickcenter") or [None])[0], sides)}])[0]
+    line = game["line"]
     if line and status.get("state") != "post":
         sample_odds(sport, [game], store=store, now=now)
     series = _read(ODDS_KEY.format(sport=sport, event=event_id), store)
@@ -1647,6 +1773,7 @@ def chart(sport, event_id, now=None, store=None) -> dict:
     return {"id": str(event_id), "sport": sport, "state": status.get("state"), "detail": status.get("shortDetail") or status.get("detail"),
             "startsAt": competition.get("date"), "home": team("home"), "away": team("away"),
             "market": [[point[0], point[1]] for point in series], "live": live,
+            "source": (line or {}).get("source") or "espn",
             "now": {"market": (line or {}).get("chance", {}).get("home") if line else None, "live": live[-1][1] if live else None,
                     "moneyline": (line or {}).get("moneyline")},
             "updatedAt": now.isoformat()}

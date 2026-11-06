@@ -3,7 +3,8 @@
 # projection, injury reports), printed so they can be checked -- the coding
 # container can't reach ESPN. Then v2's NFL model on this week's games, its
 # play-by-play tables built here from nflverse (the site's are built by the
-# predictor cron). Run by hand.
+# predictor cron). DraftKings' own feed (the moneylines on the page) and how
+# its games match ESPN's. Run by hand.
 name: Game predictor check
 
 on:
@@ -60,6 +61,35 @@ jobs:
               print("nfl finals", gp._finals("nfl", ids))
           except Exception as error:  # noqa: BLE001
               print("finals failed", type(error).__name__, error)
+      - name: DraftKings' own odds, matched to ESPN's games
+        shell: python
+        run: |
+          import collections, json, sys, requests
+          sys.path.insert(0, ".")
+          import game_predictor as gp
+          for sport, league in gp.DK_LEAGUES.items():
+              try:
+                  response = requests.get(gp.DK_URL.format(league=league), timeout=15,
+                                          headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
+                  print(f"{sport}: DraftKings answered {response.status_code}, {len(response.content)} bytes")
+                  payload = response.json()
+              except Exception as error:  # noqa: BLE001
+                  print(f"{sport}: DraftKings failed {type(error).__name__} {str(error)[:200]}")
+                  continue
+              print("  keys:", sorted(payload)[:20], "| events", len(payload.get("events") or []), "markets", len(payload.get("markets") or []),
+                    "selections", len(payload.get("selections") or []))
+              names = collections.Counter(str(m.get("name") or (m.get("marketType") or {}).get("name")) for m in payload.get("markets") or [])
+              print("  market names:", names.most_common(8))
+              for key in ("events", "markets", "selections"):
+                  if payload.get(key):
+                      print(f"  a {key[:-1]}:", json.dumps(payload[key][0])[:600])
+              events = gp.parse_dk(payload)
+              print(f"  {len(events)} games with a moneyline:", [(e["names"]["away"], "@", e["names"]["home"], e["moneyline"], e["live"]) for e in events[:4]])
+              gp._memory.clear()
+              for game in gp.slate(sport)["games"][:8]:
+                  found = gp.dk_match(game, events)
+                  print("   ", game["away"]["short"], "@", game["home"]["short"], "| DraftKings", found, "| page", (game["line"] or {}).get("moneyline"),
+                        (game["line"] or {}).get("source", "espn"))
       - name: v2's NFL model on this week's games
         shell: python
         run: |

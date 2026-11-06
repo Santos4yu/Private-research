@@ -10,6 +10,16 @@ import game_predictor as gp
 from backend.sports.wnba.league import FIELDS
 
 NOW = datetime(2026, 11, 5, 18, tzinfo=timezone.utc)
+# No test reads DraftKings' real feed: ESPN's lines stand unless a test gives DraftKings' own.
+_no_dk = patch.object(gp, "dk_events", return_value=[])
+
+
+def setUpModule():
+    _no_dk.start()
+
+
+def tearDownModule():
+    _no_dk.stop()
 
 
 def line(pid, minutes, pts, reb=5, ast=3):
@@ -316,6 +326,90 @@ class ChartTests(unittest.TestCase):
                                       int(datetime(2026, 11, 6, 0, 20, tzinfo=timezone.utc).timestamp())])
         self.assertEqual([point[1] for point in found["live"]], [0.5, 0.58, 0.61])
         self.assertEqual((found["state"], found["now"]["live"], found["home"]["score"]), ("in", 0.61, 50))
+
+
+def dk_feed(home="DEN Nuggets", away="BOS Celtics", start="2026-11-06T00:40:00.0000000Z", home_price="\u2212190", away_price="+160"):
+    """DraftKings' league feed, as its sportsbook pages read it: one game with its moneyline and spread."""
+    return {"events": [{"id": "33001", "name": f"{away} @ {home}", "startEventDate": start, "status": "NOT_STARTED",
+                        "participants": [{"name": home, "venueRole": "Home"}, {"name": away, "venueRole": "Away"}]},
+                       {"id": "33002", "name": "No prices yet", "startEventDate": start,
+                        "participants": [{"name": "LA Lakers", "venueRole": "Home"}, {"name": "PHI 76ers", "venueRole": "Away"}]}],
+            "markets": [{"id": "m1", "eventId": "33001", "name": "Moneyline"}, {"id": "m2", "eventId": "33001", "name": "Spread"},
+                        {"id": "m3", "eventId": "33002", "marketType": {"name": "Moneyline"}}],
+            "selections": [{"marketId": "m1", "outcomeType": "Home", "displayOdds": {"american": home_price}},
+                           {"marketId": "m1", "outcomeType": "Away", "displayOdds": {"american": away_price}},
+                           {"marketId": "m2", "outcomeType": "Home", "label": "-4.5", "displayOdds": {"american": "\u2212110"}},
+                           {"marketId": "m3", "outcomeType": "Home", "displayOdds": {"american": "EVEN"}}]}
+
+
+class DraftKingsTests(unittest.TestCase):
+    def espn_game(self):
+        found = game()
+        found["home"], found["away"] = {"abbr": "DEN", "short": "Nuggets"}, {"abbr": "BOS", "short": "Celtics"}
+        found["line"]["moneyline"], found["line"]["chance"] = {"home": -150, "away": 130}, {"home": 0.58, "away": 0.42}
+        return found
+
+    def test_the_feed(self):
+        events = gp.parse_dk(dk_feed())
+        # Only a game with both sides priced; DraftKings' minus sign read; the spread market left alone.
+        self.assertEqual([(event["id"], event["moneyline"]) for event in events], [("33001", {"home": -190.0, "away": 160.0})])
+        self.assertEqual(events[0]["names"], {"home": "DEN Nuggets", "away": "BOS Celtics"})
+        self.assertEqual(events[0]["start"], datetime(2026, 11, 6, 0, 40, tzinfo=timezone.utc))
+        self.assertEqual((gp._american("EVEN"), gp._american("+125"), gp._american("\u2212110"), gp._american("")), (100, 125, -110, None))
+        self.assertEqual(gp.parse_dk(None), [])
+
+    def test_draftkings_moneyline_over_espns(self):
+        espn = self.espn_game()
+        found = gp.with_dk("nba", [espn], gp.parse_dk(dk_feed()))[0]
+        self.assertEqual((found["line"]["moneyline"], found["line"]["source"]), ({"home": -190.0, "away": 160.0}, "draftkings"))
+        self.assertAlmostEqual(found["line"]["chance"]["home"] + found["line"]["chance"]["away"], 1)
+        self.assertGreater(found["line"]["chance"]["home"], 0.6)
+        # ESPN's spread and total stay; the game ESPN gave isn't changed (it's kept for minutes).
+        self.assertEqual((found["line"]["spread"], found["line"]["total"]), (-4.5, 226.5))
+        self.assertEqual(espn["line"]["moneyline"], {"home": -150, "away": 130})
+
+    def test_a_games_summary_until_tip_off(self):
+        espn = self.espn_game()
+        with patch.object(gp, "_kept", return_value=espn), patch.object(gp, "dk_events", return_value=gp.parse_dk(dk_feed())):
+            self.assertEqual(gp._summary("nba", "401")["line"]["moneyline"], {"home": -190.0, "away": 160.0})
+            espn["state"] = "in"
+            self.assertEqual(gp._summary("nba", "401")["line"]["moneyline"], {"home": -150, "away": 130})
+
+    def test_a_neutral_site_game_listed_the_other_way(self):
+        found = gp.with_dk("nba", [self.espn_game()], gp.parse_dk(dk_feed(home="BOS Celtics", away="DEN Nuggets", home_price="+160", away_price="-190")))[0]
+        self.assertEqual(found["line"]["moneyline"], {"home": -190.0, "away": 160.0})
+
+    def test_no_match_espns_line_stands(self):
+        for feed in (dk_feed(start="2026-11-07T00:40:00Z"), dk_feed(home="DEN Broncos"), {}):
+            found = gp.with_dk("nba", [self.espn_game()], gp.parse_dk(feed))[0]
+            self.assertEqual(found["line"]["moneyline"], {"home": -150, "away": 130})
+            self.assertNotIn("source", found["line"])
+
+    def test_a_feed_that_fails_rests(self):
+        _no_dk.stop()
+        try:
+            gp._memory.clear()
+            with patch.object(gp.requests, "get", side_effect=OSError("blocked")) as get:
+                self.assertEqual(gp.dk_events("nba"), [])
+                gp._memory.pop("dk:nba", None)
+                self.assertEqual(gp.dk_events("nba"), [])
+                self.assertEqual(get.call_count, 1)
+            self.assertEqual(gp.dk_events("mlb"), [])
+        finally:
+            gp._memory.clear()
+            _no_dk.start()
+
+    def test_the_chart_reads_draftkings(self):
+        summary = ChartTests().summary(state="pre")
+        for competitor, short in zip(summary["header"]["competitions"][0]["competitors"], ("Nuggets", "Celtics")):
+            competitor["team"]["shortDisplayName"] = short
+        store = FakeStore()
+        gp._memory.clear()
+        with patch.object(gp, "_espn", return_value=summary), patch.object(gp, "dk_events", return_value=gp.parse_dk(dk_feed())):
+            found = gp.chart("nba", "401", now=datetime(2026, 11, 5, 23, 0, tzinfo=timezone.utc), store=store)
+        gp._memory.clear()
+        self.assertEqual((found["source"], found["now"]["moneyline"]), ("draftkings", {"home": -190.0, "away": 160.0}))
+        self.assertEqual(json.loads(store.data[gp.ODDS_KEY.format(sport="nba", event="401")])[-1][2:], [-190.0, 160.0])
 
 
 class BoardTests(unittest.TestCase):

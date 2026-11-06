@@ -76,6 +76,30 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 6 (newest): Game Predictor — moneylines straight from DraftKings
+
+- The owner asked where the free odds come from (ESPN's copy of DraftKings'
+  line, refreshed every few minutes), then: "Yeah use draft king odds".
+- `game_predictor.py`: `dk_events(sport)` reads DraftKings' own public league
+  feed (`DK_URL`, the one its sportsbook pages read; `DK_LEAGUES` NBA 42648,
+  NFL 88808), at most every 15 s (`DK_SECONDS`); `parse_dk` keeps each game
+  with a "Moneyline" market priced on both sides (its American odds use a
+  Unicode minus; "EVEN" is +100). `dk_match` pairs it with ESPN's game by
+  both nicknames at the end of DraftKings' names ("POR Trail Blazers" ends
+  with ESPN's short name) within six hours, a neutral-site game listed the
+  other way round turned back. `with_dk` puts DraftKings' moneyline and its
+  no-vig chance on the line (`source: "draftkings"`), keeps ESPN's spread and
+  total, and returns copies (the cached ESPN games aren't changed).
+- Used everywhere a line is read: the slate (again after its 5-minute
+  cache), the generator's days, a game's summary (so predictions, EV and the
+  blend use DraftKings' price) and the chart (`chart.source`); the chart's
+  15-second polls sample it, so the market line moves with DraftKings.
+- Unofficial feed: if it fails, blocks us or matches nothing, ESPN's line
+  stands and DraftKings isn't tried again for 2 minutes (`DK_RESTING`), so no
+  page waits on it. The container can't reach DraftKings (proxy 403); the
+  GitHub check (`game-predictor-check.yml`) has a step that reads it and
+  prints the matches.
+
 ### Nov 6 (last): Game Predictor — each game its own page with tabs; the pick full screen
 
 - The owner, with Polymarket screenshots: "Make them a page when we click on
