@@ -1048,7 +1048,8 @@ def _with_home(sport, built, game, season, home, away, usual):
     """The model's flat home edge swapped for tonight's (home_edge), with the
     records behind it for the write-up."""
     rows = season or {}
-    built["homeInfo"] = {"home": (rows.get(home) or {}).get("home"), "away": (rows.get(away) or {}).get("away"), "usual": round(usual, 1)}
+    splits = lambda team: {venue: (rows.get(team) or {}).get(venue) for venue in ("home", "away")}
+    built["homeInfo"] = {"home": splits(home), "away": splits(away), "usual": round(usual, 1)}
     if game.get("neutral"):
         built["homeInfo"]["edge"] = 0.0
         return built
@@ -1059,7 +1060,7 @@ def _with_home(sport, built, game, season, home, away, usual):
         scenario["ifOut"] += delta
     built["homeInfo"]["edge"] = round(edge, 1)
     record = lambda spot: f"{spot['w']}-{spot['l']}" if spot else None
-    at_home, on_road = record(built["homeInfo"]["home"]), record(built["homeInfo"]["away"])
+    at_home, on_road = record(built["homeInfo"]["home"]["home"]), record(built["homeInfo"]["away"]["away"])
     for part in built.get("parts") or []:
         if part.get("key") == "home":
             part["points"] = round(edge, 1)
@@ -1566,18 +1567,21 @@ def _home_line(made, built) -> str | None:
         home = {item.get("key"): item for item in made.get("factors") or []}.get("home")
         return (f"{_cap(_the(made, 'home'))} are at home, worth about {abs(home['points']):.1f} points."
                 if home and abs(home.get("points") or 0) >= 0.5 else None)
-    records = []
-    if (info.get("home") or {}).get("games"):
-        spot = info["home"]
-        records.append(f"{_the(made, 'home')} are {spot['w']}-{spot['l']} at home this season ({spot['margin']:+.1f} a game)")
-    if (info.get("away") or {}).get("games"):
-        spot = info["away"]
-        records.append(f"{_the(made, 'away')} are {spot['w']}-{spot['l']} on the road ({spot['margin']:+.1f})")
-    if not records:
+    def split(spot, where):
+        return f"{spot['w']}-{spot['l']} {where} ({spot['margin']:+.1f} a game)" if (spot or {}).get("games") else None
+    # Each team where it plays tonight first, then its other split: the edge is how much better a team does at home than away.
+    lines = []
+    for side, first, second in (("home", ("home", "at home"), ("away", "away")), ("away", ("away", "on the road"), ("home", "at home"))):
+        spots = info.get(side) or {}
+        parts = [text for text in (split(spots.get(first[0]), first[1]), split(spots.get(second[0]), second[1])) if text]
+        if parts:
+            lines.append(f"{_cap(_the(made, side))}: {', '.join(parts)}.")
+    if not lines:
         return f"{_cap(_the(made, 'home'))} are at home, worth about {edge:.1f} points."
-    verdict = (f"so {place} counts more than usual tonight" if edge >= usual + 0.3 else
-               f"so {place} counts less than usual tonight" if edge <= usual - 0.3 else f"about the usual {place} edge")
-    return f"{_cap('; '.join(records))}: {verdict}, about {edge:.1f} points."
+    verdict = (f"So {place} counts more than usual tonight: about {edge:.1f} points (usually {usual:.1f})." if edge >= usual + 0.3 else
+               f"So {place} counts less than usual tonight: about {edge:.1f} points (usually {usual:.1f})." if edge <= usual - 0.3 else
+               f"So {place} counts about as usual: {edge:.1f} points.")
+    return f"This season, {lines[0][0].lower()}{lines[0][1:]} " + " ".join(lines[1:] + [verdict])
 
 
 def _extras(made, win, built=None) -> str | None:
@@ -1590,9 +1594,6 @@ def _extras(made, win, built=None) -> str | None:
         if made["sport"] == "nba" and days is not None and days <= 1:
             bits.append(f"{_cap(_the(made, side))} played last night, and tired legs usually cost about a point.")
     factors = {item.get("key"): item for item in made.get("factors") or []}
-    home_text = _home_line(made, built)
-    if home_text:
-        bits.append(home_text)
     if made["sport"] == "nfl" and factors.get("rest") and abs(factors["rest"].get("points") or 0) >= 0.3:
         rested = "home" if factors["rest"]["points"] > 0 else "away"
         days = (made.get("rest") or {})
@@ -1669,6 +1670,9 @@ def story(made, built=None) -> dict | None:
             points.append({"key": "player", "text": text})
     for text in _injury_lines(made, built):
         points.append({"key": "injuries", "text": text})
+    home_text = _home_line(made, built)
+    if home_text:
+        points.append({"key": "home", "text": home_text})
     extra = _extras(made, win, built)
     if extra:
         points.append({"key": "extras", "text": extra})

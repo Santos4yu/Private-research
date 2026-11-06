@@ -457,7 +457,7 @@ function Value({prediction}){
 // don't understand like odds ... easy to understand ... defensive rankings,
 // injuries only the injuries that matter"). Written by the server
 // (game_predictor.story): one short paragraph a point, each with its label.
-const STORY_TAGS={chance:'The odds',teams:'Offense vs defense',player:'Player to watch',injuries:'Injuries',extras:'Also',confidence:'How sure we are'};
+const STORY_TAGS={chance:'The odds',teams:'Offense vs defense',player:'Player to watch',injuries:'Injuries',home:'Home and away',extras:'Also',confidence:'How sure we are'};
 function Story({prediction}){
  const story=prediction.story;
  if(!story)return null;

@@ -201,6 +201,7 @@ class StoryTests(unittest.TestCase):
         self.assertIn("Kristaps Porzingis is questionable for the Hawks", injuries)
         self.assertNotIn("Bench Guy", injuries)
         self.assertIn("The Wizards played last night", text["extras"])
+        self.assertIn("The Hawks are at home, worth about 2.4 points.", text["home"])
         self.assertIn("The Hawks have won 7 of their last 10.", text["extras"])
         self.assertTrue(text["confidence"].endswith("they lose about 3 times in 10."))
 
@@ -278,18 +279,24 @@ class SeasonTests(unittest.TestCase):
         self.assertAlmostEqual(found["scenarios"][0]["ifOut"], 3.0 + edge - 2.0)
         self.assertEqual(found["parts"][0], {"key": "home", "points": round(edge, 1), "text": "ATL 1-4 at home · WSH 1-4 on the road"})
         self.assertEqual(found["homeInfo"]["edge"], round(edge, 1))
+        self.assertEqual(found["homeInfo"]["home"], season["ATL"])
         # A neutral site: nothing to add.
         flat = gp._with_home("nba", {"margin": 5.0, "parts": []}, {"neutral": True}, season, "ATL", "WSH", 2.0)
         self.assertEqual((flat["margin"], flat["homeInfo"]["edge"]), (5.0, 0.0))
 
     def test_the_write_up_says_how_they_do_at_home(self):
         made = {"sport": "nba", "neutral": False, "home": {"short": "Hawks"}, "away": {"short": "Wizards"}}
-        built = {"homeInfo": {"home": {"w": 1, "l": 4, "games": 5, "margin": -6.0}, "away": {"w": 1, "l": 4, "games": 5, "margin": -8.0},
+        built = {"homeInfo": {"home": {"home": {"w": 1, "l": 4, "games": 5, "margin": -6.0}, "away": {"w": 3, "l": 1, "games": 4, "margin": 4.5}},
+                              "away": {"away": {"w": 1, "l": 4, "games": 5, "margin": -8.0}, "home": {"w": 0, "l": 0, "games": 0}},
                               "edge": 1.2, "usual": 2.1}}
-        self.assertEqual(gp._home_line(made, built), "The Hawks are 1-4 at home this season (-6.0 a game); the Wizards are 1-4 on the road "
-                                                      "(-8.0): so home court counts less than usual tonight, about 1.2 points.")
+        # Both of the home team's splits (it's been better away), the visitor's road record.
+        self.assertEqual(gp._home_line(made, built), "This season, the Hawks: 1-4 at home (-6.0 a game), 3-1 away (+4.5 a game). "
+                                                      "The Wizards: 1-4 on the road (-8.0 a game). "
+                                                      "So home court counts less than usual tonight: about 1.2 points (usually 2.1).")
         built["homeInfo"]["edge"] = 2.9
-        self.assertIn("counts more than usual tonight, about 2.9 points", gp._home_line(made, built))
+        self.assertIn("counts more than usual tonight: about 2.9 points", gp._home_line(made, built))
+        built["homeInfo"]["edge"] = 2.0
+        self.assertTrue(gp._home_line(made, built).endswith("So home court counts about as usual: 2.0 points."))
         self.assertEqual(gp._home_line({**made, "neutral": True}, built), "It's at a neutral site, so nobody gets home court.")
 
 

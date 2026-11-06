@@ -102,7 +102,10 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   between half and twice the usual. Moves the margin, the questionable
   scenarios and the "Home court" part ("ATL 1-4 at home · WSH 1-4 on the
   road"). Not backtested (a few games are mostly noise, hence the pull).
-  The write-up's home line gives both records and says whether home court
+  The write-up's "Home and away" point gives each team's record and margin
+  where it plays tonight and in its other split (the first version showed
+  only "0-3 at home" next to "about the usual edge", which read as a
+  contradiction when the team is even worse away), then whether home court
   counts more or less than usual tonight.
 - Chart (`TwoLineChart`): after DraftKings' layout, our own colors: dotted
   rules every 15 points (the range snapped to them, at least 35-65%) with
