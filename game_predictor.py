@@ -1306,6 +1306,16 @@ def snapshot(sport, now=None, store=None, hours=36) -> dict:
     store = _store() if store is None else store
     games = [game for game in slate(sport, now)["games"] if game["state"] == "pre" and (start := _when(game["startsAt"]))
              and now < start <= now + timedelta(hours=hours)]
+    results = _predict_many(sport, games, now, store)
+    made = [found for found, _ in results if found and _still_to_start(found, now)]
+    if made:
+        record_many(sport, made, store)
+    return {"sport": sport, "games": len(games), "saved": len(made), "models": sorted({found["model"] for found in made}),
+            "failed": [error for _, error in results if error], "record": history(sport, now=now, store=store)["record"]}
+
+
+def _predict_many(sport, games, now, store):
+    """[(prediction or None, error name or None)] for each game, four at a time."""
     try:  # The season's numbers once, before the games share them.
         _nba_v2(now) if sport == "nba" else _nfl_v2(now)
     except Exception:  # noqa: BLE001 -- each game falls back on its own
@@ -1314,15 +1324,51 @@ def snapshot(sport, now=None, store=None, hours=36) -> dict:
     def one(game):
         try:
             return predict(sport, game["id"], now=now, store=store, keep=False), None
-        except Exception as exc:  # noqa: BLE001 -- that game waits for the next snapshot
+        except Exception as exc:  # noqa: BLE001 -- that game is left out
             return None, type(exc).__name__
     with ThreadPoolExecutor(max_workers=4) as pool:
-        results = list(pool.map(one, games))
-    made = [found for found, _ in results if found and _still_to_start(found, now)]
-    if made:
-        record_many(sport, made, store)
-    return {"sport": sport, "games": len(games), "saved": len(made), "models": sorted({found["model"] for found in made}),
-            "failed": [error for _, error in results if error], "record": history(sport, now=now, store=store)["record"]}
+        return list(pool.map(one, games))
+
+
+# The board: every game still to start (the NBA's today and tomorrow, the
+# NFL's week), at most this many, kept this long per league.
+BOARD_GAMES = 16
+BOARD_SECONDS = 5 * 60
+
+
+def board_game(found) -> dict:
+    """One game on the board (the page's best picks and parlay builder):
+    the blend's chances, both moneylines and their value, its confidence,
+    and whether it's held back (a high data warning, or no moneylines)."""
+    team = lambda side: {key: found[side].get(key) for key in ("abbr", "short", "logo")}
+    prices = ((found.get("market") or {}).get("moneyline")) or {}
+    high = [item["text"] for item in found.get("warnings") or [] if item["level"] == "high"]
+    priced = all(prices.get(side) is not None and abs(prices[side]) >= 100 for side in ("home", "away"))
+    return {"id": found["id"], "startsAt": found["startsAt"], "home": team("home"), "away": team("away"), "winner": found["winner"],
+            "chance": found["chance"], "prices": {side: prices.get(side) for side in ("home", "away")},
+            "ev": {side: item["ev"] for side, item in ((found.get("ev") or {}).get("blend") or {}).items()},
+            "score": found.get("score"), "confidence": found["confidence"], "model": found.get("model"),
+            "held": "No moneyline yet" if not priced else high[0] if high else None}
+
+
+def board(sport, now=None, store=None) -> dict:
+    """{sport, games}: every game still to start predicted (each kept for the
+    record too), soonest first."""
+    if sport not in SPORTS:
+        raise ValueError("Unknown sport")
+    now = now or datetime.now(timezone.utc)
+
+    def load():
+        games = [game for game in slate(sport, now)["games"] if game["state"] == "pre" and (start := _when(game["startsAt"])) and start > now]
+        results = _predict_many(sport, games[:BOARD_GAMES], now, store)
+        made = [found for found, _ in results if found and _still_to_start(found, now)]
+        if made:
+            try:
+                record_many(sport, made, store)
+            except Exception:  # noqa: BLE001 -- the history is never worth failing the board
+                pass
+        return {"sport": sport, "games": [board_game(found) for found in made], "fetchedAt": now.isoformat()}
+    return _kept(f"board:{sport}", BOARD_SECONDS, load)
 
 
 # ------------------------------------------------------------------ the history

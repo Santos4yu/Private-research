@@ -7,9 +7,9 @@
 // app's simple "select a game, predict winner" screens. A section the admin
 // switches on (site_controls 'predictor'), off until then.
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {AlertTriangle,Check,ChevronDown,Crosshair,Flame,Gauge,Info,Loader2,RefreshCw,ShieldCheck,UserX,X} from 'lucide-react';
+import {AlertTriangle,Check,ChevronDown,Crosshair,Flame,Gauge,Info,Loader2,RefreshCw,ShieldCheck,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
-import {SPORTS,byText,lineText,odds,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from './game-predictor-core.js';
 import './game-predictor.css';
 
 const PREF='game-predictor-sport';
@@ -213,6 +213,62 @@ function Compare({prediction}){
  </section>;
 }
 
+// Best picks (Nov 6, the owner: "the best most confident game to win and
+// like I can do a pair ... at least 2x my money or 2 legs it'll give me the
+// correct valued moneylines"): every game still to start, predicted
+// (game-board); the most likely winners, then moneyline parlays that pay at
+// least a payout or have a number of legs, the likeliest to hit (or the best
+// value) first.
+const PAYOUTS=[2,3,5,10],LEG_COUNTS=[2,3,4];
+function Leg({leg}){
+ return <li className="gp-leg">
+  <Logo team={leg.team} size={22}/>
+  <span><b>{leg.team.short||leg.team.abbr}</b><small>{leg.home?'vs':'@'} {leg.opponent.abbr} · {startText(leg.startsAt)}</small></span>
+  <span className="gp-leg-num"><b>{pct(leg.chance)}</b><small>{odds(leg.price)}</small></span>
+ </li>;
+}
+function BestPicks({state,admin,onRetry}){
+ const [mode,setMode]=useState('payout'),[payout,setPayout]=useState(2),[legs,setLegs]=useState(2),[sort,setSort]=useState('likely');
+ const {data,loading,error}=state;
+ const top=useMemo(()=>likeliest(data,5),[data]);
+ const combos=useMemo(()=>parlays(data,mode==='payout'?{payout,sort}:{legs,sort}),[data,mode,payout,legs,sort]);
+ const held=(data?.games||[]).filter(game=>game.held).length;
+ const pick=(value,label,current,set)=><button type="button" key={value} aria-pressed={current===value} onClick={()=>set(value)}>{label}</button>;
+ return <section className="gp-card gp-best">
+  <h4><Trophy size={16} aria-hidden="true"/> Best picks</h4>
+  {loading&&!data?<div className="gp-skeleton" role="status" aria-label="Predicting every game"><span/><span/><span/></div>
+  :error&&!data?<p className="gp-dim">{admin?error:'The best picks can\'t load right now.'} <button type="button" className="gp-link" onClick={onRetry}>Retry</button></p>
+  :!top.length?<p className="gp-dim">No games with moneylines yet. Try again closer to the games.</p>:<>
+   <div className="gp-top-pick">
+    <span className="gp-label">Most likely to win</span>
+    <div className="gp-top-row">
+     <Logo team={top[0].team} size={44}/>
+     <span><b>{top[0].team.short||top[0].team.abbr}</b><small>{top[0].home?'vs':'@'} {top[0].opponent.abbr} · {startText(top[0].startsAt)} · {top[0].confidence} confidence</small></span>
+     <span className="gp-leg-num"><b>{pct(top[0].chance)}</b><small>{odds(top[0].price)}</small></span>
+    </div>
+   </div>
+   {top.length>1&&<ul className="gp-legs">{top.slice(1).map(leg=><Leg key={leg.game} leg={leg}/>)}</ul>}
+   <div className="gp-builder">
+    <span className="gp-label">Build a parlay</span>
+    <div className="gp-chips" role="group" aria-label="Parlay by">{pick('payout','Payout',mode,setMode)}{pick('legs','Legs',mode,setMode)}</div>
+    <div className="gp-chips" role="group" aria-label={mode==='payout'?'Pays at least':'Number of legs'}>
+     {mode==='payout'?PAYOUTS.map(value=>pick(value,`${value}x+`,payout,setPayout)):LEG_COUNTS.map(value=>pick(value,`${value} legs`,legs,setLegs))}
+    </div>
+    <div className="gp-chips" role="group" aria-label="Order">{pick('likely','Most likely',sort,setSort)}{pick('value','Best value',sort,setSort)}</div>
+    {combos.length?<ol className="gp-parlays">{combos.map((combo,index)=><li key={combo.legs.map(leg=>leg.game+leg.side).join()}>
+     <div className="gp-parlay-head">
+      <b>Pays {paysText(combo.dec)} <small>{odds(americanOf(combo.dec))}</small></b>
+      <span>{pct(combo.chance)} to hit</span>
+      <span data-tone={combo.ev>0?'up':'down'}>{evText(combo.ev)} value</span>
+     </div>
+     <ul className="gp-legs">{combo.legs.map(leg=><Leg key={leg.game} leg={leg}/>)}</ul>
+         </li>)}</ol>:<p className="gp-dim">{mode==='payout'?`No mix of these games pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}
+    {held>0&&<p className="gp-dim">{held} {held===1?'game':'games'} left out: no moneyline yet, or data to check.</p>}
+   </div>
+  </>}
+ </section>;
+}
+
 function History({state,admin,onRetry}){
  const {data,error,loading}=state;
  const record=data?.record;
@@ -247,6 +303,7 @@ export function GamePredictor(){
  const [selected,setSelected]=useState(null);
  const [result,setResult]=useState({});
  const [tries,setTries]=useState(0);
+ const [best,setBest]=useState({open:false});
  const games=slate.games||[];
  useEffect(()=>{
   const control=new AbortController();
@@ -269,6 +326,15 @@ export function GamePredictor(){
  };
  const shown=result.id===selected?result:{};
  const pickSport=value=>{setSport(value);saveSport(value);setSelected(null);};
+ // The best picks follow the league; open, they load (and reload on a league change).
+ useEffect(()=>{
+  if(!best.open)return undefined;
+  const control=new AbortController();
+  setBest(old=>({open:true,tries:old.tries,loading:true,data:old.sport===sport?old.data:null,sport}));
+  call({action:'game-board',sport},control.signal).then(data=>{setBest(old=>({open:true,tries:old.tries,data,sport}));loadHistory();})
+   .catch(error=>{if(error.name!=='AbortError')setBest(old=>({open:true,tries:old.tries,error:error.message,sport}));});
+  return()=>control.abort();
+ },[best.open,best.tries,sport,loadHistory]);
  return <div className="game-predictor">
   <section className="gp-card gp-deck">
    <header className="gp-head">
@@ -283,8 +349,12 @@ export function GamePredictor(){
    <button type="button" className="gp-primary" onClick={predict} disabled={!game||game.state!=='pre'||shown.loading}>
     {shown.loading?<><Loader2 className="gp-spin" size={17} aria-hidden="true"/>Predicting…</>:<><Crosshair size={17} aria-hidden="true"/>Predict winner</>}
    </button>
+   <button type="button" className="gp-secondary" aria-pressed={best.open} onClick={()=>setBest(old=>old.open?{open:false}:{open:true})}>
+    <Trophy size={16} aria-hidden="true"/>{best.open?'Hide best picks':'Best picks and parlays'}
+   </button>
    {game&&game.state!=='pre'&&<p className="gp-dim">This game has started. Its prediction is in the history if one was made before tip-off.</p>}
   </section>
+  {best.open&&<BestPicks state={best} admin={admin} onRetry={()=>setBest(old=>({open:true,tries:(old.tries||0)+1}))}/>}
   {shown.error&&<section className="gp-card"><p className="gp-dim">{admin?shown.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p></section>}
   {shown.data&&<>
    <Verdict prediction={shown.data}/>

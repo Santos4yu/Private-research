@@ -292,6 +292,31 @@ class SnapshotTests(unittest.TestCase):
         self.assertEqual(sorted(item["id"] for item in kept), ["0", "1", "2"])
 
 
+class BoardTests(unittest.TestCase):
+    def test_every_game_with_its_moneylines(self):
+        store = FakeStore()
+        upcoming = [{"id": str(n), "state": "pre", "startsAt": f"2026-11-06T0{n}:00:00Z"} for n in range(3)]
+        context = gp.nba_context(payload(), None, NOW.date())
+        # Game 0's line agrees with our model (BOS by about 5), game 2's is 25 points the other way.
+        summaries = {"0": game(spread=5.5, home_ml=190, away_ml=-230), "1": game(spread=5.5, home_ml=None, away_ml=None),
+                     "2": game(spread=-25.5, home_ml=-5000, away_ml=2000)}
+        gp._memory.pop("board:nba", None)
+        with patch.object(gp, "slate", return_value={"games": upcoming}), patch.object(gp, "_nba_v2", return_value=context), \
+                patch.object(gp, "_summary", side_effect=lambda sport, event: {**summaries[event], "id": event}):
+            found = gp.board("nba", now=NOW, store=store)
+        games = {item["id"]: item for item in found["games"]}
+        self.assertEqual(sorted(games), ["0", "1", "2"])
+        self.assertEqual((games["0"]["prices"], games["0"]["held"], games["0"]["winner"]), ({"home": 190, "away": -230}, None, "away"))
+        self.assertAlmostEqual(games["0"]["chance"]["home"] + games["0"]["chance"]["away"], 1, places=3)
+        self.assertIn("home", games["0"]["ev"])
+        self.assertEqual(games["1"]["held"], "No moneyline yet")
+        # 25 points from our model: a data warning holds it back.
+        self.assertIn("points apart", games["2"]["held"])
+        # Each kept for the record too.
+        self.assertEqual(len(json.loads(store.data[gp.HISTORY_KEY.format(sport="nba")])), 3)
+        gp._memory.pop("board:nba", None)
+
+
 class FakeStore:
     def __init__(self):
         self.data = {}

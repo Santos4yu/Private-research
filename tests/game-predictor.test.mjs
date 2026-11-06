@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {byText,evText,lineText,odds,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
+import {americanOf,boardLegs,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
 
@@ -44,6 +44,7 @@ test('each moneyline\'s value, away first',()=>{
  assert.equal(evText(0.032),'+3.2%');
  assert.equal(unitsText(1.43),'+1.4 units');
  assert.equal(unitsText(-2),'−2 units');
+ assert.equal(unitsText(-1),'−1 unit');
 });
 
 test('two predictions only when the line and ours both count',()=>{
@@ -58,4 +59,53 @@ test('start times say today and tomorrow',()=>{
  assert.match(startText(new Date(2026,10,5,19,30).toISOString(),now),/^Today 7:30/);
  assert.match(startText(new Date(2026,10,6,19,30).toISOString(),now),/^Tomorrow /);
  assert.equal(startText('nope',now),'');
+});
+
+// Four games: two big favorites, a coin flip, and one held back (no moneyline).
+const board={games:[
+ {id:'1',home:{abbr:'BOS'},away:{abbr:'WSH'},chance:{home:0.85,away:0.15},prices:{home:-600,away:450},confidence:'High'},
+ {id:'2',home:{abbr:'DEN'},away:{abbr:'UTAH'},chance:{home:0.78,away:0.22},prices:{home:-400,away:320},confidence:'High'},
+ {id:'3',home:{abbr:'MIA'},away:{abbr:'NY'},chance:{home:0.52,away:0.48},prices:{home:-110,away:-110},confidence:'Low'},
+ {id:'4',home:{abbr:'LAL'},away:{abbr:'GS'},chance:{home:0.6,away:0.4},prices:{home:null,away:null},held:'No moneyline yet'}]};
+
+test('moneylines as payouts',()=>{
+ assert.equal(decimal(-150).toFixed(3),'1.667');
+ assert.equal(decimal(130),2.3);
+ assert.equal(decimal(50),null);
+ assert.equal(americanOf(2.6),160);
+ assert.equal(americanOf(1.5),-200);
+ assert.equal(paysText(2.4333),'2.43x');
+ assert.equal(paysText(3),'3x');
+});
+
+test('the most likely winners, one side a game, held games left out',()=>{
+ assert.equal(boardLegs(board).length,6);
+ assert.deepEqual(likeliest(board).map(leg=>[leg.team.abbr,leg.chance]),[['BOS',0.85],['DEN',0.78],['MIA',0.52]]);
+});
+
+test('parlays: exactly two legs, the most likely first',()=>{
+ const [best]=parlays(board,{legs:2});
+ assert.deepEqual(best.legs.map(leg=>leg.team.abbr),['BOS','DEN']);
+ assert.equal(best.chance.toFixed(4),(0.85*0.78).toFixed(4));
+ assert.equal(best.dec.toFixed(4),((1+100/600)*(1+100/400)).toFixed(4));
+ assert.equal(best.ev.toFixed(4),(0.85*0.78*best.dec-1).toFixed(4));
+});
+
+test('parlays: paying at least 2x, two to four legs, never two sides of one game',()=>{
+ const found=parlays(board,{payout:2,top:20});
+ assert.ok(found.length>0);
+ for(const combo of found){
+  assert.ok(combo.dec>=2,combo.dec);
+  assert.ok(combo.legs.length>=2&&combo.legs.length<=4);
+  assert.equal(new Set(combo.legs.map(leg=>leg.game)).size,combo.legs.length);
+ }
+ // BOS and DEN pay only 1.46x; BOS and MIA pay 2.23x at 44%, likelier than all three (35%).
+ assert.deepEqual(found[0].legs.map(leg=>leg.team.abbr),['BOS','MIA']);
+ assert.equal(found[0].chance.toFixed(3),(0.85*0.52).toFixed(3));
+ for(let index=1;index<found.length;index++)assert.ok(found[index-1].chance>=found[index].chance);
+ // Best value: the highest average return first.
+ const value=parlays(board,{payout:2,sort:'value',top:20});
+ for(let index=1;index<value.length;index++)assert.ok(value[index-1].ev>=value[index].ev);
+ // Nothing on these games pays 1000x.
+ assert.deepEqual(parlays(board,{payout:1000}),[]);
 });

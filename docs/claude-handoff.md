@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-05 (Game Predictor v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-06 (Game Predictor best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,27 @@ Last updated 2026-11-05 (Game Predictor v2 live: two predictions, warnings, EV, 
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 6: Game Predictor — best picks and a moneyline parlay builder
+
+- The owner: "give me the best most confident game to win and like I can do
+  a pair for example if I want least 2x my money or 2 legs it'll give me the
+  correct valued moneylines".
+- Server: `game_predictor.board(sport)` (action=game-board): every game still
+  to start (the slate's pre games, at most BOARD_GAMES 16), predicted four at a
+  time (`_predict_many`, shared with `snapshot`), each kept for the record
+  too, cached 5 minutes. `board_game` keeps the blend's chances, both
+  moneylines, each side's value, confidence, and `held` ("No moneyline yet",
+  or the first high warning) so the builder leaves it out.
+- Page: "Best picks and parlays" under Predict opens a card: "Most likely to
+  win" (the highest blend chance), the next four, then "Build a parlay":
+  Payout (2x+, 3x+, 5x+, 10x+; 2 to 4 legs) or Legs (2, 3, 4), ordered Most
+  likely (chance to hit) or Best value (a dollar's average return). One leg a
+  game, either side of it; games taken as independent; top 3 shown with pays
+  (x and American), chance to hit and value. Math in game-predictor-core.js
+  (`decimal`, `boardLegs`, `likeliest`, `parlays`), tested.
+- Honest note for the owner: the blend's chances sit close to the market's,
+  so parlays usually show negative value (each leg's vig multiplies).
 
 ### Nov 5 (latest): Game Predictor v2 live — two predictions, warnings, EV, snapshots
 

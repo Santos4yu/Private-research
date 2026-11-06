@@ -60,7 +60,11 @@ export function recordText(record){
 export const evText=value=>value==null||!Number.isFinite(value)?'—':`${value>=0?'+':'−'}${Math.abs(value*100).toFixed(1)}%`;
 
 /** Units won or lost: "+1.4 units", "−2 units". */
-export const unitsText=units=>units==null||!Number.isFinite(units)?'—':`${units>=0?'+':'−'}${Math.abs(units).toFixed(1).replace(/\.0$/,'')} units`;
+export const unitsText=units=>{
+ if(units==null||!Number.isFinite(units))return '—';
+ const size=Math.abs(units).toFixed(1).replace(/\.0$/,'');
+ return `${units>=0?'+':'−'}${size} ${size==='1'?'unit':'units'}`;
+};
 
 /** The moneyline rows, away first: each price with the blend's chance, its
  * value, the fair price and our model's value alone. */
@@ -77,6 +81,52 @@ export function twoCalls(prediction){
  const {ours,blend}=prediction?.predictions||{};
  if(!ours||!blend||blend.weight==null||blend.weight>=1)return null;
  return {ours,blend,share:blend.weight>0?`${Math.round(blend.weight*100)}% ours`:'The line'};
+}
+
+/** American odds as what a dollar returns, stake included: -150 → 1.667, +130 → 2.3. */
+export const decimal=price=>price==null||!Number.isFinite(price)||Math.abs(price)<100?null:price>0?1+price/100:1+100/Math.abs(price);
+/** A dollar's return as American odds: 2.6 → +160, 1.5 → -200. */
+export const americanOf=dec=>dec==null||!(dec>1)?null:dec>=2?Math.round((dec-1)*100):-Math.round(100/(dec-1));
+/** "2.43x", "3x". */
+export const paysText=dec=>dec==null?'—':`${dec.toFixed(2).replace(/\.?0+$/,'')}x`;
+
+/** Every moneyline on the board a parlay can use: both sides of each game
+ * not held back (no moneyline yet, or a data warning). */
+export function boardLegs(board){
+ return (board?.games||[]).filter(game=>!game.held).flatMap(game=>['away','home'].map(side=>{
+  const price=game.prices?.[side],chance=game.chance?.[side],dec=decimal(price);
+  return dec&&chance!=null?{game:game.id,side,team:game[side],opponent:game[side==='home'?'away':'home'],home:side==='home',
+   price,chance,dec,startsAt:game.startsAt,confidence:game.confidence}:null;
+ }).filter(Boolean));
+}
+
+/** The most likely winners: each game's likelier side, most likely first. */
+export function likeliest(board,count=5){
+ const best=new Map();
+ for(const leg of boardLegs(board)){const old=best.get(leg.game);if(!old||leg.chance>old.chance)best.set(leg.game,leg);}
+ return [...best.values()].sort((a,b)=>b.chance-a.chance).slice(0,count);
+}
+
+/** Moneyline parlays from the board, one leg a game: exactly `legs` legs,
+ * or paying at least `payout` times the stake (2 to `most` legs). The most
+ * likely to hit first, or the best value (`sort` 'value'). Each:
+ * {legs, dec (what a dollar returns), chance (to hit), ev (a dollar's
+ * average profit)}. The games are taken as independent of each other. */
+export function parlays(board,{legs=null,payout=null,sort='likely',most=4,top=3}={}){
+ const pool=boardLegs(board);
+ const byGame=[...new Set(pool.map(leg=>leg.game))].map(id=>pool.filter(leg=>leg.game===id));
+ const sizes=legs?[legs]:Array.from({length:Math.max(0,most-1)},(_,index)=>index+2);
+ const deepest=Math.max(0,...sizes),found=[];
+ const walk=(start,picked,dec,chance)=>{
+  if(sizes.includes(picked.length)&&(!payout||dec>=payout-1e-9))found.push({legs:picked.slice(),dec,chance,ev:chance*dec-1});
+  if(picked.length>=deepest)return;
+  for(let game=start;game<byGame.length;game++)for(const leg of byGame[game]){
+   picked.push(leg);walk(game+1,picked,dec*leg.dec,chance*leg.chance);picked.pop();
+  }
+ };
+ walk(0,[],1,1);
+ const order=sort==='value'?(a,b)=>b.ev-a.ev||b.chance-a.chance:(a,b)=>b.chance-a.chance||b.ev-a.ev;
+ return found.sort(order).slice(0,top);
 }
 
 /** The history's result for one entry: 'win', 'loss', 'push' or 'pending'. */

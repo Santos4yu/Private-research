@@ -254,7 +254,9 @@ class handler(BaseHTTPRequestHandler):
     def _game_predictor(self):
         """The Game Predictor (game_predictor.py), behind its own switch:
         action=game-slate (the games to pick from), game-predict (one game,
-        kept for the record) and game-history (past predictions, settled)."""
+        kept for the record), game-board (every game still to start, for
+        the best picks and the parlay builder) and game-history (past
+        predictions, settled)."""
         from site_controls import allowed
         if not allowed(self.headers, 'predictor'):
             return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
@@ -271,6 +273,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, game_predictor.slate(sport))
             if action == "game-history":
                 return self._send(200, game_predictor.history(sport))
+            if action == "game-board":
+                return self._send(200, game_predictor.board(sport))
             if action == "game-predict":
                 event = arg("event")
                 if not event.isdigit() or len(event) > 14:
