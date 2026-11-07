@@ -76,6 +76,22 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 7: Game Predictor live games refresh every few seconds
+
+- The owner, with a live WSH @ ATL page (WSH up 30-28 late in the 1st, ATL
+  69%): "Is this correct? On live it should [move] most instantly".
+- Correct: the live line is ESPN's own win probability after each play,
+  which starts from the pregame odds (ATL was a ~70% favorite), so a team
+  down 2 in the 1st can still be the favorite. The buttons' price is
+  DraftKings' (live: it had moved from -241 pregame to -324).
+- It lagged up to ~35 s: the page asked every 15 s and the server kept
+  ESPN's answer 20 s. Now `useChart` asks every 4 s in a game (60 s
+  before), `LIVE_SECONDS` 3, `DK_SECONDS` 6. More function calls while a
+  game page is open (one every 4 s per viewer); ESPN's own feed still
+  trails the TV by a few seconds.
+- The header's clock reads period first (`liveText`: "54.7 - 1st" ->
+  "1st · 0:54.7").
+
 ### Nov 6 (Finder player page, round 2): the page after PickFinder's layout; Game Predictor list solid
 
 - The owner: "you didn't make the finder layout like pickfidner" (only the

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cardText,combined} from '../src/game-share.js';
-import {colorGap,inkOn,keyInjuries,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
+import {colorGap,inkOn,keyInjuries,liveText,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
 import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
@@ -233,4 +233,13 @@ test('the moneyline picture\'s words',()=>{
  assert.equal(straight.odds,'-253');
  assert.deepEqual(straight.money,[['Amount','1 unit'],['To win','0.40 units'],['Payout','1.40 units']]);
  assert.equal(combined([{price:null}]),null);
+});
+
+test('a live game\'s clock reads period first',()=>{
+ assert.equal(liveText('54.7 - 1st'),'1st · 0:54.7');
+ assert.equal(liveText('5:32 - 2nd'),'2nd · 5:32');
+ assert.equal(liveText('8 - 4th'),'4th · 0:08');
+ assert.equal(liveText('Halftime'),'Halftime');
+ assert.equal(liveText('End of 1st'),'End of 1st');
+ assert.equal(liveText(null),'');
 });

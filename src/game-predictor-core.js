@@ -333,3 +333,12 @@ export function inkOn(hex){
  const [r,g,b]=c.map(value=>value*0.82+255*0.18);
  return 0.2126*r+0.7152*g+0.0722*b>165?'#141414':'#ffffff';
 }
+
+/** ESPN's clock for a game on, the period first: "54.7 - 1st" -> "1st · 0:54.7", "5:32 - 2nd" -> "2nd · 5:32"; anything else as it is. */
+export function liveText(detail){
+ const text=String(detail||'').trim();
+ const found=/^(\d{1,2}:\d{2}(?:\.\d)?|\d{1,2}(?:\.\d)?)\s*-\s*(.+)$/.exec(text);
+ if(!found)return text;
+ const clock=found[1].includes(':')?found[1]:`0:${found[1].padStart(found[1].includes('.')?4:2,'0')}`;
+ return `${found[2]} · ${clock}`;
+}

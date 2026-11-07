@@ -108,15 +108,17 @@ PICKS_KEY = "krazy_data:predictor:v2:picks:{member}:{sport}"
 ODDS_KEY = "krazy_data:predictor:v2:odds:{sport}:{event}"
 # A sample is added when the chance moved this much, or this many seconds passed.
 ODDS_MOVE, ODDS_EVERY, MAX_ODDS = 0.002, 15 * 60, 400
-# The chart's own read of ESPN's summary (the line now, a game's win probability).
-LIVE_SECONDS = 20
+# The chart's own read of ESPN's summary (the line now, a game's win
+# probability). Nov 7, the owner: "On live it should [move] most instantly":
+# 3 s (was 20), with the page asking every 4 s in a game.
+LIVE_SECONDS = 3
 # DraftKings' own odds (Nov 6, the owner: "use draft king odds"): the public
 # feed its sportsbook pages read, one league at a time, live before and during
 # games (ESPN only copies DraftKings' line every few minutes). Unofficial: if
 # it fails or blocks us, ESPN's copy stands.
 DK_URL = "https://sportsbook-nash.draftkings.com/api/sportscontent/dkusnj/v1/leagues/{league}"
 DK_LEAGUES = {"nba": 42648, "nfl": 88808}
-DK_SECONDS = 15
+DK_SECONDS = 6
 DK_RESTING = 120
 PRIOR_KEY = "krazy_data:predictor:v1:nba-prior:{season}"
 PRIOR2_KEY = "krazy_data:predictor:v2:nba-prior:{season}"

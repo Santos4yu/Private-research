@@ -22,7 +22,7 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Share,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,inkOn,lineText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,inkOn,lineText,liveText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import './game-predictor.css';
 
@@ -53,7 +53,8 @@ function useChart(sport,event){
  useEffect(()=>{
   if(!event)return undefined;
   let stop=false,timer=null;
-  const next=()=>{if(!stop)timer=setTimeout(load,live.current?15000:60000);};
+  // In a game every 4 s (the server reads ESPN at most every 3 s); before it every minute.
+  const next=()=>{if(!stop)timer=setTimeout(load,live.current?4000:60000);};
   const load=()=>{
    if(document.visibilityState==='hidden'){timer=setTimeout(load,5000);return;}
    call({action:'game-chart',sport,event}).then(data=>{if(stop)return;live.current=data.state==='in';setChart(data);}).catch(()=>{}).finally(next);
@@ -166,7 +167,7 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
  const live=(chart?.state||game.state)==='in';
  const now=chancesNow(prediction,chart);
  const home=prediction?.home||game.home,away=prediction?.away||game.away;
- const status=live?<><i className="gp-pulse" aria-hidden="true"/>{chart?.detail||'Live'}</>:(chart?.state||game.state)==='post'?'Final':startText(game.startsAt);
+ const status=live?<><i className="gp-pulse" aria-hidden="true"/>{liveText(chart?.detail)||'Live'}</>:(chart?.state||game.state)==='post'?'Final':startText(game.startsAt);
  const tabsRow=useRef(null),ink=useInk(tabsRow,tab,'[aria-selected=true]');
  const row=(side,team)=>{const color=teamColor({color:colors[side]});const score=chart?.[side]?.score;
   return <li style={color?{'--team':color}:undefined}>
