@@ -76,6 +76,18 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 7: the Finder player page tighter on a phone
+
+- The owner, beside PickFinder's page: "Ours needs to be way more compact
+  look at the difference". finder-player-v2.css, the "Nov 7" phone block
+  at the end: odds cards 46px (logos 30), tabs 38px (smaller badges),
+  title 18px, buttons and filter fields 34px (labels 11.5px), the windows
+  ~60px (12px text, no wrapping: "Avg 16.3" broke onto two lines beside
+  "L20 ⌄"), the bars' track 170px (`--gl-track-height`, was 196) with 20px
+  logos and smaller dates, 8-10px between blocks. Measured in a 390px
+  Chromium: the panel ends at 672px (was 777px); the chart and the
+  average fit on one screen with the research tabs showing.
+
 ### Nov 7: Game Predictor live games refresh every few seconds
 
 - The owner, with a live WSH @ ATL page (WSH up 30-28 late in the 1st, ATL
