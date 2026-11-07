@@ -282,6 +282,12 @@ class handler(BaseHTTPRequestHandler):
                 if not event.isdigit() or len(event) > 14:
                     return self._send(400, {"error": "Pick a game first."})
                 return self._send(200, game_predictor.chart(sport, event))
+            if action == "game-analysis":
+                # The Why tab's analyst write-up (game_predictor.analysis): the pick worked out, the words by Groq.
+                event = arg("event")
+                if not event.isdigit() or len(event) > 14:
+                    return self._send(400, {"error": "Pick a game first."})
+                return self._send(200, game_predictor.analysis(sport, event))
             if action == "game-board":
                 # A date (the generator, the member's own today to a week
                 # ahead: a day either side of the US East's for time zones),

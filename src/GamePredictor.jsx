@@ -161,6 +161,7 @@ const GAME_TABS=[['chance','Chance'],['odds','Odds'],['why','Why'],['players','P
 function GamePage({game,sport,result,admin,onBack,onPick}){
  const [tab,setTab]=useState('chance');
  const chart=useChart(sport,game.id);
+ const analysis=useAnalysis(sport,game.id,tab==='why');
  const raw=result?.data;
  const colors=pairColors(raw?.home||game.home,raw?.away||game.away);
  const prediction=useMemo(()=>raw&&{...raw,home:{...raw.home,color:colors.home},away:{...raw.away,color:colors.away}},[raw,colors.home,colors.away]);
@@ -196,7 +197,7 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
    :prediction?<>
     {tab==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
     {tab==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
-    {tab==='why'&&<><Story prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
+    {tab==='why'&&<><Analysis state={analysis} prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
      <Factors prediction={prediction}/><ReadGuide prediction={prediction} chart={chart}/></>}
     {tab==='players'&&<><Players prediction={prediction}/><Compare prediction={prediction}/></>}
    </>:null}
@@ -480,7 +481,57 @@ function Value({prediction}){
 // don't understand like odds ... easy to understand ... defensive rankings,
 // injuries only the injuries that matter"). Written by the server
 // (game_predictor.story): one short paragraph a point, each with its label.
-const STORY_TAGS={chance:'The odds',teams:'Offense vs defense',player:'Player to watch',injuries:'Injuries',home:'Home and away',extras:'Also',confidence:'How sure we are'};
+const STORY_TAGS={chance:'The odds',teams:'Offense vs defense',player:'Player to watch',injuries:'Injuries',form:'Form',home:'Home and away',extras:'Also',confidence:'How sure we are'};
+
+// The analyst write-up (Nov 7, the owner's brief: the pick, why, the matchup
+// that matters, what could go wrong, injuries, moneyline value, a verdict).
+// The pick's numbers are worked out by the server (game_predictor.pick_block);
+// the sections are written from the app's own data and checked there. With
+// none (Groq unavailable, an NFL game), the plain write-up stands.
+function useAnalysis(sport,event,on){
+ const [state,setState]=useState({});
+ const asked=useRef(null);
+ useEffect(()=>{
+  if(!on||!event||asked.current===event)return undefined;
+  asked.current=event;
+  let stop=false;
+  setState({loading:true});
+  call({action:'game-analysis',sport,event}).then(data=>{if(!stop)setState({data});}).catch(error=>{if(!stop){asked.current=null;setState({error:error.message});}});
+  return()=>{stop=true;};
+ },[sport,event,on]);
+ return state;
+}
+const ANALYSIS_SECTIONS=[['why','Why our model favors them'],['matchup','The matchup that matters'],['risk','What could go wrong'],['injuries','Injuries and rotation'],['value','Moneyline value'],['verdict','Final verdict']];
+const signed=(value,digits=1)=>value==null?'—':`${value>0?'+':value<0?'−':''}${Math.abs(value).toFixed(digits)}`;
+function PickBlock({pick}){
+ if(!pick)return null;
+ const tone=pick.verdict==='Positive value'?'up':pick.verdict==='Negative value'?'down':undefined;
+ const rows=[
+  ['Projected winner',pick.winner],
+  ['Projected score',pick.score?.winner!=null?`${pick.score.winner}-${pick.score.loser}`:'—'],
+  ['Model win chance',pct(pick.modelChance,1)],
+  [`Moneyline${pick.book?` (${pick.book})`:''}`,odds(pick.moneyline)],
+  ['Market chance, no vig',pick.noVigChance!=null?`${pct(pick.noVigChance,1)} (${pct(pick.impliedChance,1)} with vig)`:'—'],
+  ['Model edge',pick.edge!=null?`${signed(pick.edge*100)} pts`:'—'],
+  ['Expected return',pick.expectedReturnPerDollar!=null?`${signed(pick.expectedReturnPerDollar*100,0)}¢ per $1`:'—'],
+ ];
+ return <section className="gp-sec gp-thepick">
+  <div className="gp-thepick-head"><span className="gp-kicker">The pick</span><b data-tone={tone}>{pick.verdict}</b></div>
+  <dl>{rows.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+ </section>;
+}
+function Analysis({state,prediction}){
+ const data=state.data;
+ if(state.loading&&!data)return <section className="gp-sec gp-analysis-wait"><span className="gp-kicker">Writing the analysis…</span><Shimmer rows={4}/></section>;
+ return <>
+  <PickBlock pick={data?.pick}/>
+  {data?.sections?<section className="gp-sec gp-analysis">
+   {ANALYSIS_SECTIONS.filter(([key])=>data.sections[key]).map(([key,title],index)=><article key={key} style={{'--i':index}}>
+    <h4>{title}</h4>{String(data.sections[key]).split(/\n\s*\n/).map((part,at)=><p key={at}>{part}</p>)}
+   </article>)}
+  </section>:<Story prediction={prediction}/>}
+ </>;
+}
 function Story({prediction}){
  const story=prediction.story;
  if(!story)return null;

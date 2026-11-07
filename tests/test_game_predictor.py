@@ -300,6 +300,95 @@ class SeasonTests(unittest.TestCase):
         self.assertEqual(gp._home_line({**made, "neutral": True}, built), "It's at a neutral site, so nobody gets home court.")
 
 
+class AnalysisTests(unittest.TestCase):
+    """The Why tab's analyst write-up: the numbers worked out here, the words checked against the facts."""
+    def made(self):
+        found = game(home="ATL", away="WSH", spread=-6.5, total=230.5, home_ml=-241, away_ml=199)
+        found["home"]["short"], found["away"]["short"], found["line"]["provider"] = "Hawks", "Wizards", "DraftKings"
+        built = {"margin": 8.0, "total": 232, "sigma": 12.12, "model": "v2", "warnings": [], "parts": [{"key": "home", "label": "Home court", "points": 2.1, "text": "ATL at home"}],
+                 "teams": {"home": {"ortg": [118.4, 6], "drtg": [113.0, 12]}, "away": {"ortg": [109.2, 25], "drtg": [120.1, 28]}},
+                 "out": {"home": [], "away": [{"name": "Kyle Kuzma", "status": "Out", "out": True, "impact": 2.4, "injury": "Knee"}]}, "rest": {"home": 2, "away": 1}}
+        with patch.object(gp, "_pace", return_value=None):
+            return gp.prediction("nba", found, built, None, now=NOW)
+
+    def test_the_pick_worked_out(self):
+        pick = gp.pick_block(self.made())
+        p = pick["modelChance"]
+        self.assertEqual((pick["winner"], pick["moneyline"], pick["underdogMoneyline"], pick["book"]), ("Hawks", -241, 199, "DraftKings"))
+        self.assertAlmostEqual(pick["impliedChance"], round(241 / 341, 3))
+        no_vig = (241 / 341) / (241 / 341 + 100 / 299)
+        self.assertAlmostEqual(pick["noVigChance"], round(no_vig, 3))
+        self.assertAlmostEqual(pick["edge"], round(p - no_vig, 3), places=2)
+        self.assertAlmostEqual(pick["expectedReturnPerDollar"], round(p * 100 / 241 - (1 - p), 3), places=2)
+        self.assertIn(pick["verdict"], ("Positive value", "Fairly priced", "Negative value"))
+        # No price: insufficient data.
+        made = self.made()
+        made["market"] = None
+        self.assertEqual(gp.pick_block(made)["verdict"], "Insufficient data")
+
+    def test_team_profiles_from_box_scores(self):
+        def rows(fgm, fga, tpm, to, oreb, dreb, fta):
+            values = dict.fromkeys(FIELDS, 0)
+            values.update({"min": 240, "fgm": fgm, "fga": fga, "tpm": tpm, "tpa": tpm * 3, "to": to, "oreb": oreb, "dreb": dreb, "fta": fta, "pts": 2 * fgm + tpm})
+            return [["x", True, *[values[name] for name in FIELDS]]]
+        games = [{"date": NOW.date() - timedelta(days=12 - n), "home": "ATL", "away": "WSH", "hs": 110 + n, "as": 100, "poss": 100.0,
+                  "lines": {"ATL": rows(40, 85, 12, 12, 10, 34, 20), "WSH": rows(36, 88, 10, 15, 8, 30, 18)}} for n in range(12)]
+        found = gp.team_profiles(games)
+        atl = found["ATL"]
+        self.assertAlmostEqual(atl["season"]["efg"], (40 + 6) / 85)
+        self.assertAlmostEqual(atl["season"]["tov"], 12 / 100)
+        self.assertAlmostEqual(atl["season"]["orb"], 10 / (10 + 30))
+        self.assertAlmostEqual(atl["season"]["efgAllowed"], (36 + 5) / 88)
+        self.assertEqual((atl["season"]["ranks"]["off"], found["WSH"]["season"]["ranks"]["off"]), (1, 2))
+        self.assertEqual((atl["last10"]["games"], atl["last10"]["w"], atl["last10"]["l"]), (10, 10, 0))
+        self.assertEqual(atl["last5"][-1], {"result": "W", "score": "121-100", "at": "home", "opponent": "WSH"})
+
+    def test_numbers_must_come_from_the_facts(self):
+        facts = gp.analysis_facts(self.made())
+        pick = facts["pick"]
+        good = f"The Hawks win {pick['modelChance'] * 100:.1f}% of the time at {pick['moneyline']}, about 2 points better at home."
+        self.assertEqual(gp.unverified_numbers(good, facts), [])
+        self.assertEqual(gp.unverified_numbers("Trae Young averages 31.7 points on 48.2% shooting", facts), ["31.7", "48.2%"])
+
+    def test_the_write_up_and_its_check(self):
+        facts = gp.analysis_facts(self.made())
+        text = {key: "The Hawks hold the edge on both ends." for key in gp.ANALYSIS_SECTIONS}
+        self.assertEqual(gp.write_analysis(facts, ask=lambda prompt: text), text)
+        # Made-up numbers: thrown away.
+        made_up = {**text, "why": "They shoot 44.4% from three, 39.1% at the rim and 81.3% at the line."}
+        self.assertIsNone(gp.write_analysis(facts, ask=lambda prompt: made_up))
+        self.assertIsNone(gp.write_analysis(facts, ask=lambda prompt: None))
+        # The brief and the facts go in the prompt.
+        seen = []
+        gp.write_analysis(facts, ask=lambda prompt: seen.append(prompt) or text)
+        self.assertIn("lead NBA quantitative analyst", seen[0])
+        self.assertIn('"winner":"Hawks"', seen[0])
+
+    def test_kept_per_game_and_plain_without_groq(self):
+        store, made = FakeStore(), self.made()
+        gp._memory.clear()
+        calls = []
+        text = {key: "Steady." for key in gp.ANALYSIS_SECTIONS}
+        with patch.object(gp, "predict", return_value=made):
+            first = gp.analysis("nba", "401", store=store, ask=lambda prompt: calls.append(1) or text)
+            gp._memory.clear()
+            again = gp.analysis("nba", "401", store=store, ask=lambda prompt: calls.append(1) or text)
+            gp._memory.clear()
+            plain = gp.analysis("nba", "402", store=FakeStore(), ask=lambda prompt: None)
+        gp._memory.clear()
+        self.assertEqual((first["source"], again["source"], len(calls)), ("groq", "groq", 1))
+        self.assertEqual((plain["source"], plain["sections"]), ("plain", None))
+        self.assertEqual(plain["pick"]["winner"], "Hawks")
+
+    def test_form_against_the_season(self):
+        made = {"sport": "nba", "home": {"short": "Suns"}, "away": {"short": "Rockets"},
+                "profiles": {"home": {"season": {"games": 20, "off": 114.0, "def": 113.0},
+                                      "last10": {"games": 10, "off": 112.0, "def": 120.5, "w": 3, "l": 7, "margin": -6.2}}}}
+        self.assertEqual(gp._form_line(made, "home"), "The Suns are 3-7 in their last 10 (-6.2 a game), playing worse than their season: "
+                                                       "a net rating of -8.5 per 100 against +1.0, mostly because their defense is allowing 120.5 per 100 (season 113.0).")
+        self.assertIsNone(gp._form_line(made, "away"))
+
+
 class LineTests(unittest.TestCase):
     def test_scoreboard_odds(self):
         sides = {"home": {"abbr": "DEN"}, "away": {"abbr": "BOS"}}

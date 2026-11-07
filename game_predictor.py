@@ -56,6 +56,7 @@ play (chart).
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -1030,6 +1031,54 @@ def season_numbers(games, per_100) -> dict:
     return out
 
 
+def team_profiles(games) -> dict:
+    """{team: {season, last10, last5}} from this season's box scores: points
+    scored and allowed per 100 possessions, possessions a game, and the four
+    factors both ways (effective FG%, turnovers a possession, offensive
+    rebound share, free throws per shot), with league ranks for the season;
+    the last 10 games' same numbers, record and average margin."""
+    from backend.sports.wnba import opportunity
+    per = defaultdict(list)
+    for g in games:
+        lines = g.get("lines") or {}
+        boxes = {team: opportunity.side_totals({"p": lines.get(team) or []}) for team in (g["home"], g["away"])}
+        for team, other in ((g["home"], g["away"]), (g["away"], g["home"])):
+            pts, allowed = (g["hs"], g["as"]) if team == g["home"] else (g["as"], g["hs"])
+            per[team].append({"date": g["date"], "poss": g["poss"], "pts": pts, "opp": allowed, "own": boxes[team], "against": boxes[other],
+                              "home": team == g["home"], "opponent": other})
+
+    def summary(rows):
+        poss = sum(row["poss"] for row in rows) or 1
+        total = lambda side, key: sum(row[side][key] for row in rows)
+        shots, shots_against = total("own", "fga") or 1, total("against", "fga") or 1
+        return {"games": len(rows), "off": 100 * sum(row["pts"] for row in rows) / poss, "def": 100 * sum(row["opp"] for row in rows) / poss,
+                "pace": poss / len(rows),
+                "efg": (total("own", "fgm") + 0.5 * total("own", "tpm")) / shots,
+                "efgAllowed": (total("against", "fgm") + 0.5 * total("against", "tpm")) / shots_against,
+                "tov": total("own", "to") / poss, "tovForced": total("against", "to") / poss,
+                "orb": total("own", "oreb") / ((total("own", "oreb") + total("against", "dreb")) or 1),
+                "orbAllowed": total("against", "oreb") / ((total("against", "oreb") + total("own", "dreb")) or 1),
+                "ftr": total("own", "fta") / shots, "ftrAllowed": total("against", "fta") / shots_against,
+                "threeRate": total("own", "tpa") / shots, "threePct": total("own", "tpm") / (total("own", "tpa") or 1)}
+
+    out = {}
+    for team, rows in per.items():
+        rows.sort(key=lambda row: row["date"])
+        last = rows[-10:]
+        wins = sum(1 for row in last if row["pts"] > row["opp"])
+        out[team] = {"season": summary(rows),
+                     "last10": {**summary(last), "w": wins, "l": len(last) - wins, "margin": sum(row["pts"] - row["opp"] for row in last) / len(last)},
+                     "last5": [{"result": "W" if row["pts"] > row["opp"] else "L", "score": f"{row['pts']:.0f}-{row['opp']:.0f}",
+                                "at": "home" if row["home"] else "away", "opponent": row["opponent"]} for row in rows[-5:]]}
+    better_high = {"off": True, "def": False, "pace": True, "efg": True, "efgAllowed": False, "tov": False, "tovForced": True,
+                   "orb": True, "orbAllowed": False, "ftr": True, "ftrAllowed": False, "threePct": True}
+    for key, high in better_high.items():
+        values = {team: profile["season"][key] for team, profile in out.items()}
+        for team, profile in out.items():
+            profile["season"].setdefault("ranks", {})[key] = _rank_of(values, team, high_first=high)
+    return out
+
+
 def own_home_edge(row, usual, shrink) -> float:
     """A team's own home edge: half its home margin less its road margin this season, pulled toward `usual`."""
     home, away = (row or {}).get("home") or {}, (row or {}).get("away") or {}
@@ -1085,6 +1134,7 @@ def nba_context(payload, prior, today) -> dict:
         results[g["away"]].append(g["as"] > g["hs"])
     return {"rt": predictor_nba.rate(games, today, params, prior),
             "seasonTable": season_numbers([(g["home"], g["away"], g["hs"], g["as"], g["poss"]) for g in past], per_100=True),
+            "profiles": team_profiles(past),
             "states": predictor_nba.team_states(games, index, today, params, players),
             "dvp": predictor_nba.defense_by_position(games, index, players, today),
             "results": dict(results), "lastDate": past[-1]["date"] if past else None, "today": today, "prior": bool(prior)}
@@ -1192,6 +1242,12 @@ def nba_model_v2(game, context) -> dict | None:
     built.update({"rest": {side: (rest[side] or {}).get("days") for side in rest}, "restInfo": rest,
                   "teams": {"home": profile("home"), "away": profile("away")}, "leaguePace": rt["pace_mu"],
                   "sigma": _staged_sigma(fewest, params["sigma_by_games"]), "model": "v2", "warnings": warnings})
+    # For the analysis: each team's profile, the model's own (schedule-adjusted) ratings and how fresh the box scores are.
+    profiles = context.get("profiles") or {}
+    built["profiles"] = {side: profiles.get(game[side]["abbr"]) for side in ("home", "away")}
+    built["adjusted"] = {side: {"off": round(rt["mu"] + rt["off"][game[side]["abbr"]], 1), "def": round(rt["mu"] + rt["def"][game[side]["abbr"]], 1),
+                                "net": round(rt["off"][game[side]["abbr"]] - rt["def"][game[side]["abbr"]], 1)} for side in ("home", "away")}
+    built["boxScoresThrough"] = context["lastDate"].isoformat() if context.get("lastDate") else None
     return _with_home("nba", built, game, season, home, away, params["home"])
 
 
@@ -1586,6 +1642,27 @@ def _home_line(made, built) -> str | None:
     return f"This season, {lines[0][0].lower()}{lines[0][1:]} " + " ".join(lines[1:] + [verdict])
 
 
+def _form_line(made, side) -> str | None:
+    """How a team has played its last 10 against its season (the NBA's box
+    scores): said when the record or the net rating has swung."""
+    profile = (made.get("profiles") or {}).get(side) or {}
+    season, last = profile.get("season"), profile.get("last10")
+    if not season or not last or (last.get("games") or 0) < 6 or (season.get("games") or 0) <= (last.get("games") or 0):
+        return None
+    net_season, net_last = season["off"] - season["def"], last["off"] - last["def"]
+    swing = net_last - net_season
+    record = f"{last['w']}-{last['l']}"
+    if abs(swing) < 3 and 3 < last["w"] < 7:
+        return None
+    team = _cap(_the(made, side))
+    trend = "better than" if swing > 0 else "worse than"
+    end = "defense" if abs(last["def"] - season["def"]) >= abs(last["off"] - season["off"]) else "offense"
+    cause = (f"their defense is allowing {last['def']:.1f} per 100 (season {season['def']:.1f})" if end == "defense"
+             else f"their offense is scoring {last['off']:.1f} per 100 (season {season['off']:.1f})")
+    return (f"{team} are {record} in their last {last['games']} ({last['margin']:+.1f} a game), playing {trend} their season: "
+            f"a net rating of {net_last:+.1f} per 100 against {net_season:+.1f}, mostly because {cause}.")
+
+
 def _extras(made, win, built=None) -> str | None:
     """Rest, home and form, a short sentence each."""
     lose = "away" if win == "home" else "home"
@@ -1672,6 +1749,10 @@ def story(made, built=None) -> dict | None:
             points.append({"key": "player", "text": text})
     for text in _injury_lines(made, built):
         points.append({"key": "injuries", "text": text})
+    for side in (win, lose):
+        text = _form_line(made, side)
+        if text:
+            points.append({"key": "form", "text": text})
     home_text = _home_line(made, built)
     if home_text:
         points.append({"key": "home", "text": home_text})
@@ -1680,6 +1761,221 @@ def story(made, built=None) -> dict | None:
         points.append({"key": "extras", "text": extra})
     points.append({"key": "confidence", "text": _confidence_line(made)})
     return {"headline": headline, "points": points}
+
+
+# ------------------------------------------------------------------ the analysis
+# The Why tab's analyst write-up (Nov 7, the owner: "better detail tho like
+# are the suns struggling etc", with a brief for a professional NBA
+# analysis: the pick, offense vs defense, the matchup that matters, what
+# could go wrong, injuries, moneyline value, a verdict). The numbers (the
+# pick, implied and no-vig chances, edge, expected return, verdict) are
+# worked out here and never by the model; Groq writes the words from a facts
+# object made only of the app's own data, and a write-up that quotes a number
+# the facts don't hold is thrown away (the plain story stands). NBA only.
+ANALYSIS_SECONDS = 30 * 60
+ANALYSIS_KEY = "krazy_data:predictor:v2:analysis:{sport}:{event}:{digest}"
+ANALYST_BRIEF = """You are the lead NBA quantitative analyst for PropScout, a data-driven sports prediction platform.
+Turn the app's NBA game projection, team statistics, player data, injury report and sportsbook odds (the FACTS below) into professional, insightful moneyline analysis.
+Do not simply summarize statistics: explain WHY the numbers matter, HOW they interact, and WHAT could change the outcome.
+
+Use ONLY the FACTS. Never invent player projections, injuries, betting lines, rankings, probabilities, records or any other number. Every number you write must appear in the FACTS (percentages may be written as in the FACTS). If something is missing, outdated or uncertain, say so plainly. If the data does not support a conclusion, leave it out.
+Do not change the model's probability or score projection. Do not double-count home court: it is already in the model ("homeEdgePoints").
+Rankings are 1 = best in the league for that stat. Treat short streaks as context, not proof. Prefer the model's schedule-adjusted ratings ("adjusted") and this season's numbers over raw rankings, and compare the last 10 games with the season to say whether a team is playing better or worse than its season ("is it struggling?").
+Distinguish the likely winner from a good bet: "pick.verdict" and "pick.expectedReturnPerDollar" decide value; a high win chance alone is never value. If there is no positive expected return, say there is no betting edge. If the model and market agree, say the prediction is aligned with the market.
+Key players: only those in "players" or "injuries"; positional numbers there already account for his minutes. Injuries: only the "injuries" list; never claim everyone important is healthy unless "injuries.reportChecked" is true and the lists are empty.
+Style: a professional NBA analyst, natural, confident and precise, easy to understand; clear basketball language and causal explanations; no filler, no "anything can happen", no exaggeration. Plain text, no markdown, no bullet points.
+
+Answer with one JSON object, these keys, each a string (paragraphs separated by a blank line):
+"why": 2-3 paragraphs, WHY OUR MODEL FAVORS THEM (the strongest team-level advantages: efficiency, pace, shooting, turnovers, rebounding, free throws, recent form against the season, home and road, and how they interact).
+"matchup": 1-2 paragraphs, THE MATCHUP THAT MATTERS (the most influential player or tactical matchup and why it decides the game).
+"risk": 1-2 paragraphs, WHAT COULD GO WRONG (the underdog's 2-3 most realistic paths to an upset and the biggest uncertainty in the projection).
+"injuries": 1 paragraph, INJURIES AND ROTATION IMPACT (say so if information is missing).
+"value": 1 paragraph, MONEYLINE VALUE (the model against the market, the edge and the expected return from "pick").
+"verdict": 2-3 sentences, FINAL VERDICT (the predicted winner, then the betting recommendation, kept separate)."""
+
+
+def pick_block(made) -> dict | None:
+    """THE PICK, worked out (never written by the model): the projected
+    winner and score, the model's win chance, the moneyline, its implied
+    chance with and without the book's margin, the edge (model less no-vig
+    market), the expected return on $1 at the offered price and a verdict."""
+    win = made.get("winner")
+    if win not in ("home", "away"):
+        return None
+    lose = "away" if win == "home" else "home"
+    market = made.get("market") or {}
+    prices = market.get("moneyline") or {}
+    p = made["chance"][win]
+    price = prices.get(win)
+    raw = {side: implied(prices.get(side)) for side in ("home", "away")}
+    no_vig = (market.get("chance") or {}).get(win) if raw["home"] and raw["away"] else None
+    dec = 1 + (price / 100 if price and price > 0 else 100 / abs(price)) if price else None
+    expected = p * (dec - 1) - (1 - p) if dec else None
+    other = prices.get(lose)
+    other_dec = 1 + (other / 100 if other and other > 0 else 100 / abs(other)) if other else None
+    other_expected = (1 - p) * (other_dec - 1) - p if other_dec else None
+    verdict = ("Insufficient data" if expected is None else "Positive value" if expected > 0.02
+               else "Fairly priced" if expected >= -0.02 else "Negative value")
+    score = made.get("score") or {}
+    return {"winner": (made.get(win) or {}).get("short") or (made.get(win) or {}).get("abbr"), "winnerSide": win,
+            "score": {"winner": score.get(win), "loser": score.get(lose)} if score else None,
+            "modelChance": round(p, 3), "modelAloneChance": (((made.get("ours") or {}).get("chance") or {}).get(win)),
+            "moneyline": price, "underdogMoneyline": other, "book": market.get("provider"),
+            "impliedChance": round(raw[win], 3) if raw[win] else None, "noVigChance": round(no_vig, 3) if no_vig is not None else None,
+            "edge": round(p - no_vig, 3) if no_vig is not None else None,
+            "expectedReturnPerDollar": round(expected, 3) if expected is not None else None,
+            "underdogExpectedReturnPerDollar": round(other_expected, 3) if other_expected is not None else None,
+            "verdict": verdict, "confidence": made.get("confidence")}
+
+
+def _pct1(value):
+    return None if value is None else round(value * 100, 1)
+
+
+def _profile_facts(profile, adjusted):
+    if not profile:
+        return None
+    season, last = profile.get("season") or {}, profile.get("last10") or {}
+    ranks = season.get("ranks") or {}
+    keep = lambda block: {"games": block.get("games"), "offRating": round(block["off"], 1), "defRating": round(block["def"], 1),
+                          "netRating": round(block["off"] - block["def"], 1), "possessionsPerGame": round(block["pace"], 1),
+                          "effectiveFgPct": _pct1(block["efg"]), "effectiveFgPctAllowed": _pct1(block["efgAllowed"]),
+                          "turnoversPer100": _pct1(block["tov"]), "forcedTurnoversPer100": _pct1(block["tovForced"]),
+                          "offensiveReboundPct": _pct1(block["orb"]), "offensiveReboundPctAllowed": _pct1(block["orbAllowed"]),
+                          "freeThrowsPerShot": _pct1(block["ftr"]), "freeThrowsPerShotAllowed": _pct1(block["ftrAllowed"]),
+                          "threePointAttemptShare": _pct1(block["threeRate"]), "threePointPct": _pct1(block["threePct"])}
+    return {"season": {**keep(season), "leagueRanks": ranks}, "last10": {**keep(last), "record": f"{last.get('w')}-{last.get('l')}",
+            "averageMargin": round(last.get("margin") or 0, 1)}, "last5": profile.get("last5"), "scheduleAdjusted": adjusted}
+
+
+def analysis_facts(made, built=None) -> dict:
+    """Everything the write-up may use, from the app's own data only."""
+    teams = {side: {"name": (made.get(side) or {}).get("name"), "short": (made.get(side) or {}).get("short"),
+                    "abbr": (made.get(side) or {}).get("abbr"), "record": (made.get(side) or {}).get("record"),
+                    "profile": _profile_facts(((made.get("profiles") or {}).get(side)), ((made.get("adjusted") or {}).get(side))),
+                    "restDays": (made.get("rest") or {}).get(side),
+                    "homeRoad": ((made.get("homeInfo") or {}).get(side))} for side in ("home", "away")}
+    factors = {item.get("key"): item for item in made.get("factors") or []}
+    out = made.get("out") or {}
+    injuries = {side: [{"name": row.get("name"), "status": row.get("status"), "injury": row.get("injury"),
+                        "pointsWorthToTeam": row.get("impact")} for row in (out.get(side) or []) if (row.get("impact") or 0) >= 0.5 or row.get("out")][:6]
+                for side in ("home", "away")}
+    players = {side: {key: value for key, value in (player or {}).items() if key in ("name", "position", "proj", "avg", "why", "team")}
+               for side, player in (made.get("players") or {}).items() if player}
+    return {"matchup": {"away": teams["away"], "home": teams["home"], "neutralSite": made.get("neutral"), "startsAt": made.get("startsAt")},
+            "pick": pick_block(made),
+            "projection": {"marginHomeTeam": made.get("margin"), "total": made.get("total"), "score": made.get("score"),
+                           "possessions": round(made["possessions"], 1) if made.get("possessions") else None,
+                           "modelAlone": {key: (made.get("ours") or {}).get(key) for key in ("winner", "margin", "chance")} if made.get("ours") else None},
+            "modelParts": [{"part": item.get("label"), "pointsTowardHome": item.get("points"), "detail": item.get("text")} for item in factors.values()],
+            "homeEdgePoints": (factors.get("home") or {}).get("points"),
+            "injuries": {**injuries, "reportChecked": out.get("home") is not None and out.get("away") is not None},
+            "players": players, "warnings": [item.get("text") for item in made.get("warnings") or []],
+            "confidence": {"level": made.get("confidence"), "reasons": made.get("confidenceWhy")},
+            "dataNotes": {"boxScoresThrough": made.get("boxScoresThrough"), "gamesPlayed": {side: ((made.get("teams") or {}).get(side) or {}).get("games")
+                                                                                          for side in ("home", "away")}}}
+
+
+_NUMBER = re.compile(r"(?<![\w.])[-+\u2212]?\d+(?:\.\d+)?%?")
+
+
+def _known_numbers(value, found=None) -> set:
+    found = set() if found is None else found
+    if isinstance(value, bool):
+        return found
+    if isinstance(value, (int, float)):
+        for number in (value, value * 100, abs(value), abs(value) * 100):
+            found.add(round(number, 1))
+            found.add(round(number))
+    elif isinstance(value, str):
+        for token in _NUMBER.findall(value):
+            number = float(token.replace("\u2212", "-").rstrip("%"))
+            found.update({round(number, 1), round(number), round(abs(number), 1), round(abs(number))})
+    elif isinstance(value, dict):
+        for item in value.values():
+            _known_numbers(item, found)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            _known_numbers(item, found)
+    return found
+
+
+def unverified_numbers(text, facts) -> list:
+    """Numbers in the write-up the facts don't hold (small counts like "two"
+    or "3 quarters" and years are let through)."""
+    known = _known_numbers(facts)
+    odd = []
+    for token in _NUMBER.findall(str(text or "")):
+        number = float(token.replace("\u2212", "-").rstrip("%"))
+        bare = abs(number)
+        if "%" not in token and "." not in token and (bare <= 12 or 2000 <= bare <= 2100):
+            continue
+        if not any(abs(bare - candidate) <= 0.11 for candidate in known if isinstance(candidate, (int, float))):
+            odd.append(token)
+    return odd
+
+
+ANALYSIS_SECTIONS = ("why", "matchup", "risk", "injuries", "value", "verdict")
+
+
+def write_analysis(facts, ask=None):
+    """Groq's write-up of the facts ({section: text}), or None when it can't
+    be had or quotes numbers the facts don't hold."""
+    if ask is None:
+        import slip_reader
+        ask = lambda prompt: slip_reader._ask(slip_reader.TEXT_MODELS, prompt)
+    prompt = ANALYST_BRIEF + "\n\nFACTS (JSON):\n" + json.dumps(facts, separators=(",", ":"), default=str)
+    try:
+        answer = ask(prompt)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(answer, dict):
+        return None
+    sections = {key: re.sub(r"[*#`]+", "", str(answer.get(key) or "")).strip() for key in ANALYSIS_SECTIONS}
+    if sum(1 for text in sections.values() if text) < 4:
+        return None
+    if len(unverified_numbers(" ".join(sections.values()), facts)) > 2:
+        return None
+    return sections
+
+
+def analysis(sport, event_id, now=None, store=None, ask=None) -> dict:
+    """{pick, sections, source}: THE PICK worked out, and the analyst's
+    sections (source "groq"), or none (source "plain": the page keeps its
+    plain write-up). Kept ANALYSIS_SECONDS per game and facts."""
+    if sport not in SPORTS:
+        raise ValueError("Unknown sport")
+    made = predict(sport, event_id, now=now)
+    pick = pick_block(made)
+    if sport != "nba":
+        return {"pick": pick, "sections": None, "source": "plain"}
+    facts = analysis_facts(made)
+    digest = hashlib.sha1(json.dumps(facts, sort_keys=True, default=str).encode()).hexdigest()[:16]
+    key = ANALYSIS_KEY.format(sport=sport, event=event_id, digest=digest)
+
+    def load():
+        nonlocal store
+        if store is None:
+            try:
+                store = _store()
+            except Exception:  # noqa: BLE001
+                store = None
+        try:
+            raw = store.get(key) if store else None
+            kept = json.loads(raw) if raw else None
+            if kept and time.time() - float(kept.get("at", 0)) < ANALYSIS_SECONDS:
+                return kept["sections"]
+        except Exception:  # noqa: BLE001
+            pass
+        sections = write_analysis(facts, ask)
+        if sections and store:
+            try:
+                store.set(key, json.dumps({"at": time.time(), "sections": sections}, separators=(",", ":")))
+            except Exception:  # noqa: BLE001
+                pass
+        return sections
+    sections = _kept(f"analysis:{key}", ANALYSIS_SECONDS, load)
+    return {"pick": pick, "sections": sections, "source": "groq" if sections else "plain"}
 
 
 def prediction(sport, game, built, players=None, now=None) -> dict:
@@ -1753,6 +2049,8 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
             "factors": (built or {}).get("parts") or [], "teams": (built or {}).get("teams"), "out": (built or {}).get("out"),
             "rest": (built or {}).get("rest"), "pace": _pace(sport, built), "players": players or {},
             "starters": (built or {}).get("starters"),
+            "profiles": (built or {}).get("profiles"), "adjusted": (built or {}).get("adjusted"), "homeInfo": (built or {}).get("homeInfo"),
+            "boxScoresThrough": (built or {}).get("boxScoresThrough"), "possessions": (built or {}).get("poss"),
             "lastFive": game.get("lastFive") or {}, "madeAt": (now or datetime.now(timezone.utc)).isoformat()}
     try:
         made["story"] = story(made, built)

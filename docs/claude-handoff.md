@@ -76,6 +76,43 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 7: the Why tab's analyst write-up (worked-out pick + Groq sections, checked)
+
+- The owner: "On the write up part I want better detail tho like are the
+  suns struggling etc", with a full brief for a professional NBA moneyline
+  analysis (the pick block, why, the matchup that matters, what could go
+  wrong, injuries, moneyline value, final verdict; only the app's data, no
+  invented numbers, value separate from the likely winner, NO BETTING EDGE
+  when there is none). The brief is `ANALYST_BRIEF` in game_predictor.py.
+- New data (NBA): `team_profiles` (in `nba_context`, from the stored
+  season's box scores): per team, the season's and the last 10 games'
+  points scored / allowed per 100, possessions a game and the four factors
+  both ways (eFG%, turnovers per possession, offensive rebound share, free
+  throws per shot, three-point share and %), league ranks for the season,
+  the last 10's record and margin, the last 5 results. `nba_model_v2` adds
+  `profiles`, `adjusted` (the model's schedule-adjusted ratings) and
+  `boxScoresThrough`; `prediction` passes them on with `homeInfo` and
+  `possessions`.
+- `pick_block(made)`: the numbers, never the model's: winner, score, model
+  chance, the moneyline, implied chance with and without the vig, edge
+  (model less no-vig), expected return on $1 at the price (and the
+  underdog's), verdict (> +2% Positive value, within ±2% Fairly priced,
+  below Negative value, no price Insufficient data).
+- `analysis_facts` -> `write_analysis` (Groq through slip_reader._ask, JSON
+  with why / matchup / risk / injuries / value / verdict) ->
+  `unverified_numbers`: any write-up quoting more than 2 numbers the facts
+  don't hold (small counts and years aside) is thrown away. `analysis()`
+  keeps it 30 min per game and facts digest (store + memory);
+  GET action=game-analysis. NFL: the pick only (the plain write-up stays).
+- The plain write-up (`story`) gained a "Form" point (`_form_line`): the
+  last 10's record and margin and its net rating against the season's, and
+  which end changed ("are the Suns struggling").
+- Page: the Why tab loads the analysis when first opened ("Writing the
+  analysis…"): THE PICK as rows with the verdict, then the six sections;
+  without sections, the plain write-up. Not seen live yet: Groq's answer
+  (GROQ_API_KEY is in Vercel only); sections on an NBA game's Why tab mean
+  Groq wrote and passed the check, the plain write-up means it didn't.
+
 ### Nov 7: the Game Predictor's Generator controls, cleaner
 
 - The owner, with the Generator tab: "Make this look cleaner". It was
