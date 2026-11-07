@@ -173,17 +173,36 @@
 .gp-form i[data-result="L"]{color:var(--gp-down)}
 
 /* The generator: a day, a league, how to build; then the picks. */
-.gp-controls{display:grid;gap:12px;padding:20px 0 6px}
+/* The generator's controls (Nov 7, "Make this look cleaner"): the days on
+   one line of words, the picked one on a soft pill that glides; under them
+   three small pills (league, order, parlays), each a short list when tapped. */
+.gp-controls{display:grid;gap:12px;padding:16px 0 4px}
 .gp-control-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.gp-daystrip{position:relative;isolation:isolate;display:flex;gap:8px;margin:0 -2px;padding:2px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.gp-daystrip{position:relative;isolation:isolate;display:flex;gap:2px;margin:0 -4px;padding:0 4px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
 .gp-daystrip::-webkit-scrollbar{display:none}
-.gp-daystrip button{position:relative;z-index:1;flex:none;display:grid;gap:4px;min-width:78px;padding:11px 14px;border:0;border-radius:16px;background:var(--gp-soft);color:var(--gp-muted);text-align:left;cursor:pointer;transition:color .2s,background-color .2s}
-.gp-daystrip button b{font-size:14.5px;font-weight:800}
-.gp-daystrip button small{color:var(--gp-faint);font-size:12px;font-weight:650}
-.gp-daystrip button[aria-checked="true"]{background:transparent;color:var(--gp-text)}
-.gp-daystrip button[aria-checked="true"] small{color:var(--gp-muted)}
-.gp-day-ink{position:absolute;z-index:0;top:2px;bottom:2px;left:0;border-radius:16px;background:color-mix(in srgb,var(--gp-accent) 22%,rgba(255,255,255,.07));
- box-shadow:inset 0 1px 0 rgba(255,255,255,.08);transition:transform .4s var(--gp-spring),width .4s var(--gp-spring)}
+.gp-daystrip button{position:relative;z-index:1;flex:none;height:36px;padding:0 14px;border:0;border-radius:999px;background:none;color:var(--gp-faint);
+ font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer;transition:color .2s}
+.gp-daystrip button:hover{color:var(--gp-muted)}
+.gp-daystrip button[aria-checked="true"]{color:var(--gp-text)}
+.gp-day-ink{position:absolute;z-index:0;top:0;bottom:0;left:0;border-radius:999px;background:rgba(255,255,255,.1);
+ transition:transform .38s var(--gp-spring),width .38s var(--gp-spring)}
+.gp-menus{display:flex;flex-wrap:wrap;gap:8px}
+.gp-menu{position:relative}
+.gp-menu-pill{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px 0 13px;border:0;border-radius:999px;background:var(--gp-soft);
+ color:var(--gp-text);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;transition:background-color .2s}
+.gp-menu-pill:hover,.gp-menu-pill[aria-expanded="true"]{background:var(--gp-soft-2)}
+.gp-menu-pill svg{color:var(--gp-muted);transition:transform .2s var(--gp-ease)}
+.gp-menu-pill[aria-expanded="true"] svg{transform:rotate(180deg)}
+.gp-menu-list{position:absolute;top:calc(100% + 6px);left:0;z-index:20;display:grid;min-width:190px;padding:6px;border-radius:14px;background:#171717;
+ box-shadow:0 16px 40px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06);animation:gp-menu .18s var(--gp-ease) both;transform-origin:top left}
+@keyframes gp-menu{from{opacity:0;transform:translateY(-4px) scale(.97)}}
+.gp-menu-list button{display:flex;align-items:center;justify-content:space-between;gap:12px;height:38px;padding:0 10px;border:0;border-radius:9px;background:none;
+ color:var(--gp-muted);font-size:13.5px;font-weight:650;text-align:left;cursor:pointer}
+.gp-menu-list button:hover{background:rgba(255,255,255,.06);color:var(--gp-text)}
+.gp-menu-list button[aria-selected="true"]{color:var(--gp-text)}
+.gp-menu-list button svg{color:var(--gp-text)}
+.gp-menu-group{padding:8px 10px 4px;color:var(--gp-faint);font-size:11.5px;font-weight:700}
+.gp-menu:last-child .gp-menu-list{left:auto;right:0;transform-origin:top right}
 .gp-chips{display:flex;flex-wrap:wrap;gap:6px}
 .gp-chips button{min-height:42px;padding:0 14px;border:0;border-radius:12px;background:var(--gp-soft);color:var(--gp-muted);font-size:13.5px;font-weight:750;cursor:pointer;transition:background-color .2s,color .2s,transform .15s}
 .gp-chips button:active{transform:scale(.96)}

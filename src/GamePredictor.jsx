@@ -594,17 +594,45 @@ function Compare({prediction}){
 // ------------------------------------------------------------------ generator
 
 const PAYOUTS=[2,3,5,10],LEG_COUNTS=[2,3,4];
-const Chips=({options,value,onChange,label})=><div className="gp-chips" role="radiogroup" aria-label={label}>
- {options.map(([key,text])=><button type="button" role="radio" key={key} aria-checked={value===key} onClick={()=>onChange(key)}>{text}</button>)}
-</div>;
-
+// One line a day: "Today", "Tomorrow", then "Sun 8" (Nov 7, the owner:
+// "Make this look cleaner"); the picked one on a gliding soft pill.
+const dayName=day=>day.top==='Today'||day.top==='Tomorrow'?day.top:`${day.top} ${String(day.date).replace(/\D+/g,'')}`;
 function DayStrip({days,value,onChange}){
  const row=useRef(null),ink=useInk(row,value,'[aria-checked=true]');
  return <div className="gp-daystrip" role="radiogroup" aria-label="Day" ref={row}>
   <span className="gp-day-ink" style={inkStyle(ink)} aria-hidden="true"/>
-  {days.map(day=><button type="button" role="radio" key={day.key} aria-checked={value===day.key} onClick={()=>onChange(day.key)}>
-   <b>{day.top}</b><small>{day.date}</small>
+  {days.map(day=><button type="button" role="radio" key={day.key} aria-checked={value===day.key} aria-label={`${day.top} ${day.date}`} onClick={()=>onChange(day.key)}>
+   {dayName(day)}
   </button>)}
+ </div>;
+}
+
+// A small pill showing its choice; tapped, a short list under it. Used for
+// the league, the order and what the parlays are built by, so the three sit
+// on one row instead of three rows of buttons.
+function ChipMenu({label,value,options,onChange}){
+ const [open,setOpen]=useState(false);
+ const wrap=useRef(null);
+ useEffect(()=>{
+  if(!open)return undefined;
+  const away=event=>{if(!wrap.current?.contains(event.target))setOpen(false);};
+  const key=event=>{if(event.key==='Escape')setOpen(false);};
+  document.addEventListener('pointerdown',away);document.addEventListener('keydown',key);
+  return()=>{document.removeEventListener('pointerdown',away);document.removeEventListener('keydown',key);};
+ },[open]);
+ const current=options.find(option=>option.key===value)||options[0];
+ return <div className="gp-menu" ref={wrap}>
+  <button type="button" className="gp-menu-pill" aria-haspopup="listbox" aria-expanded={open} aria-label={`${label}: ${current.text}`} onClick={()=>setOpen(old=>!old)}>
+   {current.short||current.text}<ChevronDown size={15} aria-hidden="true"/>
+  </button>
+  {open&&<div className="gp-menu-list" role="listbox" aria-label={label}>
+   {options.map((option,index)=><React.Fragment key={option.key}>
+    {option.group&&option.group!==options[index-1]?.group&&<span className="gp-menu-group">{option.group}</span>}
+    <button type="button" role="option" aria-selected={option.key===value} onClick={()=>{onChange(option.key);setOpen(false);}}>
+     {option.text}{option.key===value&&<Check size={15} aria-hidden="true"/>}
+    </button>
+   </React.Fragment>)}
+  </div>}
  </div>;
 }
 
@@ -644,20 +672,21 @@ function Generator({league,admin}){
  return <div className="gp-gen">
   <div className="gp-controls">
    <DayStrip days={days} value={day} onChange={setDay}/>
-   <div className="gp-control-row">
-    <Segmented options={LEAGUES} value={which} onChange={setWhich} label="League"/>
-    <Segmented options={[['likely','Most likely'],['value','Best value']]} value={sort} onChange={setSort} label="Order"/>
-   </div>
-   <div className="gp-control-row">
-    <Segmented options={[['payout','Payout'],['legs','Legs']]} value={mode} onChange={setMode} label="Build by"/>
-    {mode==='payout'?<Chips options={PAYOUTS.map(value=>[value,`${value}x+`])} value={payout} onChange={setPayout} label="Pays at least"/>
-     :<Chips options={LEG_COUNTS.map(value=>[value,`${value} legs`])} value={legs} onChange={setLegs} label="Legs"/>}
+   <div className="gp-menus">
+    <ChipMenu label="League" value={which} onChange={setWhich} options={LEAGUES.map(([key,text])=>({key,text:key==='both'?'NBA + NFL':text}))}/>
+    <ChipMenu label="Order" value={sort} onChange={setSort} options={[{key:'likely',text:'Most likely'},{key:'value',text:'Best value'}]}/>
+    <ChipMenu label="Parlays" value={mode==='payout'?`p${payout}`:`l${legs}`}
+     onChange={key=>{const amount=Number(key.slice(1));if(key[0]==='p'){setMode('payout');setPayout(amount);}else{setMode('legs');setLegs(amount);}}}
+     options={[...PAYOUTS.map(value=>({key:`p${value}`,text:`Pays ${value}x or more`,short:`Pays ${value}x+`,group:'By payout'})),
+      ...LEG_COUNTS.map(value=>({key:`l${value}`,text:`${value} legs`,group:'By legs'}))]}/>
    </div>
   </div>
   {state.loading&&!board?<Shimmer rows={5}/>
   :state.error&&!board?<Empty icon={RefreshCw} title="The generator can't load right now" text={admin?state.error:null}>
    <button type="button" className="gp-soft" onClick={()=>setTries(n=>n+1)}><RefreshCw size={15} aria-hidden="true"/>Try again</button></Empty>
-  :!games.length?<Empty title={`No games ${when}`} text="Pick another day or league."/>
+  :!games.length?(day===days[0].key?<Empty title="No games left today" text="Today's games have started or finished.">
+    <button type="button" className="gp-soft" onClick={()=>setDay(days[1].key)}>See tomorrow<ChevronRight size={15} aria-hidden="true"/></button></Empty>
+   :<Empty title={`No games ${when}`} text="Pick another day or league."/>)
   :!top.length?<Empty title={`No moneylines ${when} yet`} text="The books usually post them the day before."/>
   :<div className={`gp-results${state.loading?' is-busy':''}`}>
    <section className="gp-pick">

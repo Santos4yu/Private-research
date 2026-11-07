@@ -76,6 +76,20 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 7: the Game Predictor's Generator controls, cleaner
+
+- The owner, with the Generator tab: "Make this look cleaner". It was
+  four rows: big two-line day tiles, two segmented controls (league,
+  order), a Payout / Legs switch and its chips.
+- Now two rows: the days as one line of words ("Today", "Tomorrow",
+  "Sun 8"; `dayName`) on a gliding soft pill, then three small pills
+  (`ChipMenu`): league (NBA / NFL / NBA + NFL), order (Most likely / Best
+  value) and parlays (one list: "Pays 2x or more"... under "By payout",
+  "2 legs"... under "By legs"; the pill reads "Pays 2x+" or "3 legs"). A
+  pill opens a short list under it (the last one opens to the left),
+  closes on a pick, outside tap or Escape. `Chips` is gone.
+- No games left today: "No games left today" and a "See tomorrow" button.
+
 ### Nov 7: the Finder player page tighter on a phone (and no PrizePicks card)
 
 - Then, of the PrizePicks card (logo + goblin) under the player: "Let's
