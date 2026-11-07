@@ -175,13 +175,17 @@ export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
    {!row.researchOnly&&<AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>}
   </div>}
  </div>;
- const oddsRow=(odds||pick||books.length>0)?<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
+ // The PrizePicks card (its logo and tier) only on the older layout: the v2
+ // page's line picker shows the same (Nov 7, the owner: "remove this so it's
+ // more compacted"), so a night with no sportsbook odds has no odds row.
+ const pickCard=pick&&layout!=='v2';
+ const oddsRow=(odds||pickCard||books.length>0)?<div className="fpb-odds" role="list" aria-label={`Odds at ${line}`}>
   {odds&&<div className="fpb-card fpb-chance" role="listitem" title="Market chance">
    <span className="fpb-chance-mark" aria-hidden="true"><Percent size={17}/></span>
    <span className="fpb-lines"><span><b>O</b><em data-side="over">{finite(odds.over)?odds.over.toFixed(1)+'%':'—'}</em></span><span><b>U</b><em data-side="under">{finite(odds.under)?odds.under.toFixed(1)+'%':'—'}</em></span></span>
    <Info size={16} className="fpb-info" aria-label={`Chance implied by ${odds.book.name} odds`}/>
   </div>}
-  {pick&&<div className="fpb-card fpb-pick" role="listitem" title={`PrizePicks ${tier?tier[0].toUpperCase()+tier.slice(1):'standard'} line at ${line}`}>
+  {pickCard&&<div className="fpb-card fpb-pick" role="listitem" title={`PrizePicks ${tier?tier[0].toUpperCase()+tier.slice(1):'standard'} line at ${line}`}>
    <img src={PRIZEPICKS_LOGO} alt="PrizePicks" width="30" height="30"/>{tier?<img src={`/prizepicks/${tier}.png`} alt={tier} width="26" height="26"/>:<small>More / Less</small>}
   </div>}
   {books.map(book=><div className="fpb-card" role="listitem" key={book.key} title={book.name}>

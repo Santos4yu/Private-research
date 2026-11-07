@@ -76,7 +76,14 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
-### Nov 7: the Finder player page tighter on a phone
+### Nov 7: the Finder player page tighter on a phone (and no PrizePicks card)
+
+- Then, of the PrizePicks card (logo + goblin) under the player: "Let's
+  remove this so it's more compacted". FinderPlayerBanner.jsx `pickCard`:
+  the card only on the older layout; the v2 page's line picker already
+  shows PrizePicks and the tier. A night with sportsbook odds still shows
+  their cards (and the market-chance card); with none, no odds row at all
+  (the stats panel starts under the player, ~48px higher).
 
 - The owner, beside PickFinder's page: "Ours needs to be way more compact
   look at the difference". finder-player-v2.css, the "Nov 7" phone block
