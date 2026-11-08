@@ -37,6 +37,18 @@ const MARKETS = new Set([...MAIN_MARKETS, 'player_threes']);
 // last 10, or a starter on 22+ (a starter with a light load still starts);
 // without the rotation, 26+.
 export const MINUTES = {any: 28, starter: 22, unknown: 26};
+// The smallest line it takes (Nov 8, the owner on a board of "Over 1.5
+// assists" and "Over 7.5 points": "is this really the best we can do"): a
+// line that low is one pass or one shot either way, and it's a role player's.
+export const MIN_LINE = {player_points: 11.5, player_rebounds: 4.5, player_assists: 3.5, player_points_rebounds: 14.5,
+  player_points_assists: 14.5, player_points_rebounds_assists: 19.5, player_threes: 2.5};
+// What it takes of his record and his average: over the line in at least
+// this share of his games (blended, below), and averaging over it lately.
+export const FORM_FLOOR = 0.55;
+// Confidence (0-100): how many of the four reads back the over, and how
+// strongly. The model's chance counts most; his record at the line next;
+// then the matchup; then how far his average clears the line.
+export const CONFIDENCE = {model: 0.35, form: 0.30, matchup: 0.20, cushion: 0.15};
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const STAT_WORDS = {player_points: 'points', player_rebounds: 'rebounds', player_assists: 'assists', player_threes: '3-pointers',
@@ -49,6 +61,43 @@ export function recordOf(row, key) {
   const window = row?.windows?.[key];
   const games = windowGames(window);
   return games ? {rate: windowRate(window), hits: window.hits, games} : null;
+}
+
+/**
+ * His record over the line, blended: the last 10 (35%), last 20 (25%) and
+ * season (40%), each pulled toward 50/50 by three games either way, so a
+ * 4-for-5 start isn't read as 80%. Null with no games.
+ */
+export function formRate(records) {
+  let sum = 0, weight = 0;
+  for (const [key, share] of [['l10', 0.35], ['l20', 0.25], ['season', 0.40]]) {
+    const record = records?.[key];
+    if (!record?.games) continue;
+    sum += share * (record.hits + 3) / (record.games + 6);
+    weight += share;
+  }
+  return weight ? sum / weight : null;
+}
+
+/** His average over his last 10 games in the stat, or null. */
+export function averageOf(row) {
+  if (finite(row?.windows?.l10?.average)) return row.windows.l10.average;
+  if (finite(row?.average)) return row.average;
+  const games = (row?.gameLog || []).filter(game => finite(game.value)).slice(-10);
+  return games.length ? games.reduce((sum, game) => sum + game.value, 0) / games.length : null;
+}
+
+const clamp = value => Math.max(0, Math.min(100, value));
+/**
+ * Each read as 0-100 and the confidence from them: the model (62%+ is
+ * 100), his record (75%+ is 100), the matchup (90+ is 100, 40 or less 0),
+ * his average over the line (20% over is 100).
+ */
+export function signalsOf({chance, form, matchup, average, line}) {
+  const signals = {model: clamp((chance - 0.5) / 0.12 * 100), form: form == null ? 50 : clamp((form - 0.5) / 0.25 * 100),
+    matchup: clamp(((matchup ?? 50) - 40) / 50 * 100), cushion: average == null || !line ? 50 : clamp((average - line) / line / 0.2 * 100)};
+  const confidence = Math.round(Object.entries(CONFIDENCE).reduce((sum, [key, share]) => sum + share * signals[key], 0));
+  return {signals, confidence};
 }
 
 /** His minutes a game over his last 10 played (an NBA game log's `usage`), or null. */
@@ -81,16 +130,22 @@ export function generateProps(rows, league, {now = Date.now(), grades = null, re
   const best = new Map();
   for (const row of rows) {
     if (String(row.modifier || 'standard').toLowerCase() !== 'standard' || row.promo || !MARKETS.has(row.marketKey)) continue;
+    if (!(Number(row.line) >= (MIN_LINE[row.marketKey] ?? 0))) continue;
     if (!rotationRegular(row, league)) continue;
     const starts = Date.parse(row.startsAt || '');
     if (Number.isFinite(starts) && starts - now < LOCK_MINUTES * 60000) continue;
     const grade = graded.get(row.id);
     if (!grade || !PICK_TIERS.includes(grade.tier) || !finite(grade.chance) || grade.edge <= 0) continue;
     const read = scored.get(row.id) || null;
-    // Tier first, then how far past what it needs, then the matchup.
-    const score = grade.rank * 100 + grade.edge * 100 + ((read?.score ?? 50) - 50) * 0.1 + (MARKET_WEIGHT[row.marketKey] || 0);
-    const item = {row, grade, read, score, role: lineupRole(row, league), minutes: minutesOf(row),
-      records: {l5: recordOf(row, 'l5'), l10: recordOf(row, 'l10'), l20: recordOf(row, 'l20'), season: recordOf(row, 'season')}};
+    const records = {l5: recordOf(row, 'l5'), l10: recordOf(row, 'l10'), l20: recordOf(row, 'l20'), season: recordOf(row, 'season')};
+    const form = formRate(records), average = averageOf(row);
+    // His record and his average have to back the model up.
+    if (form != null && form < FORM_FLOOR) continue;
+    if (average != null && average <= row.line) continue;
+    const {signals, confidence} = signalsOf({chance: grade.chance, form, matchup: read?.score, average, line: row.line});
+    const score = confidence + (MARKET_WEIGHT[row.marketKey] || 0);
+    const games = (row.gameLog || []).filter(game => finite(game.value)).slice(-10).map(game => ({value: game.value, opponent: game.opponent, date: game.date}));
+    const item = {row, grade, read, score, confidence, signals, form, average, games, records, role: lineupRole(row, league), minutes: minutesOf(row)};
     const key = row.playerId || row.player;
     if (!best.has(key) || best.get(key).score < score) best.set(key, item);
   }

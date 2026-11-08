@@ -22,13 +22,10 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Flame,Info,Layers,RefreshCw,Share,Trophy,UserX,X,Zap} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
+import {ChipMenu,Empty,Section,Shimmer} from './gp-parts.jsx';
 import {SPORTS,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
-import {nba as nbaBoardStore} from './nba-props-data.js';
-import {analysisOf,bestSlips,generateProps,statWords} from './prop-generator.js';
-import {loadLearning} from './learning.js';
-import {Face} from './PickParts';
-import {SlipToggle,useSlipIds} from './SlipToggle';
+import {PropGenerator} from './PropGenerator.jsx';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
 import './game-predictor.css';
 
@@ -126,8 +123,6 @@ function Tabs({value,onChange}){
  </nav>;
 }
 
-const Shimmer=({rows=4,tall})=><div className={`gp-shimmer${tall?' is-tall':''}`} role="status" aria-label="Loading">{Array.from({length:rows},(_,index)=><span key={index} style={{'--i':index}}/>)}</div>;
-const Empty=({icon:Icon=CalendarDays,title,text,children})=><div className="gp-empty"><Icon size={22} aria-hidden="true"/><b>{title}</b>{text&&<p>{text}</p>}{children}</div>;
 
 // ------------------------------------------------------------------ predict
 
@@ -226,9 +221,6 @@ function ShareButton({legs,stake,label,className='gp-share',icon=false}){
  </button>;
 }
 
-const Section=({title,icon:Icon,children,className=''})=><section className={`gp-sec ${className}`}>
- {title&&<h4 className="gp-sec-head">{Icon&&<Icon size={15} aria-hidden="true"/>}{title}</h4>}{children}
-</section>;
 const teamColor=team=>/^[0-9a-f]{6}$/i.test(team?.color||'')?`#${team.color}`:null;
 // Each team's chance now: ESPN's live win probability in a game, else the
 // market's (the latest line), else the prediction's.
@@ -894,31 +886,6 @@ function DayStrip({days,value,onChange}){
 // A small pill showing its choice; tapped, a short list under it. Used for
 // the league, the order and what the parlays are built by, so the three sit
 // on one row instead of three rows of buttons.
-function ChipMenu({label,value,options,onChange}){
- const [open,setOpen]=useState(false);
- const wrap=useRef(null);
- useEffect(()=>{
-  if(!open)return undefined;
-  const away=event=>{if(!wrap.current?.contains(event.target))setOpen(false);};
-  const key=event=>{if(event.key==='Escape')setOpen(false);};
-  document.addEventListener('pointerdown',away);document.addEventListener('keydown',key);
-  return()=>{document.removeEventListener('pointerdown',away);document.removeEventListener('keydown',key);};
- },[open]);
- const current=options.find(option=>option.key===value)||options[0];
- return <div className="gp-menu" ref={wrap}>
-  <button type="button" className="gp-menu-pill" aria-haspopup="listbox" aria-expanded={open} aria-label={`${label}: ${current.text}`} onClick={()=>setOpen(old=>!old)}>
-   {current.short||current.text}<ChevronDown size={15} aria-hidden="true"/>
-  </button>
-  {open&&<div className="gp-menu-list" role="listbox" aria-label={label}>
-   {options.map((option,index)=><React.Fragment key={option.key}>
-    {option.group&&option.group!==options[index-1]?.group&&<span className="gp-menu-group">{option.group}</span>}
-    <button type="button" role="option" aria-selected={option.key===value} onClick={()=>{onChange(option.key);setOpen(false);}}>
-     {option.text}{option.key===value&&<Check size={15} aria-hidden="true"/>}
-    </button>
-   </React.Fragment>)}
-  </div>}
- </div>;
-}
 
 // Our model's chance as a bar, the market's as a tick on it (Nov 8: the
 // model decides; the market is there to measure it against).
@@ -1098,110 +1065,6 @@ function PickRow({item,kind,index,onRemove}){
   <span className="gp-pickrow-right">{right}</span>
   {kind==='upcoming'?<button type="button" className="gp-pickrow-x" onClick={()=>onRemove(item)} aria-label={`Take back the ${team.abbr} pick`}><X size={16}/></button>:<span className="gp-pickrow-x" aria-hidden="true"/>}
  </li>;
-}
-
-// ------------------------------------------------------------------ the prop generator
-
-// Tonight's NBA board, the one the Props tab keeps warm (nba-props-data.js).
-function usePropBoard(){
- const [data,setData]=useState(()=>nbaBoardStore.get());
- const [learned,setLearned]=useState(0);
- useEffect(()=>{
-  const stop=nbaBoardStore.on(setData);
-  nbaBoardStore.warm();
-  const retry=setInterval(()=>{if(!nbaBoardStore.get().league)nbaBoardStore.refresh();nbaBoardStore.freshenTonight?.();},45000);
-  // What results have taught the model (learning.js), as the Props tab reads it.
-  let live=true;Promise.resolve().then(()=>loadLearning()).then(()=>{if(live)setLearned(Date.now());}).catch(()=>{});
-  return()=>{stop();clearInterval(retry);live=false;};
- },[]);
- const rows=useMemo(()=>(data.rows||[]).filter(nbaBoardStore.wanted),[data.rows]);
- const league=useMemo(()=>data.league&&data.tonight?{...data.league,tonight:data.tonight}:data.league,[data.league,data.tonight]);
- const props=useMemo(()=>league?generateProps(rows,league):[],[rows,league,learned]);
- return {data,rows,props};
-}
-
-const TIER_WORDS={elite:'Elite',strong:'Strong',lean:'Lean'};
-const lineWords=row=>`Over ${row.line} ${statWords(row)}`;
-const gameWords=row=>`${row.teamAbbr||''}${row.opponent?` ${row.awayTeamAbbr&&row.teamAbbr===row.awayTeamAbbr?'@':'vs'} ${row.opponent}`:''}${row.startsAt?` · ${clockText(row.startsAt)}`:''}`;
-const recordWords=record=>record?`${record.hits}/${record.games}`:'—';
-// "Starter · 34 min": his part in the rotation (the generator only picks its heart).
-const roleWords=item=>[item.role?.label,item.minutes!=null?`${Math.round(item.minutes)} min`:null].filter(Boolean).join(' · ');
-
-function PropWhy({item}){
- return <ul className="gp-why">{analysisOf(item).map(part=><li key={part.key} data-tone={part.tone}>
-  <b>{part.title}</b><p>{part.text}</p>
-  {part.points?.length>0&&<ul>{part.points.map(point=><li key={point.text} data-tone={point.tone}>{point.text}</li>)}</ul>}
- </li>)}</ul>;
-}
-
-function PropRecords({item}){
- const {l5,l10,l20,season}=item.records;
- return <dl className="gp-prop-records">
-  <div><dt>Last 5</dt><dd>{recordWords(l5)}</dd></div><div><dt>Last 10</dt><dd>{recordWords(l10)}</dd></div>
-  <div><dt>Last 20</dt><dd>{recordWords(l20)}</dd></div><div><dt>Season</dt><dd>{season?pct(season.rate/100):'—'}</dd></div>
- </dl>;
-}
-
-function PropRow({item,index,open,onToggle,saved}){
- const {row,grade,read}=item;
- return <li className="gp-prop" data-open={open?'':undefined} style={{'--i':Math.min(index,12)}}>
-  <button type="button" className="gp-prop-row" onClick={onToggle} aria-expanded={open}>
-   <Face row={row}/>
-   <span className="gp-prop-who"><b>{row.player}</b><small>{lineWords(row)}</small></span>
-   <span className="gp-prop-num"><b>{pct(grade.chance)}</b><small data-tier={grade.tier}>{TIER_WORDS[grade.tier]}{read?` · ${read.score}`:''}</small></span>
-   <ChevronDown className="gp-prop-chev" size={16} aria-hidden="true"/>
-  </button>
-  {open&&<div className="gp-prop-more"><small className="gp-prop-game">{[gameWords(row),roleWords(item)].filter(Boolean).join(' · ')}</small><PropRecords item={item}/><PropWhy item={item}/>
-   <SlipToggle row={row} saved={saved} stat={statWords(row)} full className="gp-prop-save"/></div>}
- </li>;
-}
-
-function PropGenerator({admin}){
- const {data,rows,props}=usePropBoard();
- const saved=useSlipIds();
- const [open,setOpen]=useState(null);
- // Only slips that pay for themselves (a regular 2-pick needs about 58% a pick).
- const slips=useMemo(()=>bestSlips(props).filter(slip=>slip.value>0),[props]);
- const loading=data.rows==null||(!rows.length&&data.loading)||(rows.length&&!data.league);
- if(loading&&!props.length)return <div className="gp-gen-body"><p className="gp-note gp-prop-wait">Grading tonight's NBA props…</p><Shimmer rows={5}/></div>;
- if(!rows.length)return <div className="gp-gen-body"><Empty title={data.error?'NBA props couldn\'t load':'No NBA props posted right now'}
-  text={data.error?(admin?'The board didn\'t load.':'Try again in a minute.'):'PrizePicks posts tonight\'s lines through the day. Check back soon.'}>
-  {data.error&&<button type="button" className="gp-soft" onClick={()=>nbaBoardStore.refresh()}><RefreshCw size={15} aria-hidden="true"/>Try again</button>}</Empty></div>;
- if(!props.length)return <div className="gp-gen-body"><Empty title="Nothing worth playing yet" text={data.progress?'Still reading players\' games: picks show as they come in.':'No regular line tonight clears what it needs. Check back after the lines move.'}/></div>;
- const top=props[0];
- return <div className="gp-gen-body gp-props-gen">
-  <p className="gp-note gp-prop-count">{props.length} {props.length===1?'prop':'props'} worth playing from {rows.length} lines tonight{data.progress?' (more coming in)':''}.</p>
-  <section className="gp-pick gp-prop-hero">
-   <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>Best prop tonight</span>
-    <span className="gp-prop-tier" data-tier={top.grade.tier}>{TIER_WORDS[top.grade.tier]}</span></div>
-   <div className="gp-pick-main">
-    <Face row={top.row}/>
-    <span><b>{top.row.player}</b><small>{lineWords(top.row)}</small><small>{[gameWords(top.row),roleWords(top)].filter(Boolean).join(' · ')}</small></span>
-    <span className="gp-pick-num"><b>{pct(top.grade.chance)}</b><small>to go over</small></span>
-   </div>
-   <div className="gp-pick-versus"><VersusBar chance={top.grade.chance} market={top.grade.needs??0.5}/>
-    <span><small>Our model <b>{pct(top.grade.chance)}</b></small><small>Even <b>{pct(top.grade.needs??0.5)}</b></small></span></div>
-   <dl className="gp-pick-edge">
-    <div><dt>Edge</dt><dd data-tone="up">{edgeText(top.grade.edge)}</dd></div>
-    <div><dt>Matchup</dt><dd>{top.read?top.read.score:'—'}</dd></div>
-    <div><dt>Last 10</dt><dd>{recordWords(top.records.l10)}</dd></div>
-    <div><dt>Season</dt><dd>{top.records.season?pct(top.records.season.rate/100):'—'}</dd></div>
-   </dl>
-   <PropWhy item={top}/>
-   <SlipToggle row={top.row} saved={saved} stat={statWords(top.row)} full className="gp-prop-save"/>
-  </section>
-  {props.length>1&&<Section title="More props worth playing"><ul className="gp-props-list">{props.slice(1).map((item,index)=><PropRow key={item.row.id} item={item} index={index}
-   open={open===item.row.id} onToggle={()=>setOpen(old=>old===item.row.id?null:item.row.id)} saved={saved}/>)}</ul></Section>}
-  {props.length>1&&!slips.length&&<Section title="Best slips tonight" icon={Layers}><p className="gp-note">No slip pays for itself tonight: PrizePicks needs about 58% a pick on a 2-pick, and tonight's props are below that together. Play the strongest on their own.</p></Section>}
-  {slips.length>0&&<Section title="Best slips tonight" icon={Layers}><ol className="gp-parlays">{slips.map((slip,index)=><li key={slip.size} style={{'--i':index}}>
-   <div className="gp-parlay-head">
-    <span className="gp-parlay-pays"><b>{slip.payout}x</b><small>{slip.size} picks</small></span>
-    <span className="gp-parlay-hit"><span className="gp-meter" style={{'--w':slip.chance}}/><small>{pct(slip.chance)} to hit</small></span>
-    <strong data-tone={slip.value>0?'up':'down'}>{evText(slip.value)}<small>value</small></strong>
-   </div>
-   <ul className="gp-legchips">{slip.legs.map(item=><li key={item.row.id}><b>{item.row.player.split(' ').slice(-1)[0]}</b><small>{item.row.line} {statWords(item.row).replace('points + rebounds + assists','PRA').replace('3-pointers','3PM')}</small></li>)}</ul>
-  </li>)}</ol></Section>}
- </div>;
 }
 
 // ------------------------------------------------------------------ the page

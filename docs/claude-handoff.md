@@ -76,6 +76,36 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 8 (g): the prop generator, better picks and a page to explore
+
+- The owner, on the live board ("Precious Achiuwa Over 7.5 points 55%",
+  "Saddiq Bey Over 1.5 3-pointers", "Wiggins Over 1.5 assists"): "is this
+  really the best we can do and i want a nicer look and more options to see
+  data ... cool animations and transitions and visual effects that dont
+  look ai or robotic".
+- Picks (`prop-generator.js`): `MIN_LINE` per stat (points 11.5, rebounds
+  4.5, assists 3.5, P+R / P+A 14.5, PRA 19.5, 3PM 2.5); his record at the
+  line blended (`formRate`: L10 35%, L20 25%, season 40%, each pulled toward
+  50/50 by 3 games) must be 55%+ and his L10 average over the line;
+  `signalsOf` turns the model (62%+ = 100), the record (75%+ = 100), the
+  matchup (90+ = 100) and the average's room over the line (20% = 100) into
+  0-100 reads and a Confidence (35/30/20/15). Ranked by confidence (3PM -3).
+  Items carry `confidence`, `signals`, `form`, `average`, `games` (last 10).
+- Page moved to `src/PropGenerator.jsx` + `src/prop-generator.css` (`pg-`
+  classes); shared bits (Shimmer, Empty, Section, ChipMenu) to
+  `src/gp-parts.jsx`. A stat strip (All / Points / Rebounds / Assists / PRA
+  / P+R / P+A / 3PM, sliding pill), Order (best picks, highest chance, best
+  matchup, hottest form, most room) and Game menus. The best pick: photo,
+  Over line, game / role / minutes, a Confidence ring that fills and counts
+  up, his last 10 as bars against the dashed line (dotted average, legend
+  under), the four reads as bars, "Why we like it" (open), Save to slip.
+  The rest: a row each with his last 10 in mini bars and the confidence
+  (and "55% chance"), growing open (grid-rows transition) to the chart,
+  reads, reasons and Save. Slips (positive value only) under All / All games.
+- Fixed in passing: the first version's `.gp-why` rules restyled the game
+  page's Players-tab notes (same class); the generator's list is
+  `pg-whylist` now and the Players tab's `.gp-why` is its own again.
+
 ### Nov 8 (f): an NBA prop generator; the moneyline Generator restyled
 
 - The owner: "I want to do more cool things like the moneyline predictor
