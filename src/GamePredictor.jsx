@@ -24,6 +24,7 @@ import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
 import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
+import {findGame,liveWithScores,nbaBoard,nbaJson,withNbaLive} from './nba-live.js';
 import './game-predictor.css';
 
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
@@ -65,6 +66,37 @@ function useChart(sport,event){
  return chart;
 }
 
+// An NBA game on now whose chart is on ESPN's slower play-by-play (the
+// server couldn't reach NBA.com): this phone reads NBA.com's live feed
+// itself every 3 seconds and lays it over the chart (nba-live.js).
+function useNbaLive(chart){
+ const [fresh,setFresh]=useState(null);
+ const want=chart?.sport==='nba'&&chart?.state==='in'&&chart?.liveSource==='espn';
+ const key=want?chart.id:null;
+ const teams=useRef(null);
+ teams.current=chart?{home:chart.home?.abbr,away:chart.away?.abbr}:null;
+ useEffect(()=>{
+  setFresh(null);
+  if(!key)return undefined;
+  let stop=false,timer=null,gameId=null,boardAt=0;
+  const load=async()=>{
+   try{
+    if(document.visibilityState!=='hidden'){
+     if(!gameId&&Date.now()-boardAt>60000){boardAt=Date.now();gameId=findGame(await nbaBoard(),teams.current?.home,teams.current?.away)?.gameId||null;}
+     if(gameId){
+      const [plays,box]=await Promise.all([nbaJson(`/playbyplay/playbyplay_${gameId}.json`),nbaJson(`/boxscore/boxscore_${gameId}.json`)]);
+      if(!stop&&(plays||box))setFresh({actions:plays?.game?.actions||[],box:box?.game||null});
+     }
+    }
+   }catch{/* ESPN's stands */}
+   if(!stop)timer=setTimeout(load,3000);
+  };
+  load();
+  return()=>{stop=true;clearTimeout(timer);};
+ },[key]);
+ return useMemo(()=>fresh&&want?withNbaLive(chart,fresh.actions,fresh.box):chart,[chart,fresh,want]);
+}
+
 function Logo({team,size=28}){
  const [bad,setBad]=useState(false);
  return team?.logo&&!bad?<img className="gp-logo" src={team.logo} alt="" width={size} height={size} style={{width:size,height:size}} onError={()=>setBad(true)}/>
@@ -99,6 +131,8 @@ const Empty=({icon:Icon=CalendarDays,title,text,children})=><div className="gp-e
 // kept 5 minutes): their score, time left and chance line (game_live.py).
 function useLiveList(sport,games){
  const [live,setLive]=useState(null);
+ const listed=useRef(games);
+ listed.current=games;
  const due=(games||[]).some(game=>game.state==='in'||(game.state==='pre'&&Date.parse(game.startsAt)<=Date.now()+60000));
  useEffect(()=>{
   setLive(null);
@@ -106,7 +140,11 @@ function useLiveList(sport,games){
   let stop=false,timer=null;
   const load=()=>{
    if(document.visibilityState==='hidden'){timer=setTimeout(load,5000);return;}
-   call({action:'game-live',sport}).then(data=>{if(!stop)setLive(data);}).catch(()=>{}).finally(()=>{if(!stop)timer=setTimeout(load,15000);});
+   // The NBA's scores from NBA.com too, read by this phone (seconds fresher than ESPN's).
+   call({action:'game-live',sport}).then(async data=>{
+    const board=sport==='nba'?await nbaBoard().catch(()=>null):null;
+    if(!stop)setLive(board?liveWithScores(data,listed.current,board):data);
+   }).catch(()=>{}).finally(()=>{if(!stop)timer=setTimeout(load,15000);});
   };
   load();
   return()=>{stop=true;clearTimeout(timer);};
@@ -214,7 +252,7 @@ const gameTabs=chart=>{const on=['in','post'].includes(chart?.state)&&(chart?.fe
 // top corner, and both teams always in colors that don't look alike.
 function GamePage({game,sport,result,admin,onBack,onPick}){
  const [tab,setTab]=useState('chance');
- const chart=useChart(sport,game.id);
+ const chart=useNbaLive(useChart(sport,game.id));
  const analysis=useAnalysis(sport,game.id,tab==='why');
  const raw=result?.data;
  const colors=pairColors(raw?.home||game.home,raw?.away||game.away);
@@ -1028,7 +1066,7 @@ export function GamePredictor(){
  const [tries,setTries]=useState(0);
  const [sheet,setSheet]=useState(null);
  // The games on now, for the list and for the member's picks on now.
- const pendingPicks=useMemo(()=>(history.data?.items||[]).filter(item=>!item.result).map(item=>({id:item.id,state:'pre',startsAt:item.startsAt})),[history.data]);
+ const pendingPicks=useMemo(()=>(history.data?.items||[]).filter(item=>!item.result).map(item=>({id:item.id,state:'pre',startsAt:item.startsAt,home:item.home,away:item.away})),[history.data]);
  const liveList=useLiveList(sport,open?[]:view==='history'?pendingPicks:view==='predict'?slate.games:[]);
  useEffect(()=>{
   const control=new AbortController();

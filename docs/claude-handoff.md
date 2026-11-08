@@ -97,7 +97,21 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   (`game_live.with_nba_scores`). A live game page now reads every 3 s.
 - The GitHub check has a step comparing both on games on now (ESPN's clock
   and last play, its cache headers, NBA.com's, the chart's source).
-  Whether cdn.nba.com answers Vercel: see the first live check / the page.
+- First live check (run 42441732261): NBA.com turned GitHub's runner away
+  at once (0 games in 0.16 s), so it may turn Vercel away too (then the
+  chart says `liveSource: "espn"`). ESPN: its summary is cached 2-6 s
+  (max-age); its last play was 0, 0 and 17 s behind its own clock on three
+  games: the lag is ESPN's logging.
+- So the phone reads NBA.com itself when the server couldn't
+  (`src/nba-live.js`, `useNbaLive` in GamePredictor.jsx): an NBA game on now
+  whose chart says `liveSource: "espn"` gets NBA.com's play-by-play and box
+  score every 3 s, laid over the chart (`withNbaLive`: score, clock, last
+  play, run, quarters, top players, each prop's count by its page name; the
+  win chance line stays ESPN's). The games list / History take NBA.com's
+  scoreboard from the phone too (`liveWithScores`). A 403 or a blocked
+  cross-site read switches it off for the visit. No CSP on the site, so the
+  fetch is allowed; it still needs NBA.com to allow other sites to read it
+  (not confirmed from here).
 
 ### Nov 8 (c): the History tab redone; live fixes from the real-data check
 
