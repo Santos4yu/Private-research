@@ -24,7 +24,7 @@ import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
 import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
-import {findGame,liveWithScores,nbaBoard,nbaJson,withNbaLive} from './nba-live.js';
+import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
 import './game-predictor.css';
 
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
@@ -66,12 +66,13 @@ function useChart(sport,event){
  return chart;
 }
 
-// An NBA game on now whose chart is on ESPN's slower play-by-play (the
-// server couldn't reach NBA.com): this phone reads NBA.com's live feed
-// itself every 3 seconds and lays it over the chart (nba-live.js).
+// An NBA game on now: this phone reads NBA.com's live feed itself every 2
+// seconds and lays it over the chart (nba-live.js). NBA.com turns servers
+// away, and ESPN's play-by-play trails the game (Nov 8, the owner: "The live
+// feed is super slow I want it to be instant").
 function useNbaLive(chart){
  const [fresh,setFresh]=useState(null);
- const want=chart?.sport==='nba'&&chart?.state==='in'&&chart?.liveSource==='espn';
+ const want=chart?.sport==='nba'&&chart?.state==='in';
  const key=want?chart.id:null;
  const teams=useRef(null);
  teams.current=chart?{home:chart.home?.abbr,away:chart.away?.abbr}:null;
@@ -89,7 +90,7 @@ function useNbaLive(chart){
      }
     }
    }catch{/* ESPN's stands */}
-   if(!stop)timer=setTimeout(load,3000);
+   if(!stop&&nbaReachable())timer=setTimeout(load,2000);
   };
   load();
   return()=>{stop=true;clearTimeout(timer);};

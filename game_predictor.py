@@ -2395,7 +2395,10 @@ def sample_odds(sport, games, store=None, now=None) -> int:
 def _live_summary(sport, event_id):
     """ESPN's summary, read at most every LIVE_SECONDS: the line now, the
     state, and in a game its win probability after every play."""
-    return _kept(f"live:{sport}:{event_id}", LIVE_SECONDS, lambda: _espn(sport, "/summary", {"event": event_id}))
+    # A fresh answer each read: ESPN's own cache holds a summary 2-6 s (the
+    # Nov 8 check), on top of how far its play-by-play already trails.
+    return _kept(f"live:{sport}:{event_id}", LIVE_SECONDS,
+                 lambda: _espn(sport, "/summary", {"event": event_id, "_": int(time.time())}))
 
 
 def live_series(summary, starts_at=None, now=None) -> list:

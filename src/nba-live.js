@@ -129,16 +129,21 @@ export function liveWithScores(live,games,board){
    home:{...game.home,score:found.home??game.home?.score},away:{...game.away,score:found.away??game.away?.score}};})};
 }
 
-// One read at a time per path; a feed that won't answer this phone (NBA.com
-// turning it away, or not allowing other sites to read it) is left alone for
-// the rest of the visit.
-const state={off:false};
+// A feed that won't answer this phone (NBA.com turning it away, or not
+// letting other sites read it) is left alone for the rest of the visit after
+// three misses in a row; one dropped read (a phone between towers) isn't.
+// Each read asks NBA.com whether the file changed ('no-cache'), so one that
+// hasn't comes back as a few bytes.
+const state={misses:0};
+export const nbaReachable=()=>state.misses<3;
 export async function nbaJson(path){
- if(state.off)return null;
+ if(!nbaReachable())return null;
  try{
-  const response=await fetch(`${CDN}${path}`,{cache:'no-store',credentials:'omit'});
-  if(!response.ok){if(response.status===403)state.off=true;return null;}
-  return await response.json();
- }catch{state.off=true;return null;}
+  const response=await fetch(`${CDN}${path}`,{cache:'no-cache',credentials:'omit'});
+  if(!response.ok){state.misses+=response.status===403?3:1;return null;}
+  const data=await response.json();
+  state.misses=0;
+  return data;
+ }catch{state.misses+=1;return null;}
 }
 export const nbaBoard=()=>nbaJson('/scoreboard/todaysScoreboard_00.json');

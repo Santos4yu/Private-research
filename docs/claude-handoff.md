@@ -112,6 +112,17 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   cross-site read switches it off for the visit. No CSP on the site, so the
   fetch is allowed; it still needs NBA.com to allow other sites to read it
   (not confirmed from here).
+- Then (the owner: "The live feed is super slow I want it to be instant",
+  sent as that deploy finished): the phone reads NBA.com for every NBA game
+  on now (not only when the server is on ESPN), every 2 s, asking whether
+  the file changed (`cache: 'no-cache'`, so an unchanged one is a few
+  bytes); off for the visit only after three misses in a row (a 403 counts
+  three). The server's ESPN summary read carries `_=<seconds>` to skip
+  ESPN's 2-6 s cache. nba_relay.py's notes: stats.nba.com turned away
+  Vercel, GitHub and Cloudflare (Oct 21), so no server of ours is likely to
+  reach cdn.nba.com either; the phone is the way. If it's still slow on the
+  owner's phone, NBA.com isn't letting other sites read its feed, and the
+  feed stays ESPN's (its logging lag can't be helped).
 
 ### Nov 8 (c): the History tab redone; live fixes from the real-data check
 
