@@ -2265,12 +2265,16 @@ def save_pick(sport, member, event_id, side, stake=None, now=None, store=None) -
     return entry
 
 
-def remove_pick(sport, member, event_id, store=None) -> bool:
-    """Take back a pick on a game still to start."""
+def remove_pick(sport, member, event_id, store=None, now=None) -> bool:
+    """Take back a pick on a game still to start. Once it's on, the pick
+    stands (Nov 8: a losing pick taken back mid-game would leave the record
+    looking better than it was)."""
     store = _store() if store is None else store
+    now = now or datetime.now(timezone.utc)
     key = _member_key(sport, member)
     items = _read(key, store)
-    kept = [item for item in items if not (item.get("id") == str(event_id) and not item.get("result"))]
+    still_to_start = lambda item: (start := _when(item.get("startsAt"))) is None or start > now
+    kept = [item for item in items if not (item.get("id") == str(event_id) and not item.get("result") and still_to_start(item))]
     if len(kept) == len(items):
         return False
     _write(key, kept, store)
@@ -2465,17 +2469,20 @@ def game_clock_series(sport, summary) -> dict | None:
     plays = list((summary or {}).get("plays") or [])
     for drive in (((summary or {}).get("drives") or {}).get("previous") or []) + [((summary or {}).get("drives") or {}).get("current") or {}]:
         plays += drive.get("plays") or []
+    # In the game's play order (ESPN's win probability list isn't always),
+    # so plays in the same second keep their order.
     at = {}
-    for play in plays:
+    for index, play in enumerate(plays):
         elapsed = game_elapsed(sport, (play.get("period") or {}).get("number"), (play.get("clock") or {}).get("displayValue"))
         if play.get("id") is not None and elapsed is not None:
-            at[str(play["id"])] = elapsed
-    points = []
+            at.setdefault(str(play["id"]), (elapsed, index))
+    timed = []
     for point in probability:
-        chance, elapsed = _num(point.get("homeWinPercentage")), at.get(str(point.get("playId")))
-        if chance is not None and elapsed is not None:
-            points.append([round(elapsed, 1), round(chance, 4)])
-    points.sort(key=lambda item: item[0])
+        chance, found = _num(point.get("homeWinPercentage")), at.get(str(point.get("playId")))
+        if chance is not None and found is not None:
+            timed.append((found, [round(found[0], 1), round(chance, 4)]))
+    timed.sort(key=lambda item: item[0])
+    points = [point for _order, point in timed]
     if len(points) < 2:
         return None
     competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]

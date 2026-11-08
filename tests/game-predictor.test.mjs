@@ -329,3 +329,34 @@ test('the list\'s small chance line and the games on now first',()=>{
  assert.deepEqual(found.rest.map(game=>game.id),['2']);
  assert.deepEqual(liveFirst(games,null).rest.length,2);
 });
+
+// ---- the History tab (Nov 8)
+import {dayText,historyGroups,pickScoreText} from '../src/game-predictor-core.js';
+
+test('picks in groups: on now, still to come, settled',()=>{
+ const now=Date.parse('2026-11-08T03:00:00Z');
+ const pick=(id,startsAt,side='away',result=null)=>({id,startsAt,side,result,home:{abbr:'PHX'},away:{abbr:'HOU'},chance:0.69});
+ const items=[pick('1','2026-11-08T04:00:00Z'),pick('2','2026-11-08T02:00:00Z'),pick('3','2026-11-08T03:30:00Z'),
+  pick('4','2026-11-06T02:00:00Z','home',{home:110,away:104,winner:'home',correct:true}),pick('5','2026-11-08T01:00:00Z')];
+ const live={games:[{id:'2',state:'in',detail:'4:12 - 3rd',home:{score:78},away:{score:84},spark:{points:[[0,0.4],[1900,0.35]],length:2880}},
+  {id:'5',state:'post',detail:'Final',home:{score:101},away:{score:99}}]};
+ const groups=historyGroups(items,live,now);
+ assert.deepEqual(groups.upcoming.map(item=>item.id),['3','1']);
+ assert.deepEqual(groups.settled.map(item=>item.id),['4']);
+ assert.deepEqual(groups.live.map(item=>item.id),['2','5']);
+ const on=groups.live[0].live;
+ assert.deepEqual([on.margin,on.away,on.home,on.detail],[6,84,78,'4:12 - 3rd']);
+ assert.equal(Math.round(on.chance*100),65);
+ assert.deepEqual(pickScoreText(on),{text:'Up 6',tone:'up'});
+ assert.deepEqual(pickScoreText(groups.live[1].live),{text:'Lost',tone:'down'});
+ // Started, but the live read hasn't come back yet: on now, no score.
+ const early=historyGroups([pick('2','2026-11-08T02:00:00Z')],null,now);
+ assert.deepEqual([early.live.length,early.live[0].live.margin,pickScoreText(early.live[0].live).text],[1,null,'Live']);
+});
+
+test('a pick\'s day',()=>{
+ const now=new Date(2026,10,8,20,0);
+ assert.equal(dayText(new Date(2026,10,8,19,0).toISOString(),now),'Today');
+ assert.equal(dayText(new Date(2026,10,7,19,0).toISOString(),now),'Yesterday');
+ assert.equal(dayText(new Date(2026,9,20,19,0).toISOString(),now),'Oct 20');
+});

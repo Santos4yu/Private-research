@@ -774,8 +774,10 @@ class HistoryTests(unittest.TestCase):
         # Settled once; a pick still to come can be taken back, a settled one can't.
         gp.history("nba", "m1", now=NOW, store=store, finals=finals)
         self.assertEqual(len(asked), 1)
-        self.assertTrue(gp.remove_pick("nba", "m1", "3", store=store))
-        self.assertFalse(gp.remove_pick("nba", "m1", "1", store=store))
+        # Once the game is on, the pick stands.
+        self.assertFalse(gp.remove_pick("nba", "m1", "3", store=store, now=datetime(2026, 11, 6, 0, 30, tzinfo=timezone.utc)))
+        self.assertTrue(gp.remove_pick("nba", "m1", "3", store=store, now=NOW))
+        self.assertFalse(gp.remove_pick("nba", "m1", "1", store=store, now=NOW))
         self.assertEqual(len(gp.history("nba", "someone else", now=NOW, store=store, finals=finals)["items"]), 1)
 
     def test_no_picks_once_the_game_starts(self):

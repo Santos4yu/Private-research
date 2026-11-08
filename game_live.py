@@ -148,7 +148,8 @@ def quarters(summary) -> dict | None:
         values = []
         for item in competitor.get("linescores") or []:
             value = gp._num(item.get("value"))
-            values.append(int(value) if value is not None else gp._num(item.get("displayValue")))
+            value = gp._num(item.get("displayValue")) if value is None else value
+            values.append(int(value) if value is not None and float(value).is_integer() else value)
         rows[competitor.get("homeAway")] = values
     count = max(len(rows.get("home") or []), len(rows.get("away") or []))
     if not count:
@@ -272,13 +273,13 @@ def swings(sport, summary, most=3) -> list:
     into the game), home (the chance after), delta (home's change), side
     (who it helped), text, when}. The jump to 0 or 100% at the final buzzer
     isn't a play."""
-    by_id = {str(play.get("id")): play for play in plays(summary) if play.get("id") is not None}
+    # Walked in the game's play order: ESPN's win probability list isn't
+    # always in it (the Nov 8 check: a substitution came out as a 17% swing).
+    chance_of = {str(point.get("playId")): gp._num(point.get("homeWinPercentage")) for point in (summary or {}).get("winprobability") or []}
     timed = []
-    for point in (summary or {}).get("winprobability") or []:
-        chance, play = gp._num(point.get("homeWinPercentage")), by_id.get(str(point.get("playId")))
-        if chance is None or not play:
-            continue
-        at = _elapsed(sport, play)
+    for play in plays(summary):
+        chance = chance_of.get(str(play.get("id")))
+        at = _elapsed(sport, play) if chance is not None else None
         if at is not None:
             timed.append((at, chance, play))
     moves = sorted(((abs(after - before), at, after, after - before, play)
@@ -313,19 +314,23 @@ def momentum(sport, summary, length=None, now=None) -> list:
         length, now = clock["length"], clock["now"]
     if now is None:
         return []
-    timeline = score_timeline(sport, plays(summary))
-    out = [{"start": start, "end": end, "home": 0, "away": 0} for start, end in stretches(sport, length) if start < now or (start == 0 and now >= 0)]
-    before = (0, 0)
-    for at, home, away in timeline:
-        gained = (max(0, home - before[0]), max(0, away - before[1]))
-        before = (home, away)
-        if at is None:
-            continue
-        for stretch in out:
-            if stretch["start"] <= at < stretch["end"] or (at >= stretch["end"] and stretch is out[-1]):
-                stretch["home"] += gained[0]
-                stretch["away"] += gained[1]
-                break
+    timeline = [entry for entry in score_timeline(sport, plays(summary)) if entry[0] is not None]
+    out = [{"start": start, "end": end, "home": 0, "away": 0} for start, end in stretches(sport, length) if start < now or start == 0]
+
+    def score_before(moment):
+        """The score after the last play (in play order) before `moment`: a
+        score ESPN shows and then corrects (Nov 8: an NFL stretch strip
+        added up to 34 for a final 33) counts as corrected."""
+        found = (0, 0)
+        for at, home, away in timeline:
+            if at < moment:
+                found = (home, away)
+        return found
+    final = timeline[-1][1:] if timeline else (0, 0)
+    for index, stretch in enumerate(out):
+        start = score_before(stretch["start"])
+        end = final if index == len(out) - 1 else score_before(stretch["end"])
+        stretch["home"], stretch["away"] = max(0, end[0] - start[0]), max(0, end[1] - start[1])
     return out
 
 

@@ -473,3 +473,53 @@ export function liveFirst(games,live){
    home:{...game.home,score:now.home?.score??game.home?.score},away:{...game.away,score:now.away?.score??game.away?.score}};});
  return {live:merged.filter(game=>game.state==='in'),rest:merged.filter(game=>game.state!=='in')};
 }
+
+// ------------------------------------------------------------------ the member's picks
+// (Nov 8, the owner, with the History tab: "Now how can we make this look better".)
+
+/** A pick's day: "Today", "Yesterday", "Sat", "Nov 6". */
+export function dayText(iso,now=new Date()){
+ const time=Date.parse(iso||'');
+ if(!Number.isFinite(time))return '';
+ const day=new Date(now);day.setHours(0,0,0,0);
+ const days=Math.round((new Date(time).setHours(0,0,0,0)-day.getTime())/864e5);
+ if(days===0)return 'Today';
+ if(days===-1)return 'Yesterday';
+ if(days===1)return 'Tomorrow';
+ if(days>-7&&days<7)return new Date(time).toLocaleDateString('en-US',{weekday:'short'});
+ return new Date(time).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+/**
+ * The picks in three groups: on now (or just finished, waiting to be
+ * settled) with the score from the pick's side and its chance now, still to
+ * come (soonest first), and settled.
+ */
+export function historyGroups(items,live,now=Date.now()){
+ const fresh=new Map((live?.games||[]).map(game=>[game.id,game]));
+ const groups={live:[],upcoming:[],settled:[]};
+ for(const item of items||[]){
+  if(item.result){groups.settled.push(item);continue;}
+  const game=fresh.get(item.id);
+  const started=Date.parse(item.startsAt)<=now;
+  if(!started&&!(game&&['in','post'].includes(game.state))){groups.upcoming.push(item);continue;}
+  const side=item.side,other=side==='home'?'away':'home';
+  const score=key=>{const value=Number(game?.[key]?.score);return game?.[key]?.score!=null&&Number.isFinite(value)?value:null;};
+  const mine=score(side),theirs=score(other);
+  const points=game?.spark?.points||[];
+  const homeNow=points.length?points[points.length-1][1]:null;
+  groups.live.push({...item,live:{state:game?.state||'in',detail:game?.detail||'',home:score('home'),away:score('away'),
+   margin:mine!=null&&theirs!=null?mine-theirs:null,chance:homeNow==null?null:side==='home'?homeNow:1-homeNow}});
+ }
+ groups.upcoming.sort((a,b)=>Date.parse(a.startsAt)-Date.parse(b.startsAt));
+ return groups;
+}
+
+/** A live pick's state from its side: "Up 6", "Down 4", "Tied"; once it's over, "Won" / "Lost". */
+export function pickScoreText(live){
+ const margin=live?.margin;
+ if(margin==null)return {text:'Live'};
+ const tone=margin>0?'up':margin<0?'down':undefined;
+ if(live.state==='post')return {text:margin>0?'Won':margin<0?'Lost':'Tied',tone};
+ return {text:margin>0?`Up ${margin}`:margin<0?`Down ${-margin}`:'Tied',tone};
+}

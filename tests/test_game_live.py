@@ -67,7 +67,10 @@ class FeedTests(unittest.TestCase):
         self.assertIsNone(live.current_run("nba", timeline + [(200, 8, 2), (260, 8, 4)]))
 
     def test_the_plays_that_swung_it(self):
-        found = live.swings("nba", nba_summary())
+        summary = nba_summary()
+        # ESPN's list out of play order: the swings still come from the plays in order.
+        summary["winprobability"] = list(reversed(summary["winprobability"]))
+        found = live.swings("nba", summary)
         # 0.47 -> 0.30 (Green's three) and 0.36 -> 0.44 (Booker's three); the rest moved less or sat too close.
         self.assertEqual([(item["when"], item["side"], item["delta"]) for item in found], [("Q1 6:00", "away", -0.17), ("Q3 7:00", "home", 0.08)])
         self.assertEqual(found[0]["at"], 360.0)
@@ -81,6 +84,11 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(found[2], {"start": 360, "end": 540, "home": 0, "away": 12})
         self.assertEqual(found[9], {"start": 1620, "end": 1800, "home": 13, "away": 0})
         self.assertEqual(sum(item["home"] for item in found), 16)
+        # A score shown and then corrected counts as corrected: the stretches add up to the final.
+        summary = nba_summary()
+        summary["plays"][4:4] = [play("q1", 2, "11:00", 3, 17, "10", "Jalen Green makes three"), play("q2", 2, "10:30", 3, 14, "10", "Review: a two")]
+        found = live.momentum("nba", summary)
+        self.assertEqual((sum(item["home"] for item in found), sum(item["away"] for item in found)), (16, 14))
         # Overtime stretches are shorter.
         self.assertEqual(live.stretches("nba", 2880 + 300)[-2:], [(2880, 3030), (3030, 3180)])
 

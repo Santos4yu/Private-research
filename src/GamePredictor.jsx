@@ -22,7 +22,7 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Flame,Info,Layers,RefreshCw,Share,Trophy,UserX,X,Zap} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import './game-predictor.css';
 
@@ -955,30 +955,63 @@ function Generator({league,admin}){
 
 // ------------------------------------------------------------------ history
 
-function HistoryView({state,admin,onRetry,onRemove}){
+// The member's picks (Nov 8, the owner: "Now how can we make this look
+// better"): the record in one row, then the picks in three groups: on now
+// (the score from the pick's side, the time left, its chance now), still to
+// come (taken back with the x until it starts), settled (won or lost and
+// what it paid). Each row leads with the picked team's logo.
+function HistoryView({state,live,admin,onRetry,onRemove}){
  const {data,error,loading}=state;
  const record=data?.record;
  const items=data?.items||[];
  if(loading&&!data)return <Shimmer rows={5}/>;
  if(error&&!data)return <Empty icon={RefreshCw} title="Your picks can't load right now" text={admin?error:null}>
   <button type="button" className="gp-soft" onClick={onRetry}><RefreshCw size={15} aria-hidden="true"/>Try again</button></Empty>;
+ if(!items.length)return <Empty icon={Trophy} title="No picks yet" text="Open a game, tap a team and swipe up to save it here."/>;
+ const groups=historyGroups(items,live);
+ const lost=record?(record.games||0)-(record.correct||0):0;
+ const head=(title,count)=><h3 className="gp-day-head">{title}<small>{count} {count===1?'pick':'picks'}</small></h3>;
+ let at=0;
+ const rows=(list,kind)=><ul className="gp-picks">{list.map(item=><PickRow key={item.id} item={item} kind={kind} index={at++} onRemove={onRemove}/>)}</ul>;
  return <div className="gp-history">
-  {record?.games||record?.pending?<dl className="gp-stats">
-   <div className="is-lead"><dt>Record</dt><dd>{record.correct}-{record.games-record.correct}<small>{record.games?pct(record.pct):''}</small></dd></div>
+  {record?.games>0&&<dl className="gp-hstats">
+   <div><dt>Record</dt><dd>{record.correct}-{lost}<small>{pct(record.pct)}</small></dd></div>
    {record.money?<div><dt>Profit</dt><dd data-tone={record.money.profit>0?'up':record.money.profit<0?'down':undefined}>{moneyText(record.money.profit,true)}<small>on {moneyText(record.money.staked)}</small></dd></div>:null}
-   {record.units!=null?<div><dt>Units</dt><dd data-tone={record.units>0?'up':record.units<0?'down':undefined}>{unitsText(record.units)}</dd></div>:null}
-   <div><dt>Pending</dt><dd>{record.pending}</dd></div>
-  </dl>:null}
-  {!items.length?<Empty icon={Trophy} title="No picks yet" text="Open a game, tap a team and swipe up to save it here."/>
-  :<ul className="gp-history-list">{items.map((item,index)=>{const result=resultOf(item);const team=item[item.side]||{};const win=winOf(item.stake,item.price);
-   return <li key={item.id} data-result={result} style={{'--i':Math.min(index,12)}}>
-   <span className="gp-history-mark" aria-label={result}>{result==='win'?<Check size={14}/>:result==='loss'?<X size={14}/>:<i/>}</span>
-   <span className="gp-history-game"><b><Logo team={team} size={18}/>{team.abbr} to win <em>{odds(item.price)}</em></b><small>{item.away.abbr} @ {item.home.abbr} · {startText(item.startsAt)}</small></span>
-   <span className="gp-history-pick">{item.stake?<><b>{moneyText(item.stake)}</b><small>to win {moneyText(win)}</small></>:<><b>1 unit</b><small>{pct(item.chance)} our chance</small></>}</span>
-   <span className="gp-history-final">{item.result?<><b data-tone={item.result.correct?'up':item.result.winner?'down':undefined}>{item.result.profit!=null?moneyText(item.result.profit,true):unitsText(item.result.units)}</b><small>{item.result.away}-{item.result.home}</small></>
-    :<button type="button" className="gp-link-x" onClick={()=>onRemove(item)} aria-label={`Remove the ${team.abbr} pick`}><X size={15}/></button>}</span>
-  </li>;})}</ul>}
+   {record.units!=null?<div><dt>Units</dt><dd data-tone={record.units>0?'up':record.units<0?'down':undefined}>{unitsText(record.units).replace(/ units?$/,'')}<small>{Math.abs(record.units)===1?'unit':'units'}</small></dd></div>:null}
+  </dl>}
+  {groups.live.length>0&&<section className="gp-picks-group is-live">{head('Live',groups.live.length)}{rows(groups.live,'live')}</section>}
+  {groups.upcoming.length>0&&<section className="gp-picks-group">{head('Upcoming',groups.upcoming.length)}{rows(groups.upcoming,'upcoming')}</section>}
+  {groups.settled.length>0&&<section className="gp-picks-group">{head('Settled',groups.settled.length)}{rows(groups.settled,'settled')}</section>}
  </div>;
+}
+
+function PickRow({item,kind,index,onRemove}){
+ const team=item[item.side]||{};
+ const result=resultOf(item);
+ const color=teamColor(team);
+ const live=item.live;
+ const win=winOf(item.stake,item.price);
+ let sub,right;
+ if(kind==='live'){
+  const state=pickScoreText(live),final=live.state==='post';
+  sub=<span className="gp-pick-score">{live.away!=null?<>{item.away.abbr} <b>{live.away}</b> – <b>{live.home}</b> {item.home.abbr}</>:`${item.away.abbr} @ ${item.home.abbr}`}
+   <span className="gp-pick-clock">{final?'Final':<><i className="gp-pulse" aria-hidden="true"/>{liveText(live.detail)||'Live'}</>}</span></span>;
+  right=<><b data-tone={state.tone} key={state.text}>{state.text}</b><small>{!final&&live.chance!=null?`${pct(live.chance)} now`:item.stake?`${moneyText(item.stake)} to win ${moneyText(win)}`:'1 unit'}</small></>;
+ }else if(kind==='upcoming'){
+  sub=`${item.away.abbr} @ ${item.home.abbr} · ${startText(item.startsAt)}`;
+  right=item.stake?<><b>{moneyText(item.stake)}</b><small>to win {moneyText(win)}</small></>:<><b>{pct(item.chance)}</b><small>our chance</small></>;
+ }else{
+  sub=`${item.away.abbr} @ ${item.home.abbr} · ${dayText(item.startsAt)} · ${item.result.away}-${item.result.home}`;
+  right=<><b data-tone={result==='win'?'up':result==='loss'?'down':undefined}>{item.result.profit!=null?moneyText(item.result.profit,true):unitsText(item.result.units)}</b>
+   <small>{result==='win'?'Won':result==='loss'?'Lost':'Push'}{item.stake?` · ${moneyText(item.stake)}`:''}</small></>;
+ }
+ return <li className="gp-pickrow" data-kind={kind} data-result={result} style={{...(color?{'--team':color}:{}),'--i':Math.min(index,12)}}>
+  <span className="gp-pickrow-logo"><Logo team={team} size={34}/>
+   {kind==='settled'&&(result==='win'||result==='loss')&&<i className="gp-pickrow-mark" aria-label={result==='win'?'Won':'Lost'}>{result==='win'?<Check size={11} strokeWidth={3}/>:<X size={11} strokeWidth={3}/>}</i>}</span>
+  <span className="gp-pickrow-main"><b>{team.abbr} to win <em>{odds(item.price)}</em></b><small>{sub}</small></span>
+  <span className="gp-pickrow-right">{right}</span>
+  {kind==='upcoming'?<button type="button" className="gp-pickrow-x" onClick={()=>onRemove(item)} aria-label={`Take back the ${team.abbr} pick`}><X size={16}/></button>:<span className="gp-pickrow-x" aria-hidden="true"/>}
+ </li>;
 }
 
 // ------------------------------------------------------------------ the page
@@ -994,7 +1027,9 @@ export function GamePredictor(){
  const [results,setResults]=useState({});
  const [tries,setTries]=useState(0);
  const [sheet,setSheet]=useState(null);
- const liveList=useLiveList(sport,open?[]:slate.games);
+ // The games on now, for the list and for the member's picks on now.
+ const pendingPicks=useMemo(()=>(history.data?.items||[]).filter(item=>!item.result).map(item=>({id:item.id,state:'pre',startsAt:item.startsAt})),[history.data]);
+ const liveList=useLiveList(sport,open?[]:view==='history'?pendingPicks:view==='predict'?slate.games:[]);
  useEffect(()=>{
   const control=new AbortController();
   setSlate(old=>({loading:true,games:old.sport===sport?old.games:[],sport}));setResults({});setOpen(null);
@@ -1041,7 +1076,7 @@ export function GamePredictor(){
   <header className="gp-top">
    <div className="gp-title">
     <h2>Game Predictor</h2>
-    <p>{recordText(record)?<>Record <b>{recordText(record)}</b></>:'NBA and NFL winners, scores and moneylines'}</p>
+    <p>{view!=='history'&&recordText(record)?<>Record <b>{recordText(record)}</b></>:'NBA and NFL winners, scores and moneylines'}</p>
    </div>
    {view!=='generate'&&<Segmented options={SPORTS} value={sport} onChange={pickSport} label="League"/>}
   </header>
@@ -1049,7 +1084,7 @@ export function GamePredictor(){
   <div className="gp-view" key={view}>
    {view==='predict'&&<PredictView slate={slate} live={liveList} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>}
    {view==='generate'&&<Generator league={sport} admin={admin}/>}
-   {view==='history'&&<HistoryView state={history} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
+   {view==='history'&&<HistoryView state={history} live={liveList} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
   </div>
 
  </div>;

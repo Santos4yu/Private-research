@@ -76,6 +76,35 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 8 (c): the History tab redone; live fixes from the real-data check
+
+- The owner, with the History tab: "Now how can we make this look better".
+  It had the record twice (header and tab), a grey dot per row with a tiny
+  logo, "1 unit" on every row, a grey x circle on every pending pick, and
+  picks on now that looked like they hadn't started.
+- Now (`HistoryView` / `PickRow`, `historyGroups`, `pickScoreText`,
+  `dayText` in game-predictor-core.js): the record in one row (Record ·
+  Profit · Units, thin rules between; the header shows the tagline on this
+  tab instead), then Live (the score from the pick's side, the time left,
+  "Up 6" / "Down 2" and its chance now; "Won" / "Lost" once final, before
+  it's settled), Upcoming (soonest first; stake and to-win, or our chance;
+  a plain x to take it back), Settled (a small check / x on the logo, the
+  day and final score, what it paid). Live data from the same
+  `action=game-live` read as the games list (polled while the History tab
+  shows picks that have started).
+- A pick can no longer be taken back once its game starts:
+  `remove_pick(..., now)` keeps it (a losing pick deleted mid-game would
+  have cleaned up the record), and the x shows on upcoming picks only.
+- Real-data check of the live parts (run 42440551466, OKC-ATL and a
+  JAX-BAL final): game clock, last play, quarters, leaders and the live
+  list right; NBA stretches added up to the final exactly. Two fixes:
+  `swings` walked ESPN's win probability list, which isn't in play order
+  (a substitution came out as a 17% swing): now the plays in order, as
+  `game_clock_series` too; `momentum` counted a score ESPN showed and then
+  corrected (NFL 34 for a final 33): now each stretch is the score at its
+  end less the score at its start. Props couldn't be seen (no KV store in
+  the check).
+
 ### Nov 8 (b): live games, all seven ideas (feed, props, pick, swings, stretches, alerts, list)
 
 - The owner, offered seven ideas for live games after the game-clock chart
