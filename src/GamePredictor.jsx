@@ -53,8 +53,8 @@ function useChart(sport,event){
  useEffect(()=>{
   if(!event)return undefined;
   let stop=false,timer=null;
-  // In a game every 4 s (the server reads ESPN at most every 3 s); before it every minute.
-  const next=()=>{if(!stop)timer=setTimeout(load,live.current?4000:60000);};
+  // In a game every 3 s (the server reads NBA.com's feed every 2 s, ESPN's every 3); before it every minute.
+  const next=()=>{if(!stop)timer=setTimeout(load,live.current?3000:60000);};
   const load=()=>{
    if(document.visibilityState==='hidden'){timer=setTimeout(load,5000);return;}
    call({action:'game-chart',sport,event}).then(data=>{if(stop)return;live.current=data.state==='in';setChart(data);}).catch(()=>{}).finally(next);

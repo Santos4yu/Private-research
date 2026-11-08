@@ -76,6 +76,29 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 8 (d): NBA live feed from NBA.com's own live data
+
+- The owner, on HOU @ PHX in the 2nd: "The live feed is super slow still
+  shows kd rebound". ESPN's summary had its clock at 0:54.4 and its newest
+  play at 1:21 in the same answer: ESPN's play-by-play trails its own
+  clock (and the TV). Our API already sends no-store.
+- `nba_live.py` (new): cdn.nba.com/static/json/liveData (NBA.com's game
+  pages' feed: todaysScoreboard, playbyplay_{id}, boxscore_{id}), read every
+  2 s (the board every 5). Matched to ESPN's game by tricodes (`TRICODES`:
+  GS/GSW, NY/NYK, SA/SAS, NO/NOP, UTAH/UTA, WSH/WAS). If it doesn't
+  answer, it's left alone 2 minutes and ESPN stands in. This isn't
+  stats.nba.com (the phone relay's).
+- `chart()` for an NBA game on now: the last play, the run, the quarter
+  scores, the top players and the props' box score from NBA.com
+  (`game_live.extras(..., fast)`), the score and clock too ("0:31.2 -
+  2nd", ESPN's form); `liveSource` says which. The win chance line, swings
+  and stretches stay ESPN's (NBA.com has no win chance). The list and the
+  History tab's live rows take NBA.com's score / clock / state
+  (`game_live.with_nba_scores`). A live game page now reads every 3 s.
+- The GitHub check has a step comparing both on games on now (ESPN's clock
+  and last play, its cache headers, NBA.com's, the chart's source).
+  Whether cdn.nba.com answers Vercel: see the first live check / the page.
+
 ### Nov 8 (c): the History tab redone; live fixes from the real-data check
 
 - The owner, with the History tab: "Now how can we make this look better".

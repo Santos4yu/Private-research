@@ -4,6 +4,17 @@ from unittest.mock import patch
 
 import game_live as live
 import game_predictor as gp
+import nba_live
+
+_no_nba_live = patch.object(nba_live, "_get", return_value=None)
+
+
+def setUpModule():
+    _no_nba_live.start()
+
+
+def tearDownModule():
+    _no_nba_live.stop()
 
 NBA_KEYS = ["minutes", "fieldGoalsMade-fieldGoalsAttempted", "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
             "freeThrowsMade-freeThrowsAttempted", "offensiveRebounds", "defensiveRebounds", "rebounds", "assists", "steals",

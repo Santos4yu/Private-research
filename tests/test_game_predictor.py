@@ -12,14 +12,18 @@ from backend.sports.wnba.league import FIELDS
 NOW = datetime(2026, 11, 5, 18, tzinfo=timezone.utc)
 # No test reads DraftKings' real feed: ESPN's lines stand unless a test gives DraftKings' own.
 _no_dk = patch.object(gp, "dk_events", return_value=[])
+import nba_live  # noqa: E402
+_no_nba_live = patch.object(nba_live, "_get", return_value=None)
 
 
 def setUpModule():
     _no_dk.start()
+    _no_nba_live.start()
 
 
 def tearDownModule():
     _no_dk.stop()
+    _no_nba_live.stop()
 
 
 def line(pid, minutes, pts, reb=5, ast=3):

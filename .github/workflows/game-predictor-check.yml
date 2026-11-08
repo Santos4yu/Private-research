@@ -125,6 +125,45 @@ jobs:
               print("   QBs:", built and built["starters"], "| warnings:", [item["text"] for item in made["warnings"]])
               print("   parts:", [(part["key"], part["points"], part["text"]) for part in made["factors"]])
               print("   write-up:", [point["text"] for point in (made.get("story") or {}).get("points", []) if point["key"] in ("teams", "home", "extras")])
+      - name: NBA games on now, NBA.com's live feed against ESPN's
+        shell: python
+        run: |
+          import sys, time, traceback
+          sys.path.insert(0, ".")
+          from datetime import datetime, timezone
+          import requests
+          import game_predictor as gp
+          import nba_live
+          now = datetime.now(timezone.utc)
+          try:
+              started = time.time()
+              board = nba_live.board()
+              print("NBA.com scoreboard:", len(board), "games in", round(time.time() - started, 2), "s; resting:", nba_live._resting["until"] > time.time())
+              espn = gp._espn("nba", "/scoreboard", {"dates": gp._us_day(now), "limit": 100}).get("events") or []
+              on = [gp._event("nba", event) for event in espn]
+              on = [game for game in on if game["state"] == "in"]
+              print("ESPN games on now:", len(on))
+              for game in on[:3]:
+                  response = requests.get(gp.ESPN + gp.PATHS["nba"] + "/summary", params={"event": game["id"]}, headers={"User-Agent": "Mozilla/5.0"}, timeout=12)
+                  summary = response.json()
+                  status = ((summary.get("header") or {}).get("competitions") or [{}])[0].get("status") or {}
+                  plays = summary.get("plays") or []
+                  last = plays[-1] if plays else {}
+                  print(game["away"]["abbr"], "@", game["home"]["abbr"], "| ESPN clock:", status.get("type", {}).get("shortDetail"),
+                        "| ESPN last play:", (last.get("period") or {}).get("number"), (last.get("clock") or {}).get("displayValue"), str(last.get("text"))[:60],
+                        "| cache:", response.headers.get("Cache-Control"), "age:", response.headers.get("Age"))
+                  fast = nba_live.live(game["home"]["abbr"], game["away"]["abbr"])
+                  if fast:
+                      print("   NBA.com clock:", fast["detail"], "score", fast["away"], "-", fast["home"], "| last play:", fast["plays"][-1]["period"]["number"] if fast["plays"] else None,
+                            fast["plays"][-1]["clock"]["displayValue"] if fast["plays"] else None, (fast["plays"][-1]["text"] if fast["plays"] else "")[:60],
+                            "| box players:", {side: len(people) for side, people in (fast["box"] or {}).items()})
+                  else:
+                      print("   NBA.com: no live game found for", nba_live.tricode(game["away"]["abbr"]), "@", nba_live.tricode(game["home"]["abbr"]))
+                  found = gp.chart("nba", game["id"], now=now, store=None)
+                  print("   chart source:", found.get("liveSource"), "| detail:", found.get("detail"), "| last:", (found.get("feed") or {}).get("last"))
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
+
       - name: The charts' data (a finished game's win probability, a game to come's line)
         shell: python
         run: |

@@ -2523,11 +2523,20 @@ def chart(sport, event_id, now=None, store=None) -> dict:
     clock = game_clock_series(sport, summary) if status.get("state") in ("in", "post") else None
     # In a game and after it: the feed, the swings, who won each stretch and
     # the players' props against their lines (game_live.py).
-    extra = {}
+    extra, fast = {}, None
+    if sport == "nba" and status.get("state") == "in":
+        # NBA.com's live feed for the plays, the score and the clock: ESPN's
+        # play-by-play runs well behind (Nov 8, the owner: "The live feed is
+        # super slow"). ESPN's when NBA.com doesn't answer.
+        try:
+            import nba_live
+            fast = nba_live.live(sides["home"].get("abbr"), sides["away"].get("abbr"))
+        except Exception:  # noqa: BLE001
+            fast = None
     if status.get("state") in ("in", "post"):
         try:
             import game_live
-            extra = game_live.extras(sport, summary, competition.get("date"), clock)
+            extra = game_live.extras(sport, summary, competition.get("date"), clock, fast)
         except Exception:  # noqa: BLE001 -- the chart stands without them
             extra = {}
     opened = None
@@ -2540,8 +2549,11 @@ def chart(sport, event_id, now=None, store=None) -> dict:
                 opened = {"moneyline": prices, "market": round(home_p / (home_p + away_p), 4)}
         except Exception:  # noqa: BLE001 -- the chart stands without it
             opened = None
-    team = lambda side: {key: sides[side].get(key) for key in ("abbr", "short", "logo", "color", "score")}
-    return {"id": str(event_id), "sport": sport, "state": status.get("state"), "detail": status.get("shortDetail") or status.get("detail"),
+    team = lambda side: {**{key: sides[side].get(key) for key in ("abbr", "short", "logo", "color", "score")},
+                         **({"score": fast[side]} if fast and fast.get(side) is not None else {})}
+    return {"id": str(event_id), "sport": sport, "state": status.get("state"),
+            "detail": (fast or {}).get("detail") or status.get("shortDetail") or status.get("detail"),
+            "liveSource": "nba.com" if fast else "espn",
             "startsAt": competition.get("date"), "home": team("home"), "away": team("away"),
             "market": [[point[0], point[1]] for point in series], "live": live,
             "source": (line or {}).get("source") or "espn", "open": opened, "clock": clock,

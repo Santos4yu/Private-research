@@ -256,16 +256,17 @@ def leaders(sport, box) -> dict:
 
 # ------------------------------------------------------------------ the feed, swings, momentum
 
-def feed(sport, summary, box=None) -> dict:
-    """{last {text, when, side}, run, quarters, leaders, lead}."""
+def feed(sport, summary, box=None, fast=None) -> dict:
+    """{last {text, when, side}, run, quarters, leaders, lead}: from NBA.com's
+    live feed when `fast` has it (nba_live.live), else ESPN's summary."""
     sides = sides_of(summary)
-    every = plays(summary)
+    every = (fast or {}).get("plays") or plays(summary)
     last = next((play for play in reversed(every) if str(play.get("text") or "").strip()), None)
     timeline = score_timeline(sport, every)
     box = box_score(sport, summary) if box is None else box
     return {"last": {"text": _text(last), "when": _when(last), "side": _side_of(last, sides)} if last else None,
-            "run": current_run(sport, timeline), "quarters": quarters(summary), "leaders": leaders(sport, box),
-            "lead": biggest_leads(timeline)}
+            "run": current_run(sport, timeline), "quarters": (fast or {}).get("quarters") or quarters(summary),
+            "leaders": leaders(sport, box), "lead": biggest_leads(timeline)}
 
 
 def swings(sport, summary, most=3) -> list:
@@ -434,15 +435,16 @@ def props(sport, box, lines) -> list:
 
 # ------------------------------------------------------------------ for the chart, and the games list
 
-def extras(sport, summary, starts_at=None, clock=None) -> dict:
+def extras(sport, summary, starts_at=None, clock=None, fast=None) -> dict:
     """The chart's live parts, each on its own: one that can't be worked out
-    is left out, the rest stand."""
+    is left out, the rest stand. `fast` (nba_live.live): NBA.com's plays and
+    box score, seconds fresher than ESPN's, for the feed and the props."""
     out = {}
     try:
-        box = box_score(sport, summary)
+        box = (fast or {}).get("box") or box_score(sport, summary)
     except Exception:  # noqa: BLE001
         box = {"home": [], "away": []}
-    for name, work in (("feed", lambda: feed(sport, summary, box)),
+    for name, work in (("feed", lambda: feed(sport, summary, box, fast)),
                        ("swings", lambda: swings(sport, summary)),
                        ("momentum", lambda: momentum(sport, summary, *((clock["length"], clock["now"]) if clock else (None, None)))),
                        ("props", lambda: props(sport, box, prop_lines(sport, starts_at)))):
@@ -467,6 +469,25 @@ def spark(sport, summary, most=LIST_POINTS) -> dict | None:
     return {"points": kept, "length": clock["length"]}
 
 
+def with_nba_scores(games) -> list:
+    """The NBA's games with NBA.com's score, clock and state where it has
+    them (seconds fresher than ESPN's scoreboard)."""
+    try:
+        import nba_live
+        fresh = nba_live.scores()
+    except Exception:  # noqa: BLE001
+        return games
+    out = []
+    for game in games:
+        found = fresh.get((nba_live.tricode((game.get("home") or {}).get("abbr")), nba_live.tricode((game.get("away") or {}).get("abbr"))))
+        if not found or found["state"] not in ("in", "post") or game["state"] not in ("pre", "in", "post"):
+            out.append(game)
+            continue
+        out.append({**game, "state": found["state"], "detail": found["detail"] or (game["detail"] if found["state"] == game["state"] else "Final"),
+                    "home": {**(game.get("home") or {}), "score": found["home"]}, "away": {**(game.get("away") or {}), "score": found["away"]}})
+    return out
+
+
 def live_list(sport, now=None) -> dict:
     """The games on now and just ended, for the games list (Nov 8, the owner:
     live games at the top with the score, the time left and a small line of
@@ -488,6 +509,8 @@ def live_list(sport, now=None) -> dict:
         return [gp._event(sport, event) for event in events]
 
     games = gp._kept(f"scores:{sport}:{gp._us_day(now)}", LIST_SECONDS, load)
+    if sport == "nba":
+        games = with_nba_scores(games)
     on = [game for game in games if game["state"] == "in"][:16]
 
     def one(game):
