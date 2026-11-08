@@ -256,7 +256,7 @@ class handler(BaseHTTPRequestHandler):
         action=game-slate (the games to pick from), game-predict (one game),
         game-board (every game still to start, for the best picks and the
         generator), game-chart (one game's chance over time, read again
-        while it's open) and game-history (the member's saved picks,
+        while it's open), game-live (the games on now, for the list) and game-history (the member's saved picks,
         settled); saving and removing a pick are POSTs (_game_predictor_post)."""
         from site_controls import allowed
         if not allowed(self.headers, 'predictor'):
@@ -282,6 +282,10 @@ class handler(BaseHTTPRequestHandler):
                 if not event.isdigit() or len(event) > 14:
                     return self._send(400, {"error": "Pick a game first."})
                 return self._send(200, game_predictor.chart(sport, event))
+            if action == "game-live":
+                # The games on now for the games list: scores, time left, each one's chance line (game_live.py).
+                import game_live
+                return self._send(200, game_live.live_list(sport))
             if action == "game-analysis":
                 # The Why tab's analyst write-up (game_predictor.analysis): the pick worked out, the words by Groq.
                 event = arg("event")

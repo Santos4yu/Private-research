@@ -132,6 +132,7 @@ jobs:
           sys.path.insert(0, ".")
           from datetime import datetime, timedelta, timezone
           import game_predictor as gp
+          import game_live
           now = datetime.now(timezone.utc)
           day = (now - timedelta(hours=29)).strftime("%Y%m%d")
           for sport in gp.SPORTS:
@@ -150,7 +151,20 @@ jobs:
                       clock = found.get("clock") or {}
                       print("   game clock:", len(clock.get("points") or []), "points, length", clock.get("length"), "now", clock.get("now"),
                             [item["label"] for item in clock.get("periods") or []], "first/last:", (clock.get("points") or [])[:2], (clock.get("points") or [])[-1:])
-                  upcoming = [game for game in gp.slate(sport, now)["games"] if game["state"] == "pre"][:1]
+                      # The live parts (game_live.py): feed, swings, stretches, props.
+                      feed = found.get("feed") or {}
+                      print("   feed last:", feed.get("last"), "| run:", feed.get("run"), "| lead:", feed.get("lead"))
+                      print("   quarters:", feed.get("quarters"))
+                      print("   leaders:", feed.get("leaders"))
+                      print("   swings:", [(item["when"], item["side"], item["delta"], item["text"][:60]) for item in found.get("swings") or []])
+                      stretches = found.get("momentum") or []
+                      print("   momentum:", len(stretches), "stretches, points", sum(item["home"] for item in stretches), "-", sum(item["away"] for item in stretches),
+                            "vs final", found["home"].get("score"), "-", found["away"].get("score"))
+                      box = game_live.box_score(sport, summary)
+                      print("   box players:", {side: len(people) for side, people in box.items()}, "a line:", (box.get("home") or [{}])[0])
+                      print("   props:", len(found.get("props") or []), (found.get("props") or [])[:2])
+                  print(sport, "live list:", json.dumps(game_live.live_list(sport, now))[:600])
+                  upcoming =[game for game in gp.slate(sport, now)["games"] if game["state"] == "pre"][:1]
                   for game in upcoming:
                       summary = gp._espn(sport, "/summary", {"event": game["id"]})
                       print(sport, "to come", game["id"], "pickcenter:", json.dumps((summary.get("pickcenter") or [None])[0])[:900])

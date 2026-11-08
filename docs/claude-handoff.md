@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,50 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 8 (b): live games, all seven ideas (feed, props, pick, swings, stretches, alerts, list)
+
+- The owner, offered seven ideas for live games after the game-clock chart
+  (a live feed, a live prop tracker, how our pick is doing, biggest swings,
+  a momentum strip, close-game alerts, a live list view): "Yes add all".
+- Server: `game_live.py` (new), all from the ESPN summary the chart already
+  reads every 3 s. `game_predictor.chart` adds `feed` (last play {text,
+  when, side}, `run` {side, points}: unanswered points, NBA 7+ / NFL 10+;
+  `quarters` from the linescores; `leaders`: NBA top two scorers, NFL top
+  passer / rusher / receiver; `lead`: each team's biggest lead), `swings`
+  (the 2-3 plays that moved ESPN's chance most, 5%+, 90 s / 150 s apart;
+  the final buzzer's jump to 0/100% left out), `momentum` (points each team
+  scored per stretch: NBA 3 min, OT 2.5; NFL 5 min) and `props`. Each part
+  stands alone: one failing is null, the chart still answers.
+- Props: the lines come down at tip-off, so they come from
+  `line_archive.lines_on` (the last number each NBA/NFL line had before its
+  game, kept by game day; read every 2 minutes), matched to the box score
+  by name without Jr./III (`person_key`). NBA stats from the box score's
+  keys (as wnba/league.py), NFL from `nfl/preseason._read_group`. Stat
+  names: `NBA_PROPS` (incl. PrizePicks' fantasy score: pts 1, reb 1.2, ast
+  1.5, blk/stl 3, TO -1), `NFL_PROPS` via `nfl/markets.market_for`. NFL
+  players show once they're in the box score (ESPN leaves out a receiver
+  with no catch yet).
+- `action=game-live` (`game_live.live_list`): the scoreboard every 15 s
+  (NBA: yesterday's too until 6 am ET, for late tips) and each game on now's
+  chance line cut to ~40 points.
+- Page: the Chance tab in a game: one alert line at the top
+  (`liveAlert`: within 5 (NFL one score) in the last 5:00 of the 4th/OT; a
+  comeback from 15+ (NFL 14+) to within 5/7; the pregame underdog (market
+  under 40%) ahead from Q2; after the game, an upset), swing rings on the
+  chart (tap: the play and how much it moved), the stretches strip under the
+  chart (home above the line, away below), the last play and the run under
+  it, and "Our pick, live": "72% before the game → 48% now", "Down 6"
+  (`pickStatus`; final: "Won 112-104"). A new tab after Chance, "Live" ("Recap"
+  after): score by quarter, top players, biggest swings, player props (count
+  / line, a bar, "Needs 3" / "Hit" / "Missed" / "Push"; the first eight,
+  then "Show all"). The list: "Live now" at the top (`liveFirst`), each with
+  both scores, the time left and a sparkline of the team ahead's chance.
+- Checked on made-up data (Playwright, phone): list, Chance, swing tip,
+  Live tab, no sideways scroll, no errors. The GitHub check now prints the
+  feed, swings, stretches against the final score, the box score and the
+  live list for a real finished game. Not yet seen live: a real in-game
+  feed and props with real archived lines (the check has no KV store).
 
 ### Nov 8: live games on the game's own clock; pregame prices say so
 

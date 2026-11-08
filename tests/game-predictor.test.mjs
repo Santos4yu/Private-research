@@ -258,3 +258,74 @@ test('a game\'s line stops where the game is',()=>{
  assert.equal(chartPath([[0,0.5],[50,0.6]],frame,100,10),'M0.0 5.0H50.0V4.0H100');
  assert.equal(chartPath([[0,0.5],[50,0.6]],frame,100,10,{toEnd:false}),'M0.0 5.0H50.0V4.0');
 });
+
+// ---- live games (Nov 8)
+import {liveAlert,liveFirst,periodLeft,pickStatus,propProgress,runText,sparkPath} from '../src/game-predictor-core.js';
+
+const teams={home:{abbr:'PHX',short:'Suns'},away:{abbr:'HOU',short:'Rockets'}};
+const liveChart=(home,away,elapsed,extra={})=>({state:'in',sport:'nba',home:{abbr:'PHX',score:home},away:{abbr:'HOU',score:away},clock:{now:elapsed,length:2880},now:{live:0.53},...extra});
+
+test('the time left in a period',()=>{
+ assert.deepEqual(periodLeft(1800,'nba'),{period:3,left:360});
+ assert.deepEqual(periodLeft(2880+120,'nba'),{period:5,left:180});
+ assert.deepEqual(periodLeft(3000,'nfl'),{period:4,left:600});
+ assert.equal(periodLeft(null,'nba'),null);
+});
+
+test('the run in words',()=>{
+ assert.equal(runText({side:'home',points:9},teams,'nba'),'PHX on a 9-0 run');
+ assert.equal(runText({side:'away',points:17},teams,'nfl'),'HOU has scored 17 straight');
+ assert.equal(runText(null,teams,'nba'),'');
+});
+
+test('how our pick is doing',()=>{
+ const prediction={...teams,winner:'away',chance:{home:0.3,away:0.7}};
+ const now=pickStatus(prediction,liveChart(60,54,1800));
+ assert.deepEqual([now.before,Math.round(now.now*100),now.result,now.tone],[0.7,47,'Down 6','down']);
+ assert.equal(pickStatus(prediction,liveChart(54,60,1800)).result,'Up 6');
+ assert.equal(pickStatus(prediction,liveChart(54,54,1800)).result,'Tied');
+ const final=pickStatus(prediction,{...liveChart(104,112,2880),state:'post'});
+ assert.deepEqual([final.result,final.tone,final.final],['Won 112-104','up',true]);
+ assert.equal(pickStatus(prediction,{state:'pre'}),null);
+});
+
+test('the one alert worth showing',()=>{
+ const prediction={...teams,market:{chance:{home:0.75,away:0.25},moneyline:{home:-300,away:240}}};
+ // Close late: within 5 in the last five minutes of the 4th.
+ assert.deepEqual(liveAlert('nba',liveChart(100,97,2880-120),prediction),{kind:'close',text:'Within 3 with 2:00 left'});
+ assert.equal(liveAlert('nba',liveChart(100,100,2880-45),prediction).text,'Tied with 0:45 left');
+ // Too early, too wide: not close.
+ assert.notEqual(liveAlert('nba',liveChart(100,97,2000),prediction)?.kind,'close');
+ assert.equal(liveAlert('nba',liveChart(110,97,2880-120),prediction),null);
+ // A comeback: down 18 at some point, within 5 now.
+ assert.deepEqual(liveAlert('nba',liveChart(70,72,2000,{feed:{lead:{home:2,away:18}}}),prediction),
+  {kind:'comeback',text:'Comeback: the Suns were down 18, now within 2'});
+ // The underdog ahead from the 2nd quarter.
+ assert.deepEqual(liveAlert('nba',liveChart(40,46,1000),prediction),{kind:'underdog',text:'Underdog Rockets lead by 6'});
+ assert.equal(liveAlert('nba',liveChart(10,16,300),prediction),null);
+ // NFL: a one-score game.
+ assert.equal(liveAlert('nfl',{...liveChart(20,14,3600-200),sport:'nfl',clock:{now:3600-200}},prediction).text,'One-score game with 3:20 left');
+ // An upset at the end.
+ assert.deepEqual(liveAlert('nba',{...liveChart(100,104,2880),state:'post'},prediction),{kind:'upset',text:'Upset: the Rockets won as +240 underdogs'});
+ assert.equal(liveAlert('nba',{...liveChart(104,100,2880),state:'post'},prediction),null);
+});
+
+test('a prop against its line',()=>{
+ assert.deepEqual(propProgress({now:12,line:26.5}),{share:12/26.5,hit:false,text:'Needs 15'});
+ assert.equal(propProgress({now:12,line:26}).text,'Needs 15');
+ assert.equal(propProgress({now:20.6,line:30.5}).text,'Needs 9.9');
+ assert.deepEqual(propProgress({now:27,line:26.5}),{share:1,hit:true,text:'Hit'});
+ assert.equal(propProgress({now:20,line:26.5},true).text,'Missed');
+ assert.equal(propProgress({now:26,line:26},true).text,'Push');
+});
+
+test('the list\'s small chance line and the games on now first',()=>{
+ assert.equal(sparkPath({points:[[0,0.5],[1440,0.75]],length:2880},'home',80,24),'M0.0 12.0 L40.0 6.0');
+ assert.equal(sparkPath({points:[[0,0.5],[1440,0.75]],length:2880},'away',80,24),'M0.0 12.0 L40.0 18.0');
+ assert.equal(sparkPath(null,'home',80,24),'');
+ const games=[{id:'1',state:'pre',startsAt:'2026-11-08T02:00Z',home:{abbr:'PHX'},away:{abbr:'HOU'}},{id:'2',state:'pre',home:{abbr:'LAL'},away:{abbr:'BOS'}}];
+ const found=liveFirst(games,{games:[{id:'1',state:'in',detail:'6:00 - 3rd',home:{score:16},away:{score:14},spark:{points:[],length:2880}}]});
+ assert.deepEqual(found.live.map(game=>[game.id,game.home.score,game.away.score,game.detail,game.home.abbr]),[['1',16,14,'6:00 - 3rd','PHX']]);
+ assert.deepEqual(found.rest.map(game=>game.id),['2']);
+ assert.deepEqual(liveFirst(games,null).rest.length,2);
+});

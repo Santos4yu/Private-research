@@ -465,6 +465,118 @@ li[data-result="loss"] .gp-history-mark{background:color-mix(in srgb,var(--gp-do
 .gp-history-pick b{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;white-space:nowrap}
 .gp-history-final{text-align:right}
 
+/* ------------------------------------------------------------------ live games
+   (Nov 8, the owner: "Yes add all" to the ideas for live games.) */
+.gp-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@keyframes gp-slide{from{opacity:0;transform:translateY(6px)}}
+@keyframes gp-rise-bar{from{transform:scaleY(0)}}
+
+/* One line when the game calls for it: no box, a small icon and the words. */
+.gp-alert{display:flex;align-items:center;gap:8px;margin:6px 0 0;color:var(--gp-text);font-size:14px;font-weight:750;animation:gp-slide .45s var(--gp-ease) both}
+.gp-alert svg{flex:none;color:var(--gp-gold)}
+.gp-alert.is-close svg{animation:gp-glow 1.8s ease-in-out infinite}
+@keyframes gp-glow{50%{opacity:.45}}
+
+/* Under the chart: the last play (its team's color down the side), the run. */
+.gp-lastplay{display:grid;gap:6px;margin:4px 0 14px}
+.gp-lastplay p{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:9px;margin:0;padding-left:10px;
+ border-left:2px solid var(--team,var(--gp-faint));animation:gp-slide .4s var(--gp-ease) both}
+.gp-lastplay p small{color:var(--gp-faint);font-size:11.5px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gp-lastplay p span{color:color-mix(in srgb,var(--gp-text) 90%,transparent);font-size:13.5px;font-weight:600;line-height:1.4}
+.gp-lastplay .gp-run{display:flex;align-items:center;gap:6px;padding-left:0;border:0;color:var(--gp-text);font-size:13.5px;font-weight:750}
+.gp-lastplay .gp-run svg{color:var(--gp-gold)}
+
+/* The plays that swung it: a ring on the line, tapped for the play. */
+.gp-swing{position:absolute;z-index:2;width:26px;height:26px;margin:0;padding:0;border:0;border-radius:50%;background:none;transform:translate(-50%,-50%);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gp-swing::before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--ace-bg,#0c0c0c);
+ box-shadow:0 0 0 2px color-mix(in srgb,var(--swing) 80%,#fff);transition:transform .2s var(--gp-spring),background-color .2s;
+ animation:gp-pop .45s var(--gp-spring) both;animation-delay:.3s}
+.gp-swing.is-home{--swing:var(--home)}
+.gp-swing.is-away{--swing:var(--away)}
+.gp-swing:hover::before,.gp-swing[data-open]::before{transform:scale(1.35)}
+.gp-swing[data-open]::before{background:color-mix(in srgb,var(--swing) 80%,#fff)}
+.gp-swing-tip{z-index:3;max-width:min(260px,70vw);background:#161616!important;white-space:normal;text-align:center;line-height:1.35;color:var(--gp-text);font-size:12px;animation:gp-fade .2s ease both}
+.gp-swing-tip span{color:var(--gp-muted);font-size:11px}
+.gp-swing-tip b{font-size:12.5px}
+
+/* Who won each stretch, lined up under the chart. */
+.gp-momentum{position:relative;height:34px;margin:-6px 0 14px}
+.gp-momentum-bars{position:absolute;top:0;bottom:0;left:0;width:calc(100% - 112px)}
+.gp-momentum-bars::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--gp-rule)}
+.gp-momentum-bars span{position:absolute;top:0;bottom:0}
+.gp-momentum-bars span::before{content:"";position:absolute;left:1px;right:1px;height:calc(var(--size,0) * 50%);border-radius:2px;
+ animation:gp-rise-bar .5s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 18ms)}
+.gp-momentum-bars .is-home::before{bottom:50%;background:color-mix(in srgb,var(--home) 72%,#fff);transform-origin:bottom}
+.gp-momentum-bars .is-away::before{top:calc(50% + 1px);background:color-mix(in srgb,var(--away) 72%,#fff);transform-origin:top}
+.gp-momentum-key{position:absolute;top:0;bottom:0;left:calc(100% - 100px);display:grid;align-content:space-between;padding:1px 0}
+.gp-momentum-key small{font-size:10.5px;font-weight:800;letter-spacing:.02em;line-height:1.2}
+.gp-momentum-key .is-home{color:color-mix(in srgb,var(--home) 72%,#fff)}
+.gp-momentum-key .is-away{color:color-mix(in srgb,var(--away) 72%,#fff)}
+
+/* Our pick in a game: before and now, the score from its side. */
+.gp-ourpick-now{color:var(--gp-text);font-weight:800}
+.gp-ourpick-result{font-size:20px!important;white-space:nowrap;animation:gp-slide .35s var(--gp-ease) both}
+
+/* The Live tab. */
+.gp-quarters table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.gp-quarters th,.gp-quarters td{padding:9px 4px;text-align:center;font-size:14px;font-weight:650;color:var(--gp-muted)}
+.gp-quarters thead th{padding-top:0;color:var(--gp-faint);font-size:11.5px;font-weight:700}
+.gp-quarters tbody tr+tr th,.gp-quarters tbody tr+tr td{border-top:1px solid var(--gp-rule)}
+.gp-quarters tbody th{display:flex;align-items:center;gap:8px;text-align:left;color:var(--gp-text);font-size:14px;font-weight:800}
+.gp-quarters thead th:first-child{width:34%}
+.gp-quarters .gp-quarters-total{color:var(--gp-text);font-size:15.5px;font-weight:850}
+.gp-leaders{display:grid;gap:14px}
+.gp-leaders .gp-sec-head{margin-bottom:0}
+.gp-leaders-abbr{display:inline-flex;align-items:center;gap:7px;color:color-mix(in srgb,var(--team,#fff) 60%,#fff);font-size:12.5px;font-weight:800}
+.gp-leaders ul{display:grid;gap:7px;margin:8px 0 0;padding:0;list-style:none}
+.gp-leaders li{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:14px}
+.gp-leaders li b{font-weight:750}
+.gp-leaders li span{color:var(--gp-muted);font-size:13px;font-weight:650;text-align:right;font-variant-numeric:tabular-nums}
+.gp-swings ol{display:grid;gap:0;margin:0;padding:0;list-style:none}
+.gp-swings li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:baseline;gap:10px;padding:9px 0;animation:gp-rise .45s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 50ms)}
+.gp-swings li+li{border-top:1px solid var(--gp-rule)}
+.gp-swings small{color:var(--gp-faint);font-size:11.5px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gp-swings span{font-size:13.5px;font-weight:600;line-height:1.4}
+.gp-swings b{color:color-mix(in srgb,var(--team,#fff) 60%,#fff);font-size:13px;font-weight:850;white-space:nowrap}
+
+/* Each prop: the player, his count over the line, what he needs, a bar toward it. */
+.gp-props ul{margin:0;padding:0;list-style:none}
+.gp-props li{display:grid;grid-template-columns:34px minmax(0,1fr) auto;grid-template-areas:"face who count" "face bar left";align-items:center;column-gap:11px;row-gap:6px;padding:10px 0;
+ animation:gp-rise .45s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 30ms)}
+.gp-props li+li{border-top:1px solid var(--gp-rule)}
+.gp-props-face{grid-area:face;width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--gp-soft-2)}
+.gp-props-who{grid-area:who;min-width:0}
+.gp-props-who b{display:block;overflow:hidden;font-size:14px;font-weight:750;white-space:nowrap;text-overflow:ellipsis}
+.gp-props-who small{display:block;margin-top:1px;color:var(--gp-muted);font-size:12px;font-weight:600}
+.gp-props-count{grid-area:count;justify-self:end;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gp-props-count b{font-size:17px;font-weight:850}
+.gp-props-count small{margin-left:4px;color:var(--gp-faint);font-size:12.5px;font-weight:700}
+.gp-props-left{grid-area:left;display:inline-flex;align-items:center;gap:4px;justify-self:end;color:var(--gp-muted);font-size:12px;font-weight:700;white-space:nowrap}
+.gp-props-bar{grid-area:bar;display:block;height:4px;overflow:hidden;border-radius:4px;background:rgba(255,255,255,.07)}
+.gp-props-bar span{display:block;height:100%;border-radius:inherit;transform-origin:left;background:color-mix(in srgb,var(--team,var(--gp-accent)) 70%,#fff);transition:transform .7s var(--gp-ease)}
+.gp-props li[data-hit] .gp-props-left{color:var(--gp-up)}
+.gp-props li[data-hit] .gp-props-bar span{background:var(--gp-up)}
+.gp-props li[data-miss] .gp-props-left{color:var(--gp-down)}
+.gp-props li[data-miss] .gp-props-bar span{opacity:.5}
+.gp-props-more{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:8px 0;border:0;background:none;color:var(--gp-muted);font-size:13.5px;font-weight:750;cursor:pointer}
+.gp-props-more svg{transition:transform .25s var(--gp-ease)}
+
+/* The list: the games on now first, each with its score, the time left and
+   a small line of the chance of the team ahead. */
+.gp-live-row{grid-template-columns:minmax(0,1fr) auto auto}
+.gp-live-teams{display:grid;gap:7px;min-width:0}
+.gp-live-team{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:9px;max-width:190px}
+.gp-live-team b{font-size:14.5px;font-weight:800}
+.gp-live-team strong{font-size:17px;font-weight:850;font-variant-numeric:tabular-nums}
+.gp-live-side{display:grid;justify-items:end;gap:4px}
+.gp-live-chance{color:var(--gp-muted);font-size:11.5px;font-weight:700}
+.gp-live-chance b{color:color-mix(in srgb,var(--team,#fff) 62%,#fff);font-size:13px;font-weight:850}
+.gp-spark{display:block;width:80px;height:24px;overflow:visible}
+.gp-spark line{stroke:rgba(255,255,255,.12);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
+.gp-spark path{fill:none;stroke:color-mix(in srgb,var(--team,#fff) 72%,#fff);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;animation:gp-fade .5s ease both}
+.gp-live-clock{display:inline-flex;align-items:center;gap:6px;color:var(--gp-muted);font-size:11.5px;font-weight:700;white-space:nowrap}
+.gp-live-clock .gp-pulse{width:6px;height:6px}
+
 @media (prefers-reduced-motion:reduce){
  .game-predictor *,.game-predictor *::before,.game-predictor *::after{animation:none!important;transition:none!important}
 }

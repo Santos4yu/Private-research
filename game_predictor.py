@@ -2514,6 +2514,15 @@ def chart(sport, event_id, now=None, store=None) -> dict:
     series = _read(ODDS_KEY.format(sport=sport, event=event_id), store)
     live = live_series(summary, competition.get("date"), now) if status.get("state") in ("in", "post") else []
     clock = game_clock_series(sport, summary) if status.get("state") in ("in", "post") else None
+    # In a game and after it: the feed, the swings, who won each stretch and
+    # the players' props against their lines (game_live.py).
+    extra = {}
+    if status.get("state") in ("in", "post"):
+        try:
+            import game_live
+            extra = game_live.extras(sport, summary, competition.get("date"), clock)
+        except Exception:  # noqa: BLE001 -- the chart stands without them
+            extra = {}
     opened = None
     if status.get("state") == "pre":
         try:  # The slate's lines (ESPN's scoreboard, kept 5 minutes) carry the opening moneylines.
@@ -2529,6 +2538,7 @@ def chart(sport, event_id, now=None, store=None) -> dict:
             "startsAt": competition.get("date"), "home": team("home"), "away": team("away"),
             "market": [[point[0], point[1]] for point in series], "live": live,
             "source": (line or {}).get("source") or "espn", "open": opened, "clock": clock,
+            "feed": extra.get("feed"), "swings": extra.get("swings"), "momentum": extra.get("momentum"), "props": extra.get("props"),
             "now": {"market": (line or {}).get("chance", {}).get("home") if line else None, "live": live[-1][1] if live else None,
                     "moneyline": (line or {}).get("moneyline"),
                     # In a game, whether the price is DraftKings' in-game one (else it's the pregame line).

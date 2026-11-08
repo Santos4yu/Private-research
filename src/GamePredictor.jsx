@@ -19,10 +19,10 @@
 // A section the admin switches on (site_controls 'predictor'), off until then.
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Share,Trophy,UserX,X} from 'lucide-react';
+import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Flame,Info,Layers,RefreshCw,Share,Trophy,UserX,X,Zap} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import './game-predictor.css';
 
@@ -95,24 +95,74 @@ const Empty=({icon:Icon=CalendarDays,title,text,children})=><div className="gp-e
 
 // The slate by day; tapping a game opens its own page (Nov 6, the owner:
 // "Make them a page when we click on it not a dropdown").
-function PredictView({slate,onOpen,admin,onRetry}){
- const games=slate.games||[];
+// The games on now, read every 15 seconds while there are any (the slate is
+// kept 5 minutes): their score, time left and chance line (game_live.py).
+function useLiveList(sport,games){
+ const [live,setLive]=useState(null);
+ const due=(games||[]).some(game=>game.state==='in'||(game.state==='pre'&&Date.parse(game.startsAt)<=Date.now()+60000));
+ useEffect(()=>{
+  setLive(null);
+  if(!due)return undefined;
+  let stop=false,timer=null;
+  const load=()=>{
+   if(document.visibilityState==='hidden'){timer=setTimeout(load,5000);return;}
+   call({action:'game-live',sport}).then(data=>{if(!stop)setLive(data);}).catch(()=>{}).finally(()=>{if(!stop)timer=setTimeout(load,15000);});
+  };
+  load();
+  return()=>{stop=true;clearTimeout(timer);};
+ },[sport,due]);
+ return live;
+}
+
+// A game on now in the list (Nov 8): both teams with their score, the time
+// left, and a small line of the chance of the team ahead on it.
+function LiveRow({game,index,onOpen}){
+ const colors=pairColors(game.home,game.away);
+ const points=game.spark?.points||[];
+ const homeNow=points[points.length-1]?.[1];
+ const ahead=homeNow==null?null:homeNow>=0.5?'home':'away';
+ const color=ahead&&teamColor({color:colors[ahead]});
+ const team=side=><span className="gp-live-team"><Logo team={game[side]} size={24}/><b>{game[side]?.abbr}</b><strong>{game[side]?.score??''}</strong></span>;
+ return <li className="gp-game is-live" style={{'--i':index}}>
+  <button type="button" className="gp-game-row gp-live-row" onClick={()=>onOpen(game)}>
+   <span className="gp-live-teams">{team('away')}{team('home')}</span>
+   <span className="gp-live-side" style={color?{'--team':color}:undefined}>
+    {ahead&&<small className="gp-live-chance">{game[ahead]?.abbr} <b>{pct(ahead==='home'?homeNow:1-homeNow)}</b></small>}
+    {ahead&&<svg className="gp-spark" viewBox="0 0 80 24" preserveAspectRatio="none" aria-hidden="true">
+     <line x1="0" x2="80" y1="12" y2="12"/><path d={sparkPath(game.spark,ahead,80,24)}/></svg>}
+    <small className="gp-live-clock"><i className="gp-pulse" aria-hidden="true"/>{liveText(game.detail)||'Live'}</small>
+   </span>
+   <ChevronRight className="gp-chev" size={18} aria-hidden="true"/>
+  </button>
+ </li>;
+}
+
+function PredictView({slate,live,onOpen,admin,onRetry}){
+ const sorted=liveFirst(slate.games||[],live);
+ const games=sorted.rest;
  if(slate.loading&&!games.length)return <Shimmer rows={5}/>;
  if(slate.error&&!games.length)return <Empty icon={RefreshCw} title="The games can't load right now" text={admin?slate.error:null}>
   <button type="button" className="gp-soft" onClick={onRetry}><RefreshCw size={15} aria-hidden="true"/>Try again</button></Empty>;
- if(!games.length)return <Empty title="No games on the schedule" text="Check back closer to the next games."/>;
- return <div className="gp-days">{groupByDay(games).map(day=><section key={day.key} className="gp-day">
+ if(!games.length&&!sorted.live.length)return <Empty title="No games on the schedule" text="Check back closer to the next games."/>;
+ return <div className="gp-days">
+  {sorted.live.length>0&&<section className="gp-day gp-day-live">
+   <h3 className="gp-day-head">Live now<small>{sorted.live.length} {sorted.live.length===1?'game':'games'}</small></h3>
+   <ul className="gp-games">{sorted.live.map((game,index)=><LiveRow key={game.id} game={game} index={index} onOpen={onOpen}/>)}</ul>
+  </section>}
+  {groupByDay(games).map(day=><section key={day.key} className="gp-day">
   <h3 className="gp-day-head">{day.label}<small>{day.games.length} {day.games.length===1?'game':'games'}</small></h3>
   <ul className="gp-games">{day.games.map((game,index)=>{const live=game.state==='in';
    const team=side=><span className="gp-team"><Logo team={game[side]} size={30}/><span><b>{game[side]?.abbr}</b>{game[side]?.record&&<small>{game[side].record}</small>}</span></span>;
    return <li key={game.id} className="gp-game" style={{'--i':index}}>
     <button type="button" className="gp-game-row" onClick={()=>onOpen(game)}>
      <span className="gp-matchup">{team('away')}<i>@</i>{team('home')}</span>
-     <span className="gp-game-meta">{live?<em className="gp-live">Live</em>:<b>{clockText(game.startsAt)}</b>}{lineText(game)&&<small>{lineText(game)}</small>}</span>
+     <span className="gp-game-meta">{live?<em className="gp-live">Live</em>:game.state==='post'?<b>Final</b>:<b>{clockText(game.startsAt)}</b>}
+      {game.state==='post'&&game.away?.score!=null?<small>{game.away.score}-{game.home?.score}</small>:lineText(game)&&<small>{lineText(game)}</small>}</span>
      <ChevronRight className="gp-chev" size={18} aria-hidden="true"/>
     </button>
    </li>;})}</ul>
- </section>)}</div>;
+ </section>)}
+ </div>;
 }
 
 // The pick or parlay as a picture (game-share.js): the phone's share sheet
@@ -145,6 +195,10 @@ function chancesNow(prediction,chart){
 }
 
 const GAME_TABS=[['chance','Chance'],['odds','Odds'],['why','Why'],['players','Players']];
+// In a game and after it, a tab for the game itself: the score by quarter,
+// the top players, the plays that swung it, and every player's props.
+const gameTabs=chart=>{const on=['in','post'].includes(chart?.state)&&(chart?.feed||chart?.props?.length);
+ return on?[GAME_TABS[0],['live',chart.state==='in'?'Live':'Recap'],...GAME_TABS.slice(1)]:GAME_TABS;};
 // One game's page: the two teams and their chance now, then four tabs.
 //  - Chance: both teams' chance over time (the market's from ESPN's lines,
 //    in a game ESPN's win probability), our pick, and a button each.
@@ -188,7 +242,7 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
   </header>
   <ul className="gp-board">{row('away',away)}{row('home',home)}</ul>
   <nav className="gp-tabs gp-page-tabs" role="tablist" aria-label="This game" ref={tabsRow}>
-   {GAME_TABS.map(([key,text])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>setTab(key)}>{text}</button>)}
+   {gameTabs(chart).map(([key,text])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>setTab(key)}>{text}</button>)}
    <span className="gp-tabs-ink" style={inkStyle(ink)} aria-hidden="true"/>
   </nav>
   <div className="gp-page-body" key={tab}>
@@ -196,6 +250,7 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
    :result?.error&&!prediction?<p className="gp-note gp-page-note">{admin?result.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p>
    :prediction?<>
     {tab==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
+    {tab==='live'&&<LiveTab prediction={prediction} chart={chart}/>}
     {tab==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
     {tab==='why'&&<><Analysis state={analysis} prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
      <Factors prediction={prediction}/><ReadGuide prediction={prediction} chart={chart}/></>}
@@ -215,6 +270,7 @@ const W=600,H=190,PLOT='(100% - 112px)';
 function TwoLineChart({prediction,chart}){
  const host=useRef(null);
  const [hover,setHover]=useState(null);
+ const [swing,setSwing]=useState(null);
  const nowT=Date.now()/1000;
  const live=chart?.live||[],market=chart?.market||[];
  const fallback=prediction.market?.chance?.home??prediction.chance.home;
@@ -249,7 +305,8 @@ function TwoLineChart({prediction,chart}){
  const gap=Math.abs(y(ends.home)-y(ends.away))<26;
  const labelY=side=>{const value=y(ends[side]);if(!gap)return value;const up=ends[side]>=ends[side==='home'?'away':'home'];return up?Math.min(value,y(0.5)-13):Math.max(value,y(0.5)+13);};
  const colorOf=side=>teamColor(prediction[side]);
- return <div className="gp-chart2" ref={host} onPointerMove={pick} onPointerDown={pick} onPointerLeave={()=>setHover(null)}
+  const swings=clock?(chart.swings||[]).filter(item=>item.at<=clock.length):[];
+ return <div className="gp-chart2" ref={host} onPointerMove={event=>{if(!swing)pick(event);}} onPointerDown={event=>{setSwing(null);pick(event);}} onPointerLeave={()=>setHover(null)}
   style={{'--home':colorOf('home')||'#e9e9e9','--away':colorOf('away')||'#8f8f8f','--home-ink':inkOn(prediction.home?.color),'--away-ink':inkOn(prediction.away?.color)}}>
   {grid.map(value=><span key={value} className="gp-chart-rule" style={{top:`${y(value)}%`}}><small>{Math.round(value*100)}%</small></span>)}
   {clock&&clock.periods.map((period,index)=>{const next=clock.periods[index+1]?.at??clock.length;return <React.Fragment key={period.label}>
@@ -266,7 +323,15 @@ function TwoLineChart({prediction,chart}){
     <small>{prediction[side].abbr}</small><b>{pct(ends[side])}</b>
    </span>
   </React.Fragment>)}
-  {hover&&<><span className="gp-chart-cross" style={{left:`calc(${PLOT} * ${Math.min(hover.x,1)})`}}/>
+  {swings.map(item=>{const value=item.side==='home'?item.home:1-item.home;
+   return <button type="button" key={item.at} className={`gp-swing is-${item.side}`} data-open={swing?.at===item.at?'':undefined}
+    style={{left:`calc(${PLOT} * ${item.at/clock.length})`,top:`${y(value)}%`}} aria-label={`${item.when}: ${item.text}`}
+    onPointerDown={event=>event.stopPropagation()} onPointerMove={event=>event.stopPropagation()}
+    onClick={()=>{setHover(null);setSwing(old=>old?.at===item.at?null:item);}}/>;})}
+  {swing&&<span className="gp-chart-tip gp-swing-tip" style={{left:`calc(${PLOT} * ${Math.min(Math.max(swing.at/clock.length,0.3),0.7)})`}}>
+   <span><b>{prediction[swing.side].abbr} {signed(Math.abs(swing.delta)*100,0)}%</b> · {swing.when}</span>{swing.text}
+  </span>}
+  {hover&&!swing&&<><span className="gp-chart-cross" style={{left:`calc(${PLOT} * ${Math.min(hover.x,1)})`}}/>
    <span className="gp-chart-tip" style={{left:`calc(${PLOT} * ${Math.min(Math.max(hover.x,0.2),0.8)})`}}>
     <span>{prediction.away.abbr} <b>{pct(1-hover.home)}</b> · {prediction.home.abbr} <b>{pct(hover.home)}</b></span>{clock?gameClockText(hover.t,chart.sport):clockText(new Date(hover.t*1000).toISOString())}
    </span></>}
@@ -290,26 +355,134 @@ function PickButtons({prediction,chart,onPick}){
   </button>;})}</div>;
 }
 
+// One line when the game calls for it (Nov 8): close late, a comeback, the
+// underdog ahead, an upset at the end (game-predictor-core.liveAlert).
+function LiveAlert({prediction,chart}){
+ const alert=liveAlert(chart?.sport||prediction.sport,chart,prediction);
+ if(!alert)return null;
+ return <p className={`gp-alert is-${alert.kind}`} key={alert.text} role="status">{alert.kind==='close'?<Zap size={15} aria-hidden="true"/>:<Flame size={15} aria-hidden="true"/>}{alert.text}</p>;
+}
+
+// Under the chart in a game: the last play, and the run going now.
+function LastPlay({prediction,chart}){
+ if(chart?.state!=='in')return null;
+ const last=chart.feed?.last,run=runText(chart.feed?.run,prediction,chart.sport);
+ if(!last&&!run)return null;
+ const color=last?.side&&teamColor(prediction[last.side]);
+ return <div className="gp-lastplay">
+  {last&&<p key={`${last.when}${last.text}`} style={color?{'--team':color}:undefined}><small>{last.when}</small><span>{last.text}</span></p>}
+  {run&&<p className="gp-run" key={run}><Flame size={14} aria-hidden="true"/>{run}</p>}
+ </div>;
+}
+
+// Who outscored whom in each stretch of the game (three minutes in the NBA,
+// five in the NFL), lined up under the chart: the home team's above the
+// line, the away team's below, taller the more they won it by.
+function Momentum({prediction,chart}){
+ const stretches=chart?.momentum||[],length=chart?.clock?.length;
+ if(!length||!stretches.length||!['in','post'].includes(chart.state))return null;
+ const most=Math.max(6,...stretches.map(item=>Math.abs(item.home-item.away)));
+ const colorOf=side=>teamColor(prediction[side]);
+ return <div className="gp-momentum" style={{'--home':colorOf('home')||'#e9e9e9','--away':colorOf('away')||'#8f8f8f'}}>
+  <div className="gp-momentum-bars" role="img" aria-label="Points won in each stretch of the game">
+   {stretches.map((item,index)=>{const net=item.home-item.away;
+    return <span key={item.start} className={net>0?'is-home':net<0?'is-away':'is-even'} title={`${gameClockText(item.start,chart.sport).replace(' left','')}: ${prediction.away.abbr} ${item.away}, ${prediction.home.abbr} ${item.home}`}
+     style={{left:`${item.start/length*100}%`,width:`${(item.end-item.start)/length*100}%`,'--size':Math.max(net?0.14:0,Math.abs(net)/most),'--i':index}}/>;})}
+  </div>
+  <span className="gp-momentum-key"><small className="is-home">{prediction.home.abbr}</small><small className="is-away">{prediction.away.abbr}</small></span>
+ </div>;
+}
+
 function ChanceTab({prediction,chart,onPick}){
  const side=prediction.winner,team=prediction[side];
  const live=chart?.state==='in'&&(chart?.live||[]).length>1;
+ const status=pickStatus(prediction,chart);
  return <>
+  <LiveAlert prediction={prediction} chart={chart}/>
   <section className="gp-sec gp-chance-sec">
-   <span className="gp-kicker">{live?'Live win chance':'Market chance'}</span>
+   <span className="gp-kicker">{live?'Live win chance':chart?.state==='post'?'Win chance, start to finish':'Market chance'}</span>
    <TwoLineChart prediction={prediction} chart={chart}/>
-   {!live&&marketNote(chart,prediction)&&<p className="gp-chart-note">{marketNote(chart,prediction)}</p>}
+   <Momentum prediction={prediction} chart={chart}/>
+   {!live&&chart?.state!=='post'&&marketNote(chart,prediction)&&<p className="gp-chart-note">{marketNote(chart,prediction)}</p>}
+   <LastPlay prediction={prediction} chart={chart}/>
    <PickButtons prediction={prediction} chart={chart} onPick={onPick}/>
   </section>
   <section className="gp-sec gp-ourpick" style={teamColor(team)?{'--team':teamColor(team)}:undefined}>
-   <span className="gp-kicker">Our pick</span>
+   <span className="gp-kicker">{status?.final?'Our pick, final':status?'Our pick, live':'Our pick'}</span>
    <div className="gp-ourpick-row">
     <Logo team={team} size={34}/>
-    <span><b>{team.short||team.abbr}</b><small>{prediction.confidence} confidence</small></span>
-    <strong>{pct(prediction.chance[side])}</strong>
+    <span><b>{team.short||team.abbr}</b><small>{status?<>{pct(status.before)} before the game{!status.final&&status.now!=null&&<> → <span className="gp-ourpick-now">{pct(status.now)}</span> now</>}</>
+     :`${prediction.confidence} confidence`}</small></span>
+    {status?<strong className="gp-ourpick-result" data-tone={status.tone} key={status.result}>{status.result||pct(status.now)}</strong>:<strong>{pct(prediction.chance[side])}</strong>}
    </div>
-   {prediction.score&&<p className="gp-ourpick-score">Final score <b>{prediction.away.abbr} {prediction.score.away} – {prediction.score.home} {prediction.home.abbr}</b></p>}
+   {prediction.score&&<p className="gp-ourpick-score">{status&&!status.final?'Our projected final':'Final score'} <b>{prediction.away.abbr} {prediction.score.away} – {prediction.score.home} {prediction.home.abbr}</b></p>}
   </section>
  </>;
+}
+
+// The game itself (Nov 8): the score by quarter, each team's top players,
+// the plays that swung it most, and every player's props against his line.
+function LiveTab({prediction,chart}){
+ const feed=chart?.feed||{},final=chart?.state==='post';
+ return <>
+  {feed.quarters&&<Quarters prediction={prediction} quarters={feed.quarters} chart={chart}/>}
+  {feed.leaders&&<TopPlayers prediction={prediction} leaders={feed.leaders}/>}
+  {chart?.swings?.length>0&&<Swings prediction={prediction} swings={chart.swings}/>}
+  <PropTracker prediction={prediction} rows={chart?.props||[]} final={final}/>
+ </>;
+}
+
+function Quarters({prediction,quarters,chart}){
+ const total=side=>chart?.[side]?.score??quarters[side].reduce((sum,value)=>sum+(value||0),0);
+ return <Section title="Score by quarter" className="gp-quarters">
+  <table>
+   <thead><tr><th scope="col"><span className="gp-sr">Team</span></th>{quarters.labels.map(label=><th scope="col" key={label}>{label}</th>)}<th scope="col">T</th></tr></thead>
+   <tbody>{['away','home'].map(side=><tr key={side} style={teamColor(prediction[side])?{'--team':teamColor(prediction[side])}:undefined}>
+    <th scope="row"><Logo team={prediction[side]} size={20}/>{prediction[side].abbr}</th>
+    {quarters[side].map((value,index)=><td key={index}>{value??'–'}</td>)}<td className="gp-quarters-total">{total(side)}</td>
+   </tr>)}</tbody>
+  </table>
+ </Section>;
+}
+
+function TopPlayers({prediction,leaders}){
+ const sides=['away','home'].filter(side=>leaders[side]?.length);
+ if(!sides.length)return null;
+ return <Section title="Top players" className="gp-leaders">
+  {sides.map(side=><div key={side} className="gp-leaders-team" style={teamColor(prediction[side])?{'--team':teamColor(prediction[side])}:undefined}>
+   <span className="gp-leaders-abbr"><Logo team={prediction[side]} size={18}/>{prediction[side].abbr}</span>
+   <ul>{leaders[side].map(item=><li key={item.name+item.text}><b>{item.name}</b><span>{item.text}</span></li>)}</ul>
+  </div>)}
+ </Section>;
+}
+
+function Swings({prediction,swings}){
+ return <Section title="Biggest swings" className="gp-swings">
+  <ol>{swings.map((item,index)=>{const color=teamColor(prediction[item.side]);
+   return <li key={item.at} style={{...(color?{'--team':color}:{}),'--i':index}}>
+    <small>{item.when}</small><span>{item.text}</span><b>{prediction[item.side].abbr} +{Math.round(Math.abs(item.delta)*100)}%</b>
+   </li>;})}</ol>
+ </Section>;
+}
+
+// Every player's prop lines in this game against what he has so far (Nov 8,
+// the owner's pick of the ideas): his count, the line, a bar toward it, and
+// how many more he needs; the closest first. The first eight, then all.
+function PropTracker({prediction,rows,final}){
+ const [all,setAll]=useState(false);
+ if(!rows.length)return null;
+ const shown=all?rows:rows.slice(0,8);
+ return <Section title={final?'Player props, final':'Player props live'} className="gp-props">
+  <ul>{shown.map((row,index)=>{const done=propProgress(row,final);const color=teamColor(prediction[row.side]);
+   return <li key={`${row.name}|${row.stat}`} style={{...(color?{'--team':color}:{}),'--i':index}} data-hit={done.hit?'':undefined} data-miss={done.miss?'':undefined}>
+    {row.headshot?<img className="gp-props-face" src={row.headshot} alt="" width={34} height={34} loading="lazy"/>:<span className="gp-props-face" aria-hidden="true"/>}
+    <span className="gp-props-who"><b>{row.short||row.name}</b><small>{row.stat}{row.minutes?` · ${Math.round(row.minutes)} min`:''}</small></span>
+    <span className="gp-props-count"><b>{row.now}</b><small>/ {row.line}</small></span>
+    <span className="gp-props-left">{done.hit&&<Check size={13} aria-hidden="true"/>}{done.text}</span>
+    <i className="gp-props-bar" aria-hidden="true"><span style={{transform:`scaleX(${done.share})`}}/></i>
+   </li>;})}</ul>
+  {rows.length>8&&<button type="button" className="gp-props-more" onClick={()=>setAll(value=>!value)}>{all?'Show fewer':`Show all ${rows.length}`}<ChevronDown size={15} aria-hidden="true" style={all?{transform:'rotate(180deg)'}:undefined}/></button>}
+ </Section>;
 }
 
 function OddsTab({prediction,chart,onPick}){
@@ -821,6 +994,7 @@ export function GamePredictor(){
  const [results,setResults]=useState({});
  const [tries,setTries]=useState(0);
  const [sheet,setSheet]=useState(null);
+ const liveList=useLiveList(sport,open?[]:slate.games);
  useEffect(()=>{
   const control=new AbortController();
   setSlate(old=>({loading:true,games:old.sport===sport?old.games:[],sport}));setResults({});setOpen(null);
@@ -873,7 +1047,7 @@ export function GamePredictor(){
   </header>
   <Tabs value={view} onChange={pickView}/>
   <div className="gp-view" key={view}>
-   {view==='predict'&&<PredictView slate={slate} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>}
+   {view==='predict'&&<PredictView slate={slate} live={liveList} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>}
    {view==='generate'&&<Generator league={sport} admin={admin}/>}
    {view==='history'&&<HistoryView state={history} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
   </div>

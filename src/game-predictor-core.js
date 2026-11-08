@@ -355,3 +355,121 @@ export function gameClockText(elapsed,sport){
  const name=period<4?`Q${period+1}`:period===4?'OT':`OT${period-3}`;
  return `${name} ${minutes}:${String(seconds).padStart(2,'0')} left`;
 }
+
+// ------------------------------------------------------------------ live games
+// (Nov 8, the owner, offered seven ideas for live games: "Yes add all".)
+
+const QUARTER={nba:[720,300],nfl:[900,600]};
+/** A time into a game as its period number (5 = OT) and the seconds left in it. */
+export function periodLeft(elapsed,sport){
+ const [quarter,extra]=QUARTER[sport]||QUARTER.nba;
+ if(elapsed==null||!Number.isFinite(elapsed))return null;
+ const regulation=4*quarter;
+ if(elapsed<regulation){const period=Math.floor(elapsed/quarter);return {period:period+1,left:(period+1)*quarter-elapsed};}
+ const over=Math.floor((elapsed-regulation)/extra);
+ return {period:5+over,left:regulation+(over+1)*extra-elapsed};
+}
+const minutesText=seconds=>`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`;
+const nameOf=team=>team?.short||team?.name||team?.abbr||'';
+
+/** The run going now: "PHX on a 9-0 run"; in the NFL "PHI has scored 17 straight". */
+export function runText(run,teams,sport){
+ if(!run?.side||!run.points)return '';
+ const abbr=teams?.[run.side]?.abbr||'';
+ return sport==='nfl'?`${abbr} has scored ${run.points} straight`:`${abbr} on a ${run.points}-0 run`;
+}
+
+const scoreOf=(chart,side)=>{const value=Number(chart?.[side]?.score);return Number.isFinite(value)?value:null;};
+
+/** How our pick is doing: its chance before the game and now, and the score from its side. */
+export function pickStatus(prediction,chart){
+ const side=prediction?.winner;
+ if(!side||!['in','post'].includes(chart?.state))return null;
+ const other=side==='home'?'away':'home';
+ const mine=scoreOf(chart,side),theirs=scoreOf(chart,other);
+ const margin=mine!=null&&theirs!=null?mine-theirs:null;
+ const points=chart?.clock?.points||[];
+ const homeNow=chart?.now?.live??points[points.length-1]?.[1];
+ const now=homeNow==null?null:side==='home'?homeNow:1-homeNow;
+ const before=prediction.chance?.[side]??null;
+ const score=mine!=null&&theirs!=null?`${Math.max(mine,theirs)}-${Math.min(mine,theirs)}`:'';
+ if(chart.state==='post'){
+  const won=margin==null?null:margin>0;
+  return {side,before,now:won==null?null:won?1:0,margin,final:true,tone:won==null?undefined:won?'up':'down',
+   result:won==null?'Final':won?`Won ${score}`:`Lost ${score}`};
+ }
+ return {side,before,now,margin,final:false,tone:margin>0?'up':margin<0?'down':undefined,
+  result:margin==null?'':margin>0?`Up ${margin}`:margin<0?`Down ${-margin}`:'Tied'};
+}
+
+/**
+ * The one thing worth a banner in a game, if any: a close game late ("Within
+ * 3 with 2:00 left"), a comeback ("Suns were down 18, now up 2"), the
+ * underdog ahead ("Underdog Rockets lead by 6"); after it, an upset.
+ */
+export function liveAlert(sport,chart,prediction){
+ if(!chart||!['in','post'].includes(chart.state))return null;
+ const home=scoreOf(chart,'home'),away=scoreOf(chart,'away');
+ if(home==null||away==null)return null;
+ const teams={home:prediction?.home||chart.home,away:prediction?.away||chart.away};
+ const nfl=sport==='nfl';
+ const before=prediction?.market?.chance;
+ const underdog=before?.home!=null?(before.home<0.4?'home':before.home>0.6?'away':null):null;
+ if(chart.state==='post'){
+  const won=home>away?'home':away>home?'away':null;
+  if(!underdog||won!==underdog)return null;
+  const price=prediction?.market?.moneyline?.[underdog];
+  return {kind:'upset',text:`Upset: the ${nameOf(teams[underdog])} won as ${price!=null&&price>0?`+${Math.round(price)} `:''}underdogs`};
+ }
+ const at=periodLeft(chart.clock?.now,sport);
+ const margin=Math.abs(home-away);
+ if(at&&at.period>=4&&at.left<=300&&at.left>0&&margin<=(nfl?8:5)){
+  const left=minutesText(at.left);
+  return {kind:'close',text:margin===0?`Tied with ${left} left`:nfl&&margin>3?`One-score game with ${left} left`:`Within ${margin} with ${left} left`};
+ }
+ const lead=chart.feed?.lead;
+ for(const side of ['home','away']){
+  const other=side==='home'?'away':'home';
+  const down=lead?.[other]||0,now=(side==='home'?home-away:away-home);
+  if(down>=(nfl?14:15)&&now>=-(nfl?7:5)){
+   const where=now>0?`now up ${now}`:now===0?'now tied':`now within ${-now}`;
+   return {kind:'comeback',text:`Comeback: the ${nameOf(teams[side])} were down ${down}, ${where}`};
+  }
+ }
+ if(underdog&&(at?.period||1)>=2){
+  const ahead=underdog==='home'?home-away:away-home;
+  if(ahead>0)return {kind:'underdog',text:`Underdog ${nameOf(teams[underdog])} lead by ${ahead}`};
+ }
+ return null;
+}
+
+const numberText=value=>Number.isInteger(value)?String(value):value.toFixed(1).replace(/\.0$/,'');
+/** One prop against its line: how far along (0 to 1), and "Needs 15", "Hit", "Missed by 3". */
+export function propProgress(row,final=false){
+ const now=Number(row?.now)||0,line=Number(row?.line)||0;
+ const share=line>0?Math.min(1,now/line):now>0?1:0;
+ if(now>line)return {share:1,hit:true,text:'Hit'};
+ if(final)return now===line?{share,hit:false,text:'Push'}:{share,hit:false,miss:true,text:'Missed'};
+ // A count goes over its line one at a time (26.5 with 12: 15 more; 26 with
+ // 12: 15 more too); a fantasy score by tenths.
+ const needs=Number.isInteger(now)?Math.floor(line-now)+1:Math.round((line-now)*10)/10;
+ return {share,hit:false,text:`Needs ${numberText(needs)}`};
+}
+
+/** A small chance line for the games list: the path of one side's chance, across the game's length. */
+export function sparkPath(spark,side,w,h){
+ const points=spark?.points||[];
+ if(points.length<2||!(spark.length>0))return '';
+ return points.map(([at,home],index)=>{const chance=side==='home'?home:1-home;
+  const x=Math.min(1,at/spark.length)*w,y=(1-chance)*h;
+  return `${index?'L':'M'}${x.toFixed(1)} ${y.toFixed(1)}`;}).join(' ');
+}
+
+/** The games list with the games on now first (the list's own live reads over the kept slate). */
+export function liveFirst(games,live){
+ const fresh=new Map((live?.games||[]).map(game=>[game.id,game]));
+ const merged=(games||[]).map(game=>{const now=fresh.get(game.id);if(!now)return game;
+  return {...game,state:now.state,detail:now.detail||game.detail,spark:now.spark,
+   home:{...game.home,score:now.home?.score??game.home?.score},away:{...game.away,score:now.away?.score??game.away?.score}};});
+ return {live:merged.filter(game=>game.state==='in'),rest:merged.filter(game=>game.state!=='in')};
+}
