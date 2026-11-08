@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cardText,combined} from '../src/game-share.js';
-import {colorGap,inkOn,keyInjuries,liveText,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
+import {colorGap,gameClockText,inkOn,keyInjuries,liveText,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
 import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
@@ -242,4 +242,19 @@ test('a live game\'s clock reads period first',()=>{
  assert.equal(liveText('Halftime'),'Halftime');
  assert.equal(liveText('End of 1st'),'End of 1st');
  assert.equal(liveText(null),'');
+});
+
+test('a time into the game as its quarter and clock',()=>{
+ assert.equal(gameClockText(0,'nba'),'Q1 12:00 left');
+ assert.equal(gameClockText(1200,'nba'),'Q2 4:00 left');
+ assert.equal(gameClockText(2880+150,'nba'),'OT 2:30 left');
+ assert.equal(gameClockText(2880+300+60,'nba'),'OT2 4:00 left');
+ assert.equal(gameClockText(2100,'nfl'),'Q3 10:00 left');
+ assert.equal(gameClockText(null,'nba'),'');
+});
+
+test('a game\'s line stops where the game is',()=>{
+ const frame={start:0,end:100,low:0,high:1};
+ assert.equal(chartPath([[0,0.5],[50,0.6]],frame,100,10),'M0.0 5.0H50.0V4.0H100');
+ assert.equal(chartPath([[0,0.5],[50,0.6]],frame,100,10,{toEnd:false}),'M0.0 5.0H50.0V4.0');
 });

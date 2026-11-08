@@ -338,24 +338,34 @@ def _nick(text) -> str:
     return re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKD", str(text or "")).encode("ascii", "ignore").decode().lower())
 
 
-def dk_match(game, events):
-    """The moneyline {home, away} DraftKings has for an ESPN game: both teams'
-    nicknames at the end of DraftKings' names ("ATL Hawks", "POR Trail
-    Blazers"), starting within six hours of ESPN's time. A neutral-site game
-    DraftKings lists the other way round is turned back to ESPN's sides."""
+def _dk_find(game, events):
+    """(DraftKings' event for an ESPN game, whether its sides are the other
+    way round): both teams' nicknames at the end of DraftKings' names ("ATL
+    Hawks", "POR Trail Blazers"), starting within six hours of ESPN's time."""
     start = _when(game.get("startsAt"))
     wanted = {side: _nick((game.get(side) or {}).get("short") or (game.get(side) or {}).get("name")) for side in ("home", "away")}
     if not start or not all(wanted.values()):
-        return None
+        return None, False
     for event in events:
         if abs((event["start"] - start).total_seconds()) > 6 * 3600:
             continue
         names = {side: _nick(event["names"][side]) for side in ("home", "away")}
         if names["home"].endswith(wanted["home"]) and names["away"].endswith(wanted["away"]):
-            return dict(event["moneyline"])
+            return event, False
         if names["home"].endswith(wanted["away"]) and names["away"].endswith(wanted["home"]):
-            return {"home": event["moneyline"]["away"], "away": event["moneyline"]["home"]}
-    return None
+            return event, True
+    return None, False
+
+
+def dk_match(game, events):
+    """The moneyline {home, away} DraftKings has for an ESPN game (a
+    neutral-site game DraftKings lists the other way round turned back to
+    ESPN's sides)."""
+    event, flipped = _dk_find(game, events)
+    if not event:
+        return None
+    prices = event["moneyline"]
+    return {"home": prices["away"], "away": prices["home"]} if flipped else dict(prices)
 
 
 def with_dk(sport, games, events=None) -> list:
@@ -376,7 +386,8 @@ def with_dk(sport, games, events=None) -> list:
             continue
         line = dict(game.get("line") or {"spread": None, "total": None})
         line.update({"provider": "DraftKings", "source": "draftkings", "moneyline": prices,
-                     "chance": {"home": home_p / (home_p + away_p), "away": away_p / (home_p + away_p)}})
+                     "chance": {"home": home_p / (home_p + away_p), "away": away_p / (home_p + away_p)},
+                     "inPlay": bool((_dk_find(game, events)[0] or {}).get("live"))})
         out.append({**game, "line": line})  # a copy: the cached game keeps ESPN's line
     return out
 
@@ -2415,6 +2426,72 @@ def live_series(summary, starts_at=None, now=None) -> list:
     return out
 
 
+# A game on its own clock (Nov 8, the owner: "How could we make this better
+# for live games?", the game-clock chart picked): each play's win chance at
+# its time into the game, the quarters marked, so the line fills the chart
+# as the game goes.
+PERIODS = {"nba": (720, 300), "nfl": (900, 600)}   # a quarter, an overtime (seconds)
+
+
+def _clock_seconds(text):
+    text = str(text or "").strip()
+    try:
+        if ":" in text:
+            minutes, seconds = text.split(":", 1)
+            return int(minutes) * 60 + float(seconds)
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def game_elapsed(sport, period, clock) -> float | None:
+    """Seconds into the game at a period and its clock (time left in it)."""
+    quarter, extra = PERIODS[sport]
+    period, left = _num(period), _clock_seconds(clock)
+    if not period or period < 1 or left is None:
+        return None
+    period = int(period)
+    if period <= 4:
+        return (period - 1) * quarter + max(0.0, quarter - left)
+    return 4 * quarter + (period - 5) * extra + max(0.0, extra - left)
+
+
+def game_clock_series(sport, summary) -> dict | None:
+    """{points [[seconds into the game, home chance]], length, periods
+    [{at, label}], now}: ESPN's win probability on the game's own clock."""
+    if sport not in PERIODS:
+        return None
+    probability = (summary or {}).get("winprobability") or []
+    plays = list((summary or {}).get("plays") or [])
+    for drive in (((summary or {}).get("drives") or {}).get("previous") or []) + [((summary or {}).get("drives") or {}).get("current") or {}]:
+        plays += drive.get("plays") or []
+    at = {}
+    for play in plays:
+        elapsed = game_elapsed(sport, (play.get("period") or {}).get("number"), (play.get("clock") or {}).get("displayValue"))
+        if play.get("id") is not None and elapsed is not None:
+            at[str(play["id"])] = elapsed
+    points = []
+    for point in probability:
+        chance, elapsed = _num(point.get("homeWinPercentage")), at.get(str(point.get("playId")))
+        if chance is not None and elapsed is not None:
+            points.append([round(elapsed, 1), round(chance, 4)])
+    points.sort(key=lambda item: item[0])
+    if len(points) < 2:
+        return None
+    competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
+    status = competition.get("status") or {}
+    quarter, extra = PERIODS[sport]
+    period = int(_num(status.get("period")) or 1)
+    state = (status.get("type") or {}).get("state")
+    now = game_elapsed(sport, period, status.get("displayClock"))
+    reach = max(points[-1][0], now or 0)
+    overtimes = max(0, period - 4, 0 if reach <= 4 * quarter else int((reach - 4 * quarter - 1e-9) // extra) + 1)
+    length = 4 * quarter + overtimes * extra
+    periods = [{"at": index * quarter, "label": f"Q{index + 1}"} for index in range(4)]
+    periods += [{"at": 4 * quarter + index * extra, "label": "OT" if overtimes == 1 else f"OT{index + 1}"} for index in range(overtimes)]
+    return {"points": points, "length": length, "periods": periods, "now": length if state == "post" else now}
+
+
 def chart(sport, event_id, now=None, store=None) -> dict:
     """One game's chance over time: the market's from its kept samples (and
     the line right now), and in a game ESPN's win probability after every
@@ -2436,6 +2513,7 @@ def chart(sport, event_id, now=None, store=None) -> dict:
         sample_odds(sport, [game], store=store, now=now)
     series = _read(ODDS_KEY.format(sport=sport, event=event_id), store)
     live = live_series(summary, competition.get("date"), now) if status.get("state") in ("in", "post") else []
+    clock = game_clock_series(sport, summary) if status.get("state") in ("in", "post") else None
     opened = None
     if status.get("state") == "pre":
         try:  # The slate's lines (ESPN's scoreboard, kept 5 minutes) carry the opening moneylines.
@@ -2450,7 +2528,9 @@ def chart(sport, event_id, now=None, store=None) -> dict:
     return {"id": str(event_id), "sport": sport, "state": status.get("state"), "detail": status.get("shortDetail") or status.get("detail"),
             "startsAt": competition.get("date"), "home": team("home"), "away": team("away"),
             "market": [[point[0], point[1]] for point in series], "live": live,
-            "source": (line or {}).get("source") or "espn", "open": opened,
+            "source": (line or {}).get("source") or "espn", "open": opened, "clock": clock,
             "now": {"market": (line or {}).get("chance", {}).get("home") if line else None, "live": live[-1][1] if live else None,
-                    "moneyline": (line or {}).get("moneyline")},
+                    "moneyline": (line or {}).get("moneyline"),
+                    # In a game, whether the price is DraftKings' in-game one (else it's the pregame line).
+                    "priceLive": bool((line or {}).get("source") == "draftkings" and (line or {}).get("inPlay"))},
             "updatedAt": now.isoformat()}

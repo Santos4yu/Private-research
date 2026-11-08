@@ -653,6 +653,40 @@ class OpenTests(unittest.TestCase):
         self.assertAlmostEqual(found["open"]["market"], 0.6 / (0.6 + 100 / 230), places=3)
 
 
+class GameClockTests(unittest.TestCase):
+    def test_time_into_the_game(self):
+        self.assertEqual(gp.game_elapsed("nba", 1, "12:00"), 0)
+        self.assertEqual(gp.game_elapsed("nba", 1, "5:00"), 420)
+        self.assertAlmostEqual(gp.game_elapsed("nba", 2, "54.7"), 720 + 720 - 54.7)
+        self.assertEqual(gp.game_elapsed("nba", 5, "3:00"), 2880 + 120)
+        self.assertEqual(gp.game_elapsed("nfl", 3, "10:00"), 1800 + 300)
+        self.assertIsNone(gp.game_elapsed("nba", None, "5:00"))
+
+    def test_the_line_on_the_game_clock(self):
+        summary = ChartTests().summary()
+        summary["header"]["competitions"][0]["status"].update({"period": 2, "displayClock": "6:00"})
+        summary["plays"] = [{"id": "a", "period": {"number": 1}, "clock": {"displayValue": "11:40"}},
+                            {"id": "b", "period": {"number": 1}, "clock": {"displayValue": "2:00"}},
+                            {"id": "c", "period": {"number": 2}, "clock": {"displayValue": "6:10"}}]
+        found = gp.game_clock_series("nba", summary)
+        self.assertEqual(found["points"], [[20.0, 0.5], [600.0, 0.58], [1070.0, 0.61]])
+        self.assertEqual((found["length"], found["now"]), (2880, 1080))
+        self.assertEqual([item["label"] for item in found["periods"]], ["Q1", "Q2", "Q3", "Q4"])
+        # Into overtime: the chart grows a period.
+        summary["header"]["competitions"][0]["status"].update({"period": 5, "displayClock": "4:00"})
+        summary["plays"][-1] = {"id": "c", "period": {"number": 5}, "clock": {"displayValue": "4:10"}}
+        found = gp.game_clock_series("nba", summary)
+        self.assertEqual((found["length"], found["periods"][-1]), (2880 + 300, {"at": 2880, "label": "OT"}))
+        self.assertIsNone(gp.game_clock_series("nba", {"winprobability": []}))
+
+    def test_whether_the_price_is_in_game(self):
+        feed = dk_feed()
+        feed["events"][0]["status"] = "STARTED"
+        espn = DraftKingsTests().espn_game()
+        self.assertTrue(gp.with_dk("nba", [espn], gp.parse_dk(feed))[0]["line"]["inPlay"])
+        self.assertFalse(gp.with_dk("nba", [espn], gp.parse_dk(dk_feed()))[0]["line"]["inPlay"])
+
+
 class BoardTests(unittest.TestCase):
     def test_every_game_with_its_moneylines(self):
         store = FakeStore()

@@ -76,6 +76,30 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 8: live games on the game's own clock; pregame prices say so
+
+- The owner, with a live HOU @ PHX page: "How could we make this better for
+  live games?" Offered: a game-clock chart, a live feed (last play, runs,
+  quarter scores, top scorers), a live prop tracker, "how our pick is
+  doing". Picked: the game-clock chart. Also fixed unasked: the price
+  buttons showed the pregame line (HOU 70¢ -264) next to a live 53%.
+- `game_clock_series(sport, summary)`: each ESPN win-probability point at
+  its play's time into the game (`game_elapsed`: NBA quarters 720 s, OT 300;
+  NFL 900 / 600; from each play's period and clock, NBA `plays`, NFL
+  `drives`), the game's length (grows with each overtime), the periods
+  (Q1-Q4, OT / OT2...) and the time now. On the chart as `chart.clock`.
+- `TwoLineChart` in a game with a clock: x runs 0 to the game's length, a
+  dashed line between quarters, their names under the chart (the one being
+  played in white), the line stops where the game is (`chartPath` takes
+  `toEnd: false`), the dots and the team labels there; a touch reads
+  "Q2 4:00 left" (`gameClockText`). Without a clock (no play times), as
+  before on clock time.
+- Prices in a game: `with_dk` marks `inPlay` from DraftKings' event status
+  (`parse_dk` "live": STARTED / LIVE / IN_PROGRESS, not yet seen on a live
+  game), the chart's `now.priceLive`. Not in-play: the buttons read
+  "Pregame -264" with no cents. The GitHub check prints a finished game's
+  game-clock series.
+
 ### Nov 7: the Why tab's analyst write-up (worked-out pick + Groq sections, checked)
 
 - The owner: "On the write up part I want better detail tho like are the

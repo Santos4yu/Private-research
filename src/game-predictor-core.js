@@ -201,7 +201,7 @@ export function chartFrame(series,extra=[]){
 }
 
 /** An SVG path for a series in a w x h box (a step line: a price holds until it moves). */
-export function chartPath(series,frame,w,h){
+export function chartPath(series,frame,w,h,{toEnd=true}={}){
  if(!series?.length||!frame)return '';
  const x=t=>frame.end===frame.start?w:(t-frame.start)/(frame.end-frame.start)*w;
  const y=v=>h-(v-frame.low)/(frame.high-frame.low)*h;
@@ -210,7 +210,8 @@ export function chartPath(series,frame,w,h){
   const px=x(t).toFixed(1),py=y(v).toFixed(1);
   path+=index===0?`M${px} ${py}`:`H${px}V${py}`;
  });
- return path+`H${w}`;
+ // A price stands until it moves, so its line runs to the edge; a game's line stops where the game is.
+ return toEnd?path+`H${w}`:path;
 }
 
 /** The history's result for one entry: 'win', 'loss', 'push' or 'pending'. */
@@ -341,4 +342,16 @@ export function liveText(detail){
  if(!found)return text;
  const clock=found[1].includes(':')?found[1]:`0:${found[1].padStart(found[1].includes('.')?4:2,'0')}`;
  return `${found[2]} · ${clock}`;
+}
+
+/** A time into a game as its quarter and clock: 1200 s of an NBA game -> "Q2 4:00 left"; overtime "OT 2:30 left". */
+export function gameClockText(elapsed,sport){
+ const [quarter,extra]=sport==='nfl'?[900,600]:[720,300];
+ if(elapsed==null||!Number.isFinite(elapsed))return '';
+ const regulation=4*quarter;
+ const period=elapsed<regulation?Math.floor(elapsed/quarter):4+Math.floor((elapsed-regulation)/extra);
+ const start=period<4?period*quarter:regulation+(period-4)*extra,length=period<4?quarter:extra;
+ const left=Math.max(0,start+length-elapsed),minutes=Math.floor(left/60),seconds=Math.floor(left%60);
+ const name=period<4?`Q${period+1}`:period===4?'OT':`OT${period-3}`;
+ return `${name} ${minutes}:${String(seconds).padStart(2,'0')} left`;
 }

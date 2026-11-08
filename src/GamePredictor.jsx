@@ -22,7 +22,7 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Info,Layers,RefreshCw,Share,Trophy,UserX,X} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,inkOn,lineText,liveText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveText,marketNote,mergeBoards,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import './game-predictor.css';
 
@@ -218,8 +218,11 @@ function TwoLineChart({prediction,chart}){
  const nowT=Date.now()/1000;
  const live=chart?.live||[],market=chart?.market||[];
  const fallback=prediction.market?.chance?.home??prediction.chance.home;
- const inGame=live.length>1;
- const raw=inGame?live:market.length?market:[[nowT-3600,fallback]];
+ // In a game, on the game's own clock where ESPN gives it (Nov 8: the quarters
+ // across the chart, the line filling in as the game goes), else clock time.
+ const clock=chart?.clock?.points?.length>1&&['in','post'].includes(chart.state)?chart.clock:null;
+ const inGame=Boolean(clock)||live.length>1;
+ const raw=clock?clock.points:inGame?live:market.length?market:[[nowT-3600,fallback]];
  // The price stands until it moves: before the game, the line runs on to now at the latest price.
  const latest=inGame?null:chart?.now?.market??raw[raw.length-1][1];
  const base=latest!=null&&raw[raw.length-1][0]<nowT-30?[...raw,[nowT,latest]]:raw;
@@ -228,7 +231,7 @@ function TwoLineChart({prediction,chart}){
  if(!frame)return null;
  const step=0.15,below=Math.min(frame.low,0.35),above=Math.max(frame.high,0.65);
  const low=Math.max(0,0.5-step*Math.ceil((0.5-below)/step-1e-9)),high=Math.min(1,0.5+step*Math.ceil((above-0.5)/step-1e-9));
- const box={...frame,low,high,end:Math.max(frame.end,nowT)};
+ const box=clock?{...frame,low,high,start:0,end:clock.length}:{...frame,low,high,end:Math.max(frame.end,nowT)};
  const grid=[];for(let value=low;value<=high+1e-9;value+=step)grid.push(Math.round(value*100)/100);
  const y=value=>(1-(value-box.low)/(box.high-box.low))*100;
  const pick=event=>{
@@ -240,6 +243,8 @@ function TwoLineChart({prediction,chart}){
  };
  const last=base[base.length-1][1];
  const ends={home:last,away:1-last};
+ // Where the line ends across the chart (the right edge, or in a game the time now).
+ const reach=clock?Math.min(1,base[base.length-1][0]/(clock.length||1)):1;
  // Two labels never overlap: pushed apart when the chances are close.
  const gap=Math.abs(y(ends.home)-y(ends.away))<26;
  const labelY=side=>{const value=y(ends[side]);if(!gap)return value;const up=ends[side]>=ends[side==='home'?'away':'home'];return up?Math.min(value,y(0.5)-13):Math.max(value,y(0.5)+13);};
@@ -247,18 +252,23 @@ function TwoLineChart({prediction,chart}){
  return <div className="gp-chart2" ref={host} onPointerMove={pick} onPointerDown={pick} onPointerLeave={()=>setHover(null)}
   style={{'--home':colorOf('home')||'#e9e9e9','--away':colorOf('away')||'#8f8f8f','--home-ink':inkOn(prediction.home?.color),'--away-ink':inkOn(prediction.away?.color)}}>
   {grid.map(value=><span key={value} className="gp-chart-rule" style={{top:`${y(value)}%`}}><small>{Math.round(value*100)}%</small></span>)}
+  {clock&&clock.periods.map((period,index)=>{const next=clock.periods[index+1]?.at??clock.length;return <React.Fragment key={period.label}>
+   {index>0&&<span className="gp-chart-period" style={{left:`calc(${PLOT} * ${period.at/clock.length})`}} aria-hidden="true"/>}
+   <span className="gp-chart-period-name" style={{left:`calc(${PLOT} * ${(period.at+next)/2/clock.length})`}}
+    data-now={chart.clock.now!=null&&chart.clock.now>=period.at&&chart.clock.now<next?'':undefined}>{period.label}</span>
+  </React.Fragment>;})}
   <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${prediction.away.abbr} ${pct(ends.away)}, ${prediction.home.abbr} ${pct(ends.home)}`}>
-   {['away','home'].map(side=><path key={side} className={`gp-chart2-line is-${side}`} d={chartPath(series[side],box,W,H)}/>)}
+   {['away','home'].map(side=><path key={side} className={`gp-chart2-line is-${side}`} d={chartPath(series[side],box,W,H,{toEnd:!clock})}/>)}
   </svg>
   {['away','home'].map(side=><React.Fragment key={side}>
-   <i className={`gp-chart2-dot is-${side}`} style={{top:`${y(ends[side])}%`}} aria-hidden="true"/>
-   <span className={`gp-chart2-end is-${side}`} style={{top:`${labelY(side)}%`}}>
+   <i className={`gp-chart2-dot is-${side}`} style={{top:`${y(ends[side])}%`,left:`calc(${PLOT} * ${reach})`}} aria-hidden="true"/>
+   <span className={`gp-chart2-end is-${side}`} style={{top:`${labelY(side)}%`,...(clock&&reach<1?{left:`min(calc(${PLOT} * ${reach} + 14px), calc(100% - 100px))`}:{})}}>
     <small>{prediction[side].abbr}</small><b>{pct(ends[side])}</b>
    </span>
   </React.Fragment>)}
-  {hover&&<><span className="gp-chart-cross" style={{left:`calc(${PLOT} * ${hover.x})`}}/>
+  {hover&&<><span className="gp-chart-cross" style={{left:`calc(${PLOT} * ${Math.min(hover.x,1)})`}}/>
    <span className="gp-chart-tip" style={{left:`calc(${PLOT} * ${Math.min(Math.max(hover.x,0.2),0.8)})`}}>
-    <span>{prediction.away.abbr} <b>{pct(1-hover.home)}</b> · {prediction.home.abbr} <b>{pct(hover.home)}</b></span>{clockText(new Date(hover.t*1000).toISOString())}
+    <span>{prediction.away.abbr} <b>{pct(1-hover.home)}</b> · {prediction.home.abbr} <b>{pct(hover.home)}</b></span>{clock?gameClockText(hover.t,chart.sport):clockText(new Date(hover.t*1000).toISOString())}
    </span></>}
  </div>;
 }
@@ -267,13 +277,16 @@ function TwoLineChart({prediction,chart}){
 // (DraftKings' -241 / +199: the same price), tapped to pick it.
 function PickButtons({prediction,chart,onPick}){
  const open=prediction.state==='pre'&&(chart?.state||'pre')==='pre';
+ // In a game the line is usually the pregame one (Nov 8: 70¢ beside a live
+ // 53%): say so, and show no cents, unless it's DraftKings' in-game price.
+ const pregame=!open&&chart?.state==='in'&&!chart?.now?.priceLive;
  return <div className="gp-pick-buttons">{['away','home'].map(side=>{const team=prediction[side];
   const price=chart?.now?.moneyline?.[side]??prediction.market?.moneyline?.[side];
   const homeNow=chart?.now?.market;const marketChance=homeNow!=null?(side==='home'?homeNow:1-homeNow):prediction.market?.chance?.[side];
   const color=teamColor(team);
   return <button type="button" key={side} className="gp-buy" style={color?{'--team':color}:undefined} disabled={!open||price==null}
    onClick={()=>onPick(side,{price,marketChance})}>
-   <span>{team.abbr}</span><b>{cents(marketChance)}</b>{price!=null&&<small>{odds(price)}</small>}
+   <span>{team.abbr}</span>{pregame?<small className="gp-buy-pregame">Pregame {odds(price)}</small>:<><b>{cents(marketChance)}</b>{price!=null&&<small>{odds(price)}</small>}</>}
   </button>;})}</div>;
 }
 
