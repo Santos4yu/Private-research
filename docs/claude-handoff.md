@@ -99,6 +99,12 @@ Last updated 2026-11-06 (Game Predictor: each game its own page with tabs, the p
   game), the chart's `now.priceLive`. Not in-play: the buttons read
   "Pregame -264" with no cents. The GitHub check prints a finished game's
   game-clock series.
+- Shipped as 23ced04 (deployed). Its GitHub check failed on a bad indent in
+  the new game-clock print (the workflow only, not the site). Fixed and
+  committed, but not pushed: per CLAUDE.md, it goes out with the next site
+  change. After that push, run the check and read the "game clock:" lines
+  (NBA and NFL finals: points, length 2880 / 3600, Q1-Q4). Real ESPN plays
+  were already seen to carry `period.number` and `clock.displayValue`.
 
 ### Nov 7: the Why tab's analyst write-up (worked-out pick + Groq sections, checked)
 

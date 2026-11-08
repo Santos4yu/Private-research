@@ -147,9 +147,9 @@ jobs:
                             "a play:", json.dumps(((summary.get("plays") or [{}])[0]))[:300])
                       found = gp.chart(sport, event_id, now=now, store=None)
                       print("   chart live points:", len(found["live"]), "first/last:", found["live"][:1], found["live"][-1:], "state:", found["state"])
-            clock = found.get("clock") or {}
-            print("   game clock:", len(clock.get("points") or []), "points, length", clock.get("length"), "now", clock.get("now"),
-                  [item["label"] for item in clock.get("periods") or []], "first/last:", (clock.get("points") or [])[:2], (clock.get("points") or [])[-1:])
+                      clock = found.get("clock") or {}
+                      print("   game clock:", len(clock.get("points") or []), "points, length", clock.get("length"), "now", clock.get("now"),
+                            [item["label"] for item in clock.get("periods") or []], "first/last:", (clock.get("points") or [])[:2], (clock.get("points") or [])[-1:])
                   upcoming = [game for game in gp.slate(sport, now)["games"] if game["state"] == "pre"][:1]
                   for game in upcoming:
                       summary = gp._espn(sport, "/summary", {"event": game["id"]})
