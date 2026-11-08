@@ -109,6 +109,14 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   and glow), a bar of our model's chance with the market's as a tick
   (`VersusBar`), Edge / Value / Price under it; value picks carry the same
   small bar; parlays' legs as team chips (`LegChips`).
+- Then the owner: "these are bad props tho like its going for bench players
+  and i want like points PRA PA PR assist rebounds things like that and
+  less blocks steal". Now only `MAIN_MARKETS` (points, rebounds, assists,
+  P+R, P+A, PRA) and 3-pointers (-3 in the ranking); blocks and steals out.
+  Only the heart of the rotation (`rotationRegular`, `MINUTES`): 28+ minutes
+  a game over his last 10 (game log `usage`), or a starter (`lineupRole`) on
+  22+, or 26+ when the rotation doesn't list him. The analysis adds "His
+  role" (starter / bench text, minutes); the page shows "Starter · 34 min".
 - Browser check: the props board seeded into the device cache
   (IndexedDB krazy-finder/boards 'nba' and 'nba:league-context' with the
   test fixture league); rows need `apps` or the Finder (same cache) throws.

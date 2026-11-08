@@ -1124,6 +1124,8 @@ const TIER_WORDS={elite:'Elite',strong:'Strong',lean:'Lean'};
 const lineWords=row=>`Over ${row.line} ${statWords(row)}`;
 const gameWords=row=>`${row.teamAbbr||''}${row.opponent?` ${row.awayTeamAbbr&&row.teamAbbr===row.awayTeamAbbr?'@':'vs'} ${row.opponent}`:''}${row.startsAt?` · ${clockText(row.startsAt)}`:''}`;
 const recordWords=record=>record?`${record.hits}/${record.games}`:'—';
+// "Starter · 34 min": his part in the rotation (the generator only picks its heart).
+const roleWords=item=>[item.role?.label,item.minutes!=null?`${Math.round(item.minutes)} min`:null].filter(Boolean).join(' · ');
 
 function PropWhy({item}){
  return <ul className="gp-why">{analysisOf(item).map(part=><li key={part.key} data-tone={part.tone}>
@@ -1149,7 +1151,7 @@ function PropRow({item,index,open,onToggle,saved}){
    <span className="gp-prop-num"><b>{pct(grade.chance)}</b><small data-tier={grade.tier}>{TIER_WORDS[grade.tier]}{read?` · ${read.score}`:''}</small></span>
    <ChevronDown className="gp-prop-chev" size={16} aria-hidden="true"/>
   </button>
-  {open&&<div className="gp-prop-more"><small className="gp-prop-game">{gameWords(row)}</small><PropRecords item={item}/><PropWhy item={item}/>
+  {open&&<div className="gp-prop-more"><small className="gp-prop-game">{[gameWords(row),roleWords(item)].filter(Boolean).join(' · ')}</small><PropRecords item={item}/><PropWhy item={item}/>
    <SlipToggle row={row} saved={saved} stat={statWords(row)} full className="gp-prop-save"/></div>}
  </li>;
 }
@@ -1174,7 +1176,7 @@ function PropGenerator({admin}){
     <span className="gp-prop-tier" data-tier={top.grade.tier}>{TIER_WORDS[top.grade.tier]}</span></div>
    <div className="gp-pick-main">
     <Face row={top.row}/>
-    <span><b>{top.row.player}</b><small>{lineWords(top.row)}</small><small>{gameWords(top.row)}</small></span>
+    <span><b>{top.row.player}</b><small>{lineWords(top.row)}</small><small>{[gameWords(top.row),roleWords(top)].filter(Boolean).join(' · ')}</small></span>
     <span className="gp-pick-num"><b>{pct(top.grade.chance)}</b><small>to go over</small></span>
    </div>
    <div className="gp-pick-versus"><VersusBar chance={top.grade.chance} market={top.grade.needs??0.5}/>

@@ -15,6 +15,7 @@
 import {propGrades} from './props-grade.js';
 import {spreadScores} from './nba-matchup-score.js';
 import {windowGames, windowRate} from './unified-finder-data.js';
+import {lineupRole} from './lineup-role.js';
 
 // PrizePicks' Power Play payouts (as smart-slip.js POWER): picks -> times the entry.
 export const PAYOUTS = {2: 3, 3: 6, 4: 10, 5: 20, 6: 37.5};
@@ -24,6 +25,18 @@ const LOCK_MINUTES = 10;
 export const PICK_TIERS = ['elite', 'strong', 'lean'];
 // How many props the slips are made from, and at most this many legs a game.
 const SLIP_POOL = 12, PER_GAME = 2;
+// The stats it picks from (Nov 8, the owner: "its going for bench players and
+// i want like points PRA PA PR assist rebounds things like that and less
+// blocks steal"): the main ones; 3-pointers too, a little behind them.
+// Blocks and steals (one or two plays decide them) are left out.
+export const MAIN_MARKETS = ['player_points', 'player_rebounds', 'player_assists', 'player_points_rebounds', 'player_points_assists',
+  'player_points_rebounds_assists'];
+const MARKET_WEIGHT = {player_threes: -3};
+const MARKETS = new Set([...MAIN_MARKETS, 'player_threes']);
+// Players in the heart of the rotation only: 28+ minutes a game over his
+// last 10, or a starter on 22+ (a starter with a light load still starts);
+// without the rotation, 26+.
+export const MINUTES = {any: 28, starter: 22, unknown: 26};
 
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const STAT_WORDS = {player_points: 'points', player_rebounds: 'rebounds', player_assists: 'assists', player_threes: '3-pointers',
@@ -36,6 +49,21 @@ export function recordOf(row, key) {
   const window = row?.windows?.[key];
   const games = windowGames(window);
   return games ? {rate: windowRate(window), hits: window.hits, games} : null;
+}
+
+/** His minutes a game over his last 10 played (an NBA game log's `usage`), or null. */
+export function minutesOf(row) {
+  const played = (row?.gameLog || []).filter(game => finite(game.usage) && game.usage > 0).slice(-10);
+  return played.length ? played.reduce((sum, game) => sum + game.usage, 0) / played.length : null;
+}
+
+/** Whether he's in the heart of the rotation (MINUTES). */
+export function rotationRegular(row, league) {
+  const role = lineupRole(row, league), minutes = minutesOf(row);
+  if (minutes == null) return Boolean(role?.starter);
+  if (minutes >= MINUTES.any) return true;
+  if (role) return role.starter && minutes >= MINUTES.starter;
+  return minutes >= MINUTES.unknown;
 }
 
 /** The game a line belongs to (two of a player's teammates in one game move together). */
@@ -52,15 +80,17 @@ export function generateProps(rows, league, {now = Date.now(), grades = null, re
   const scored = reads || spreadScores(rows, league);
   const best = new Map();
   for (const row of rows) {
-    if (String(row.modifier || 'standard').toLowerCase() !== 'standard' || row.promo) continue;
+    if (String(row.modifier || 'standard').toLowerCase() !== 'standard' || row.promo || !MARKETS.has(row.marketKey)) continue;
+    if (!rotationRegular(row, league)) continue;
     const starts = Date.parse(row.startsAt || '');
     if (Number.isFinite(starts) && starts - now < LOCK_MINUTES * 60000) continue;
     const grade = graded.get(row.id);
     if (!grade || !PICK_TIERS.includes(grade.tier) || !finite(grade.chance) || grade.edge <= 0) continue;
     const read = scored.get(row.id) || null;
     // Tier first, then how far past what it needs, then the matchup.
-    const score = grade.rank * 100 + grade.edge * 100 + ((read?.score ?? 50) - 50) * 0.1;
-    const item = {row, grade, read, score, records: {l5: recordOf(row, 'l5'), l10: recordOf(row, 'l10'), l20: recordOf(row, 'l20'), season: recordOf(row, 'season')}};
+    const score = grade.rank * 100 + grade.edge * 100 + ((read?.score ?? 50) - 50) * 0.1 + (MARKET_WEIGHT[row.marketKey] || 0);
+    const item = {row, grade, read, score, role: lineupRole(row, league), minutes: minutesOf(row),
+      records: {l5: recordOf(row, 'l5'), l10: recordOf(row, 'l10'), l20: recordOf(row, 'l20'), season: recordOf(row, 'season')}};
     const key = row.playerId || row.player;
     if (!best.has(key) || best.get(key).score < score) best.set(key, item);
   }
@@ -90,6 +120,11 @@ export function analysisOf(item) {
     const said = form.length ? `He's gone ${form.join(' and ')}.` : '';
     const avg = average != null ? ` He's averaging ${Math.round(average * 10) / 10} ${statWords(row)} over his last 10${average > row.line ? ', above the line' : ', under the line'}.` : '';
     out.push({key: 'form', title: 'His form', tone: (records.l10?.rate ?? 50) >= 60 ? 'up' : (records.l10?.rate ?? 50) <= 40 ? 'down' : undefined, text: `${said}${avg}`.trim()});
+  }
+  if (item.minutes != null || item.role) {
+    const minutes = item.minutes != null ? `${Math.round(item.minutes)} minutes a game over his last 10` : '';
+    const role = item.role ? item.role.text.replace(/^./, letter => letter.toUpperCase()) : '';
+    out.push({key: 'role', title: 'His role', text: [role, minutes].filter(Boolean).join('. ') + '.'});
   }
   if (read) {
     const top = [...(read.reads || [])].filter(part => part.text && Math.abs(part.points || 0) >= 0.5)
