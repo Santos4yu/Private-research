@@ -76,6 +76,43 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 8 (f): an NBA prop generator; the moneyline Generator restyled
+
+- The owner: "I want to do more cool things like the moneyline predictor
+  maybe for props tho like a prop generator that does a full analysis
+  rmemver our mlb props that would generate good props that's what I want
+  to but for nba and I also want to make the moneyline generator look
+  nicer". (MLB's props are the bot's board: tier, Vortex Score, L10, EV,
+  matchup, app.js renderBotBoard.)
+- The Generator tab has a switch at the top: Moneylines / NBA props
+  (`GEN_KINDS`, remembered as `game-predictor-gen`). Inside the Game
+  Predictor section, so no new Admin switch.
+- `src/prop-generator.js`: `generateProps(rows, league)` reads tonight's NBA
+  board the Props tab keeps warm (`nba-props-data.js`), grades each line with
+  `propGrades` (the prop model's over chance vs 50%, tier) and
+  `spreadScores` (0-100 matchup and its reads); keeps regular Overs, Elite /
+  Strong / Lean with an edge, games 10+ min away, one line a player, ranked
+  tier, then edge, then matchup. `analysisOf(item)`: The model (chance, points
+  better than even, what a PrizePicks slip needs), His form (L10 / season,
+  his L10 average against the line), The matchup (score and its three
+  biggest reads), Tonight's game (blowout tag). `bestSlips(items)`: the best
+  2-6 pick slip from the top 12 at Power payouts (3/6/10/20/37.5x), two legs
+  a game at most, every leg hitting taken as independent; the page shows
+  only slips with positive value (else a line saying none pays tonight).
+- Page (`PropGenerator`): "Best prop tonight" card (photo, Over line, chance,
+  our model vs even bar, Edge / Matchup / Last 10 / Season, the analysis,
+  Save to slip), "More props worth playing" (tap for the game, L5/L10/L20/
+  season and the analysis, Save to slip), "Best slips tonight" (payout,
+  chance to hit, value, legs as chips). Learning (learning.js) is loaded as
+  the Props tab does.
+- Moneylines restyled: the top card in the picked team's colors (gradient
+  and glow), a bar of our model's chance with the market's as a tick
+  (`VersusBar`), Edge / Value / Price under it; value picks carry the same
+  small bar; parlays' legs as team chips (`LegChips`).
+- Browser check: the props board seeded into the device cache
+  (IndexedDB krazy-finder/boards 'nba' and 'nba:league-context' with the
+  test fixture league); rows need `apps` or the Finder (same cache) throws.
+
 ### Nov 8 (e): the model decides the pick; the Generator leads with best value
 
 - The owner: "I feel like the model is just giving us the low odds ones

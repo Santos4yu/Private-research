@@ -24,6 +24,11 @@ import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
 import {SPORTS,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
+import {nba as nbaBoardStore} from './nba-props-data.js';
+import {analysisOf,bestSlips,generateProps,statWords} from './prop-generator.js';
+import {loadLearning} from './learning.js';
+import {Face} from './PickParts';
+import {SlipToggle,useSlipIds} from './SlipToggle';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
 import './game-predictor.css';
 
@@ -915,15 +920,42 @@ function ChipMenu({label,value,options,onChange}){
  </div>;
 }
 
+// Our model's chance as a bar, the market's as a tick on it (Nov 8: the
+// model decides; the market is there to measure it against).
+function VersusBar({chance,market,color}){
+ if(chance==null)return null;
+ return <span className="gp-versus" style={color?{'--team':color}:undefined} aria-hidden="true">
+  <i style={{transform:`scaleX(${Math.max(0.02,Math.min(1,chance))})`}}/>
+  {market!=null&&<b style={{left:`${Math.max(0,Math.min(100,market*100))}%`}}/>}
+ </span>;
+}
+
 function Leg({leg,mixed,value}){
  return <li className="gp-leg">
   <Logo team={leg.team} size={28}/>
-  <span><b>{leg.team.short||leg.team.abbr}</b><small>{mixed&&leg.sport?`${leg.sport.toUpperCase()} · `:''}{leg.home?'vs':'@'} {leg.opponent.abbr} · {clockText(leg.startsAt)}</small></span>
+  <span><b>{leg.team.short||leg.team.abbr}</b><small>{mixed&&leg.sport?`${leg.sport.toUpperCase()} · `:''}{leg.home?'vs':'@'} {leg.opponent.abbr} · {clockText(leg.startsAt)}</small>
+   {value&&leg.market!=null&&<VersusBar chance={leg.chance} market={leg.market} color={teamColor(leg.team)}/>}</span>
   <span className="gp-leg-num"><b>{pct(leg.chance)}</b><small>{odds(leg.price)}{value&&leg.edge!=null?<> · <em data-tone="up">{edgeText(leg.edge)}</em></>:null}</small></span>
  </li>;
 }
 
+// A parlay's legs as small chips: the team, its price.
+const LegChips=({legs})=><ul className="gp-legchips">{legs.map(leg=><li key={leg.game}><Logo team={leg.team} size={18}/><b>{leg.team.abbr}</b><small>{odds(leg.price)}</small></li>)}</ul>;
+
+// The Generator: moneylines (by day, NBA / NFL) or tonight's NBA props
+// (Nov 8, the owner: "a prop generator that does a full analysis ... like
+// our mlb props ... but for nba").
+const GEN_KINDS=[['moneylines','Moneylines'],['props','NBA props']];
 function Generator({league,admin}){
+ const [kind,setKind]=useState(()=>read('game-predictor-gen',value=>GEN_KINDS.some(([key])=>key===value),'moneylines'));
+ const pick=value=>{setKind(value);save('game-predictor-gen',value);};
+ return <div className="gp-gen">
+  <div className="gp-gen-kind"><Segmented options={GEN_KINDS} value={kind} onChange={pick} label="What to generate" wide/></div>
+  {kind==='props'?<PropGenerator admin={admin}/>:<MoneylineGenerator league={league} admin={admin}/>}
+ </div>;
+}
+
+function MoneylineGenerator({league,admin}){
  const days=useMemo(()=>dayOptions(new Date(),7),[]);
  const [day,setDay]=useState(days[0].key);
  const [which,setWhich]=useState(league);
@@ -952,7 +984,7 @@ function Generator({league,admin}){
  const games=board?.games||[],held=games.filter(game=>game.held).length;
  const dayName=(days.find(item=>item.key===day)||days[0]).top;
  const when=dayName==='Today'||dayName==='Tomorrow'?dayName.toLowerCase():`on ${dayName}`;
- return <div className="gp-gen">
+ return <div className="gp-gen-body">
   <div className="gp-controls">
    <DayStrip days={days} value={day} onChange={setDay}/>
    <div className="gp-menus">
@@ -973,7 +1005,7 @@ function Generator({league,admin}){
   :!top.length?<Empty title={`No moneylines ${when} yet`} text="The books usually post them the day before."/>
   :<div className={`gp-results${state.loading?' is-busy':''}`}>
    {sort==='value'&&!value.length&&<p className="gp-note gp-value-none">Our model agrees with the market on every game {when}, so there's no value pick. The most likely winners:</p>}
-   <section className="gp-pick">
+   <section className="gp-pick" style={teamColor(lead[0].team)?{'--team':teamColor(lead[0].team)}:undefined}>
     <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>{showValue?`Best value ${when}`:`Most likely to win ${when}`}</span>
      <ShareButton legs={[lead[0]]} label={`Share the ${lead[0].team.abbr} moneyline as a picture`}/></div>
     <div className="gp-pick-main">
@@ -981,11 +1013,12 @@ function Generator({league,admin}){
      <span><b>{lead[0].team.short||lead[0].team.abbr}</b><small>{which==='both'?`${lead[0].sport?.toUpperCase()} · `:''}{lead[0].home?'vs':'@'} {lead[0].opponent.abbr} · {clockText(lead[0].startsAt)} · {lead[0].confidence} confidence</small></span>
      <span className="gp-pick-num"><b>{pct(lead[0].chance)}</b><small>{odds(lead[0].price)}</small></span>
     </div>
+    {showValue&&lead[0].market!=null&&<div className="gp-pick-versus"><VersusBar chance={lead[0].chance} market={lead[0].market} color={teamColor(lead[0].team)}/>
+     <span><small>Our model <b>{pct(lead[0].chance)}</b></small><small>The market <b>{pct(lead[0].market)}</b></small></span></div>}
     {showValue&&lead[0].market!=null&&<dl className="gp-pick-edge">
-     <div><dt>Our model</dt><dd>{pct(lead[0].chance)}</dd></div>
-     <div><dt>The market</dt><dd>{pct(lead[0].market)}</dd></div>
      <div><dt>Edge</dt><dd data-tone="up">{edgeText(lead[0].edge)}</dd></div>
      <div><dt>Value</dt><dd data-tone="up">{evText(lead[0].ev)}</dd></div>
+     <div><dt>Price</dt><dd>{odds(lead[0].price)}</dd></div>
     </dl>}
    </section>
    {lead.length>1&&<Section title={showValue?'More value picks':'Next most likely'}><ul className="gp-legs">{lead.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'} value={showValue}/>)}</ul></Section>}
@@ -997,7 +1030,7 @@ function Generator({league,admin}){
       <strong data-tone={combo.ev>0?'up':'down'}>{evText(combo.ev)}<small>value</small></strong>
       <ShareButton legs={combo.legs} label={`Share this ${combo.legs.length}-pick parlay as a picture`}/>
      </div>
-     <ul className="gp-legs">{combo.legs.map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'}/>)}</ul>
+     <LegChips legs={combo.legs}/>
     </li>)}</ol>:<p className="gp-note">{mode==='payout'?`No mix of these games pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}
     {held>0&&<p className="gp-note">{held} {held===1?'game':'games'} left out: no moneyline yet, or data to check.</p>}
     {state.partial&&<p className="gp-note">One league couldn't load; these are the other's games.</p>}
@@ -1065,6 +1098,108 @@ function PickRow({item,kind,index,onRemove}){
   <span className="gp-pickrow-right">{right}</span>
   {kind==='upcoming'?<button type="button" className="gp-pickrow-x" onClick={()=>onRemove(item)} aria-label={`Take back the ${team.abbr} pick`}><X size={16}/></button>:<span className="gp-pickrow-x" aria-hidden="true"/>}
  </li>;
+}
+
+// ------------------------------------------------------------------ the prop generator
+
+// Tonight's NBA board, the one the Props tab keeps warm (nba-props-data.js).
+function usePropBoard(){
+ const [data,setData]=useState(()=>nbaBoardStore.get());
+ const [learned,setLearned]=useState(0);
+ useEffect(()=>{
+  const stop=nbaBoardStore.on(setData);
+  nbaBoardStore.warm();
+  const retry=setInterval(()=>{if(!nbaBoardStore.get().league)nbaBoardStore.refresh();nbaBoardStore.freshenTonight?.();},45000);
+  // What results have taught the model (learning.js), as the Props tab reads it.
+  let live=true;Promise.resolve().then(()=>loadLearning()).then(()=>{if(live)setLearned(Date.now());}).catch(()=>{});
+  return()=>{stop();clearInterval(retry);live=false;};
+ },[]);
+ const rows=useMemo(()=>(data.rows||[]).filter(nbaBoardStore.wanted),[data.rows]);
+ const league=useMemo(()=>data.league&&data.tonight?{...data.league,tonight:data.tonight}:data.league,[data.league,data.tonight]);
+ const props=useMemo(()=>league?generateProps(rows,league):[],[rows,league,learned]);
+ return {data,rows,props};
+}
+
+const TIER_WORDS={elite:'Elite',strong:'Strong',lean:'Lean'};
+const lineWords=row=>`Over ${row.line} ${statWords(row)}`;
+const gameWords=row=>`${row.teamAbbr||''}${row.opponent?` ${row.awayTeamAbbr&&row.teamAbbr===row.awayTeamAbbr?'@':'vs'} ${row.opponent}`:''}${row.startsAt?` · ${clockText(row.startsAt)}`:''}`;
+const recordWords=record=>record?`${record.hits}/${record.games}`:'—';
+
+function PropWhy({item}){
+ return <ul className="gp-why">{analysisOf(item).map(part=><li key={part.key} data-tone={part.tone}>
+  <b>{part.title}</b><p>{part.text}</p>
+  {part.points?.length>0&&<ul>{part.points.map(point=><li key={point.text} data-tone={point.tone}>{point.text}</li>)}</ul>}
+ </li>)}</ul>;
+}
+
+function PropRecords({item}){
+ const {l5,l10,l20,season}=item.records;
+ return <dl className="gp-prop-records">
+  <div><dt>Last 5</dt><dd>{recordWords(l5)}</dd></div><div><dt>Last 10</dt><dd>{recordWords(l10)}</dd></div>
+  <div><dt>Last 20</dt><dd>{recordWords(l20)}</dd></div><div><dt>Season</dt><dd>{season?pct(season.rate/100):'—'}</dd></div>
+ </dl>;
+}
+
+function PropRow({item,index,open,onToggle,saved}){
+ const {row,grade,read}=item;
+ return <li className="gp-prop" data-open={open?'':undefined} style={{'--i':Math.min(index,12)}}>
+  <button type="button" className="gp-prop-row" onClick={onToggle} aria-expanded={open}>
+   <Face row={row}/>
+   <span className="gp-prop-who"><b>{row.player}</b><small>{lineWords(row)}</small></span>
+   <span className="gp-prop-num"><b>{pct(grade.chance)}</b><small data-tier={grade.tier}>{TIER_WORDS[grade.tier]}{read?` · ${read.score}`:''}</small></span>
+   <ChevronDown className="gp-prop-chev" size={16} aria-hidden="true"/>
+  </button>
+  {open&&<div className="gp-prop-more"><small className="gp-prop-game">{gameWords(row)}</small><PropRecords item={item}/><PropWhy item={item}/>
+   <SlipToggle row={row} saved={saved} stat={statWords(row)} full className="gp-prop-save"/></div>}
+ </li>;
+}
+
+function PropGenerator({admin}){
+ const {data,rows,props}=usePropBoard();
+ const saved=useSlipIds();
+ const [open,setOpen]=useState(null);
+ // Only slips that pay for themselves (a regular 2-pick needs about 58% a pick).
+ const slips=useMemo(()=>bestSlips(props).filter(slip=>slip.value>0),[props]);
+ const loading=data.rows==null||(!rows.length&&data.loading)||(rows.length&&!data.league);
+ if(loading&&!props.length)return <div className="gp-gen-body"><p className="gp-note gp-prop-wait">Grading tonight's NBA props…</p><Shimmer rows={5}/></div>;
+ if(!rows.length)return <div className="gp-gen-body"><Empty title={data.error?'NBA props couldn\'t load':'No NBA props posted right now'}
+  text={data.error?(admin?'The board didn\'t load.':'Try again in a minute.'):'PrizePicks posts tonight\'s lines through the day. Check back soon.'}>
+  {data.error&&<button type="button" className="gp-soft" onClick={()=>nbaBoardStore.refresh()}><RefreshCw size={15} aria-hidden="true"/>Try again</button>}</Empty></div>;
+ if(!props.length)return <div className="gp-gen-body"><Empty title="Nothing worth playing yet" text={data.progress?'Still reading players\' games: picks show as they come in.':'No regular line tonight clears what it needs. Check back after the lines move.'}/></div>;
+ const top=props[0];
+ return <div className="gp-gen-body gp-props-gen">
+  <p className="gp-note gp-prop-count">{props.length} {props.length===1?'prop':'props'} worth playing from {rows.length} lines tonight{data.progress?' (more coming in)':''}.</p>
+  <section className="gp-pick gp-prop-hero">
+   <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>Best prop tonight</span>
+    <span className="gp-prop-tier" data-tier={top.grade.tier}>{TIER_WORDS[top.grade.tier]}</span></div>
+   <div className="gp-pick-main">
+    <Face row={top.row}/>
+    <span><b>{top.row.player}</b><small>{lineWords(top.row)}</small><small>{gameWords(top.row)}</small></span>
+    <span className="gp-pick-num"><b>{pct(top.grade.chance)}</b><small>to go over</small></span>
+   </div>
+   <div className="gp-pick-versus"><VersusBar chance={top.grade.chance} market={top.grade.needs??0.5}/>
+    <span><small>Our model <b>{pct(top.grade.chance)}</b></small><small>Even <b>{pct(top.grade.needs??0.5)}</b></small></span></div>
+   <dl className="gp-pick-edge">
+    <div><dt>Edge</dt><dd data-tone="up">{edgeText(top.grade.edge)}</dd></div>
+    <div><dt>Matchup</dt><dd>{top.read?top.read.score:'—'}</dd></div>
+    <div><dt>Last 10</dt><dd>{recordWords(top.records.l10)}</dd></div>
+    <div><dt>Season</dt><dd>{top.records.season?pct(top.records.season.rate/100):'—'}</dd></div>
+   </dl>
+   <PropWhy item={top}/>
+   <SlipToggle row={top.row} saved={saved} stat={statWords(top.row)} full className="gp-prop-save"/>
+  </section>
+  {props.length>1&&<Section title="More props worth playing"><ul className="gp-props-list">{props.slice(1).map((item,index)=><PropRow key={item.row.id} item={item} index={index}
+   open={open===item.row.id} onToggle={()=>setOpen(old=>old===item.row.id?null:item.row.id)} saved={saved}/>)}</ul></Section>}
+  {props.length>1&&!slips.length&&<Section title="Best slips tonight" icon={Layers}><p className="gp-note">No slip pays for itself tonight: PrizePicks needs about 58% a pick on a 2-pick, and tonight's props are below that together. Play the strongest on their own.</p></Section>}
+  {slips.length>0&&<Section title="Best slips tonight" icon={Layers}><ol className="gp-parlays">{slips.map((slip,index)=><li key={slip.size} style={{'--i':index}}>
+   <div className="gp-parlay-head">
+    <span className="gp-parlay-pays"><b>{slip.payout}x</b><small>{slip.size} picks</small></span>
+    <span className="gp-parlay-hit"><span className="gp-meter" style={{'--w':slip.chance}}/><small>{pct(slip.chance)} to hit</small></span>
+    <strong data-tone={slip.value>0?'up':'down'}>{evText(slip.value)}<small>value</small></strong>
+   </div>
+   <ul className="gp-legchips">{slip.legs.map(item=><li key={item.row.id}><b>{item.row.player.split(' ').slice(-1)[0]}</b><small>{item.row.line} {statWords(item.row).replace('points + rebounds + assists','PRA').replace('3-pointers','3PM')}</small></li>)}</ul>
+  </li>)}</ol></Section>}
+ </div>;
 }
 
 // ------------------------------------------------------------------ the page
