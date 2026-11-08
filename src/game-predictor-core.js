@@ -111,8 +111,10 @@ export const unitsText=units=>{
  * value, the fair price and our model's value alone. */
 export function valueRows(prediction){
  const ev=prediction?.ev;
- if(!ev?.blend)return [];
- return ['away','home'].filter(side=>ev.blend[side]).map(side=>{const row=ev.blend[side];return {side,team:prediction[side],
+ // At the pick's own chance: our model's (Nov 8), else the blend's.
+ const pick=ev?.pick||ev?.blend;
+ if(!pick)return [];
+ return ['away','home'].filter(side=>pick[side]).map(side=>{const row=pick[side];return {side,team:prediction[side],
   price:odds(row.price),chance:pct(row.chance),ev:row.ev,text:evText(row.ev),fair:odds(row.fair),
   ours:ev.ours?.[side]?evText(ev.ours[side].ev):null,best:ev.best===side};});
 }
@@ -135,13 +137,31 @@ export const paysText=dec=>dec==null?'—':`${dec.toFixed(2).replace(/\.?0+$/,''
  * not held back (no moneyline yet, or a data warning). */
 export function boardLegs(board){
  return (board?.games||[]).filter(game=>!game.held).flatMap(game=>['away','home'].map(side=>{
-  const price=game.prices?.[side],chance=game.chance?.[side],dec=decimal(price);
+  const price=game.prices?.[side],chance=game.chance?.[side],dec=decimal(price),market=game.market?.[side]??null;
   return dec&&chance!=null?{game:game.id,side,team:game[side],opponent:game[side==='home'?'away':'home'],home:side==='home',
-   price,chance,dec,startsAt:game.startsAt,confidence:game.confidence,sport:game.sport}:null;
+   price,chance,dec,market,edge:market==null?null:chance-market,ev:chance*dec-1,startsAt:game.startsAt,confidence:game.confidence,sport:game.sport}:null;
  }).filter(Boolean));
 }
 
 /** The most likely winners: each game's likelier side, most likely first. */
+/**
+ * Where our model sees more than the market (Nov 8, the owner: "I want the
+ * model to be the deciding factor ... I can just go to draft kings and pick
+ * all the -200"): each side our model gives a better chance than the
+ * market's (its moneylines with the vig taken out), the most a dollar
+ * returns on average first. Either side of a game can show; the best one a game.
+ */
+export function valuePicks(board,count=5){
+ const best=new Map();
+ for(const leg of boardLegs(board)){
+  if(leg.edge==null||leg.edge<=0.005||leg.ev<=0)continue;
+  const old=best.get(leg.game);if(!old||leg.ev>old.ev)best.set(leg.game,leg);
+ }
+ return [...best.values()].sort((a,b)=>b.ev-a.ev).slice(0,count);
+}
+/** "+9 pts": how much higher our model has a side than the market. */
+export const edgeText=edge=>edge==null||!Number.isFinite(edge)?'':`${edge>=0?'+':'−'}${Math.abs(edge*100).toFixed(0)} pts`;
+
 export function likeliest(board,count=5){
  const best=new Map();
  for(const leg of boardLegs(board)){const old=best.get(leg.game);if(!old||leg.chance>old.chance)best.set(leg.game,leg);}
@@ -159,7 +179,9 @@ export function parlays(board,{legs=null,payout=null,sort='likely',most=4,top=3}
  const sizes=legs?[legs]:Array.from({length:Math.max(0,most-1)},(_,index)=>index+2);
  const deepest=Math.max(0,...sizes),found=[];
  const walk=(start,picked,dec,chance)=>{
-  if(sizes.includes(picked.length)&&(!payout||dec>=payout-1e-9))found.push({legs:picked.slice(),dec,chance,ev:chance*dec-1});
+  // "Pays 2x or more" means about that (Nov 8: ranked by value, 42x long
+  // shots came first): up to three times the payout asked for.
+  if(sizes.includes(picked.length)&&(!payout||(dec>=payout-1e-9&&dec<=payout*3+1e-9)))found.push({legs:picked.slice(),dec,chance,ev:chance*dec-1});
   if(picked.length>=deepest)return;
   for(let game=start;game<byGame.length;game++)for(const leg of byGame[game]){
    picked.push(leg);walk(game+1,picked,dec*leg.dec,chance*leg.chance);picked.pop();

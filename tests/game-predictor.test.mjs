@@ -360,3 +360,24 @@ test('a pick\'s day',()=>{
  assert.equal(dayText(new Date(2026,10,7,19,0).toISOString(),now),'Yesterday');
  assert.equal(dayText(new Date(2026,9,20,19,0).toISOString(),now),'Oct 20');
 });
+
+// ---- the model decides (Nov 8)
+import {edgeText,valuePicks} from '../src/game-predictor-core.js';
+
+test('value picks: where our model sees more than the market',()=>{
+ const game=(id,home,away,hp,ap,chanceHome,marketHome)=>({id,home:{abbr:home},away:{abbr:away},prices:{home:hp,away:ap},
+  chance:{home:chanceHome,away:1-chanceHome},market:marketHome==null?null:{home:marketHome,away:1-marketHome}});
+ const board={games:[
+  game('a','BOS','WSH',-650,470,0.86,0.85),   // agrees with the market: no value either side
+  game('b','DEN','UTAH',-200,170,0.58,0.65),  // the model likes the underdog: UTAH 42% vs 35%
+  game('c','MIA','NY',-115,-105,0.6,0.52),    // MIA 60% vs 52%
+  game('d','LAL','GS',-150,130,0.7,null),     // no market chance: left out
+ ]};
+ const found=valuePicks(board);
+ assert.deepEqual(found.map(leg=>leg.team.abbr),['UTAH','MIA']);
+ assert.equal(Math.round(found[0].edge*100),7);
+ assert.equal(Math.round(found[0].ev*1000),134);   // 0.42 x 2.7 - 1
+ assert.equal(edgeText(0.071),'+7 pts');
+ assert.equal(edgeText(-0.03),'−3 pts');
+ assert.equal(edgeText(null),'');
+});

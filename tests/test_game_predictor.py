@@ -106,12 +106,17 @@ class PredictionTests(unittest.TestCase):
         g = game()
         built = gp.nba_model(g, tables)
         found = gp.prediction("nba", g, built, now=NOW)
+        # The blend (the line with a quarter ours) stays as the second opinion...
         expected = 0.75 * 4.5 + 0.25 * built["margin"]
-        self.assertAlmostEqual(found["margin"], round(expected, 1))
+        self.assertAlmostEqual(found["predictions"]["blend"]["margin"], round(expected, 1))
+        self.assertAlmostEqual(found["predictions"]["blend"]["chance"]["home"], round(gp.phi(expected / 12.5), 4))
+        # ...the pick is our model's (Nov 8): its margin over the line's total, its chance.
+        self.assertEqual(found["pickedBy"], "model")
+        self.assertAlmostEqual(found["margin"], round(built["margin"], 1))
         self.assertEqual(found["total"], 226.5)
         self.assertLessEqual(abs(found["score"]["home"] + found["score"]["away"] - 226.5), 1)
-        self.assertEqual(found["winner"], "home" if expected > 0 else "away")
-        self.assertAlmostEqual(found["chance"]["home"], round(gp.phi(expected / 12.5), 4))
+        self.assertEqual(found["winner"], "home" if built["margin"] >= 0 else "away")
+        self.assertEqual(found["chance"], found["predictions"]["ours"]["chance"])
         self.assertIn(found["confidence"], ("High", "Medium", "Low"))
         self.assertEqual(found["blowout"]["by"], 15)
 
@@ -124,7 +129,7 @@ class PredictionTests(unittest.TestCase):
         self.assertEqual((ours["margin"], ours["winner"], ours["total"]), (14.0, "home", 230))
         self.assertAlmostEqual(ours["chance"]["home"], round(gp.phi(14 / 12.12), 4))
         self.assertAlmostEqual(blend["margin"], round(0.75 * 4.5 + 0.25 * 14, 1))
-        self.assertEqual((blend["weight"], blend["total"], found["margin"]), (0.25, 226.5, blend["margin"]))
+        self.assertEqual((blend["weight"], blend["total"], found["margin"]), (0.25, 226.5, 14.0))
         # The moneyline's value at the blend's chance: DEN -190 pays 100/190 a unit.
         p = gp.phi((0.75 * 4.5 + 0.25 * 14) / 12.5)
         home = found["ev"]["blend"]["home"]
@@ -132,7 +137,9 @@ class PredictionTests(unittest.TestCase):
         self.assertAlmostEqual(home["ev"], round(p * 100 / 190 - (1 - p), 4))
         mine = ours["chance"]["home"]
         self.assertAlmostEqual(found["ev"]["ours"]["away"]["ev"], round((1 - mine) * 1.6 - mine, 4))
-        self.assertEqual(found["ev"]["best"], "home" if home["ev"] > 0 else None)
+        # The best moneyline is by our model's chance (the pick's).
+        self.assertEqual(found["ev"]["pick"], found["ev"]["ours"])
+        self.assertEqual(found["ev"]["best"], "home" if found["ev"]["ours"]["home"]["ev"] > 0 else None)
         # Ten points apart is worth a warning, and a low confidence.
         self.assertEqual([item["level"] for item in found["warnings"]], ["high"])
         self.assertEqual(found["confidence"], "Low")
@@ -193,7 +200,8 @@ class StoryTests(unittest.TestCase):
         story = self.nba()
         text = {point["key"]: point["text"] for point in reversed(story["points"])}
         self.assertTrue(story["headline"].startswith("We project the Hawks to beat the Wizards, about "))
-        self.assertIn("% chance: about 7 games in 10. DraftKings has them at 68% (-241)", text["chance"])
+        self.assertIn("That's a 77% chance: about 8 games in 10. DraftKings has them at 68% (-241), so we like them more than the market does. That's value.",
+                      text["chance"])
         # The offense against the defense, with both league ranks.
         self.assertIn("The Hawks' offense scores 118.4 points per 100 possessions (6th in the NBA), "
                       "and the Wizards' defense allows 120.1 (28th).", text["teams"])
@@ -207,7 +215,7 @@ class StoryTests(unittest.TestCase):
         self.assertIn("The Wizards played last night", text["extras"])
         self.assertIn("The Hawks are at home, worth about 2.4 points.", text["home"])
         self.assertIn("The Hawks have won 7 of their last 10.", text["extras"])
-        self.assertTrue(text["confidence"].endswith("they lose about 3 times in 10."))
+        self.assertTrue(text["confidence"].endswith("they lose about 2 times in 10."))
 
     def test_the_underdog_on_paper(self):
         story = self.nba(teams={"home": {"ortg": [110, 20], "drtg": [118, 22]}, "away": {"ortg": [116, 8], "drtg": [112, 9]}}, out=None)
@@ -229,7 +237,7 @@ class StoryTests(unittest.TestCase):
         # Its defense against their offense is the bigger edge (4th against 28th), then the other end.
         self.assertIn("The Chiefs' defense is the edge: it ranks 4th in the NFL, against the Jets' 28th-ranked offense. "
                       "And the Chiefs' offense (5th) faces the Jets' 26th-ranked defense.", text)
-        self.assertIn("That's an 81% chance", text)
+        self.assertIn("That's an 80% chance", text)
         self.assertIn("The Jets are without their starting quarterback, J.Fields, so T.Taylor starts.", text)
         self.assertIn("Also out for the Jets: Garrett Wilson (WR).", text)
         self.assertNotIn("Lineman", text)
@@ -434,10 +442,11 @@ class NflTests(unittest.TestCase):
         self.assertAlmostEqual(healthy["margin"] - hurt["margin"], gp.MODELS["nfl"]["qb"])
         self.assertEqual(hurt["qbOut"]["home"], "Patrick Mahomes")
         self.assertEqual(hurt["out"]["home"][0]["impact"], gp.MODELS["nfl"]["qb"])
-        # The line carries nine tenths of the final number.
+        # The blend: the line carries nine tenths; the pick is our model's.
         found = gp.prediction("nfl", {**g, "state": "pre", "line": {"spread": -3, "total": 47.5, "moneyline": {}, "chance": None}, "espn": None},
                               hurt, now=NOW)
-        self.assertAlmostEqual(found["margin"], round(0.9 * 3 + 0.1 * hurt["margin"], 1))
+        self.assertAlmostEqual(found["predictions"]["blend"]["margin"], round(0.9 * 3 + 0.1 * hurt["margin"], 1))
+        self.assertAlmostEqual(found["margin"], round(hurt["margin"], 1))
 
 
 class NbaV2Tests(unittest.TestCase):
@@ -508,7 +517,8 @@ class NflV2Tests(unittest.TestCase):
         self.assertAlmostEqual(healthy["total"], 44, delta=6)
         found = gp.prediction("nfl", {**self.game, "state": "pre", "line": {"spread": 3.5, "total": 45.5, "moneyline": {"home": 150, "away": -180}, "chance": None},
                                       "espn": None}, hurt, now=NOW)
-        self.assertAlmostEqual(found["margin"], round(0.9 * -3.5 + 0.1 * hurt["margin"], 1))
+        self.assertAlmostEqual(found["predictions"]["blend"]["margin"], round(0.9 * -3.5 + 0.1 * hurt["margin"], 1))
+        self.assertAlmostEqual(found["margin"], round(hurt["margin"], 1))
         self.assertAlmostEqual(found["predictions"]["ours"]["chance"]["home"], round(gp.phi(hurt["margin"] / 9.56), 4))
 
     def test_without_the_table_the_older_model(self):

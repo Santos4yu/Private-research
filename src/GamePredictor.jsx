@@ -22,7 +22,7 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Flame,Info,Layers,RefreshCw,Share,Trophy,UserX,X,Zap} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {SPORTS,americanOf,byText,cents,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
 import './game-predictor.css';
@@ -436,6 +436,9 @@ function ChanceTab({prediction,chart,onPick}){
  const side=prediction.winner,team=prediction[side];
  const live=chart?.state==='in'&&(chart?.live||[]).length>1;
  const status=pickStatus(prediction,chart);
+ // The market's chance on our model's team, and how far apart they are (Nov 8: the model decides).
+ const marketSide=prediction.market?.chance?.[side]??null;
+ const edge=marketSide==null?null:prediction.chance[side]-marketSide;
  return <>
   <LiveAlert prediction={prediction} chart={chart}/>
   <section className="gp-sec gp-chance-sec">
@@ -451,7 +454,7 @@ function ChanceTab({prediction,chart,onPick}){
    <div className="gp-ourpick-row">
     <Logo team={team} size={34}/>
     <span><b>{team.short||team.abbr}</b><small>{status?<>{pct(status.before)} before the game{!status.final&&status.now!=null&&<> → <span className="gp-ourpick-now">{pct(status.now)}</span> now</>}</>
-     :`${prediction.confidence} confidence`}</small></span>
+     :<>{marketSide!=null&&<>Market {pct(marketSide)} · <span data-tone={edge>0.005?'up':edge<-0.005?'down':undefined}>{edgeText(edge)}</span> · </>}{prediction.confidence} confidence</>}</small></span>
     {status?<strong className="gp-ourpick-result" data-tone={status.tone} key={status.result}>{status.result||pct(status.now)}</strong>:<strong>{pct(prediction.chance[side])}</strong>}
    </div>
    {prediction.score&&<p className="gp-ourpick-score">{status&&!status.final?'Our projected final':'Final score'} <b>{prediction.away.abbr} {prediction.score.away} – {prediction.score.home} {prediction.home.abbr}</b></p>}
@@ -912,11 +915,11 @@ function ChipMenu({label,value,options,onChange}){
  </div>;
 }
 
-function Leg({leg,mixed}){
+function Leg({leg,mixed,value}){
  return <li className="gp-leg">
   <Logo team={leg.team} size={28}/>
   <span><b>{leg.team.short||leg.team.abbr}</b><small>{mixed&&leg.sport?`${leg.sport.toUpperCase()} · `:''}{leg.home?'vs':'@'} {leg.opponent.abbr} · {clockText(leg.startsAt)}</small></span>
-  <span className="gp-leg-num"><b>{pct(leg.chance)}</b><small>{odds(leg.price)}</small></span>
+  <span className="gp-leg-num"><b>{pct(leg.chance)}</b><small>{odds(leg.price)}{value&&leg.edge!=null?<> · <em data-tone="up">{edgeText(leg.edge)}</em></>:null}</small></span>
  </li>;
 }
 
@@ -924,7 +927,7 @@ function Generator({league,admin}){
  const days=useMemo(()=>dayOptions(new Date(),7),[]);
  const [day,setDay]=useState(days[0].key);
  const [which,setWhich]=useState(league);
- const [mode,setMode]=useState('payout'),[payout,setPayout]=useState(2),[legs,setLegs]=useState(2),[sort,setSort]=useState('likely');
+ const [mode,setMode]=useState('payout'),[payout,setPayout]=useState(2),[legs,setLegs]=useState(2),[sort,setSort]=useState('value');
  const [state,setState]=useState({loading:true});
  const [tries,setTries]=useState(0);
  useEffect(()=>{
@@ -941,6 +944,10 @@ function Generator({league,admin}){
  },[day,which,tries]);
  const board=state.data;
  const top=useMemo(()=>likeliest(board,6),[board]);
+ // Best value first (Nov 8): where our model sees more than the market, not just the biggest favorite.
+ const value=useMemo(()=>valuePicks(board,6),[board]);
+ const showValue=sort==='value'&&value.length>0;
+ const lead=showValue?value:top;
  const combos=useMemo(()=>parlays(board,mode==='payout'?{payout,sort}:{legs,sort}),[board,mode,payout,legs,sort]);
  const games=board?.games||[],held=games.filter(game=>game.held).length;
  const dayName=(days.find(item=>item.key===day)||days[0]).top;
@@ -950,7 +957,7 @@ function Generator({league,admin}){
    <DayStrip days={days} value={day} onChange={setDay}/>
    <div className="gp-menus">
     <ChipMenu label="League" value={which} onChange={setWhich} options={LEAGUES.map(([key,text])=>({key,text:key==='both'?'NBA + NFL':text}))}/>
-    <ChipMenu label="Order" value={sort} onChange={setSort} options={[{key:'likely',text:'Most likely'},{key:'value',text:'Best value'}]}/>
+    <ChipMenu label="Order" value={sort} onChange={setSort} options={[{key:'value',text:'Best value'},{key:'likely',text:'Most likely'}]}/>
     <ChipMenu label="Parlays" value={mode==='payout'?`p${payout}`:`l${legs}`}
      onChange={key=>{const amount=Number(key.slice(1));if(key[0]==='p'){setMode('payout');setPayout(amount);}else{setMode('legs');setLegs(amount);}}}
      options={[...PAYOUTS.map(value=>({key:`p${value}`,text:`Pays ${value}x or more`,short:`Pays ${value}x+`,group:'By payout'})),
@@ -965,16 +972,23 @@ function Generator({league,admin}){
    :<Empty title={`No games ${when}`} text="Pick another day or league."/>)
   :!top.length?<Empty title={`No moneylines ${when} yet`} text="The books usually post them the day before."/>
   :<div className={`gp-results${state.loading?' is-busy':''}`}>
+   {sort==='value'&&!value.length&&<p className="gp-note gp-value-none">Our model agrees with the market on every game {when}, so there's no value pick. The most likely winners:</p>}
    <section className="gp-pick">
-    <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>Most likely to win {when}</span>
-     <ShareButton legs={[top[0]]} label={`Share the ${top[0].team.abbr} moneyline as a picture`}/></div>
+    <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>{showValue?`Best value ${when}`:`Most likely to win ${when}`}</span>
+     <ShareButton legs={[lead[0]]} label={`Share the ${lead[0].team.abbr} moneyline as a picture`}/></div>
     <div className="gp-pick-main">
-     <span className="gp-hero-logo"><Logo team={top[0].team} size={56}/></span>
-     <span><b>{top[0].team.short||top[0].team.abbr}</b><small>{which==='both'?`${top[0].sport?.toUpperCase()} · `:''}{top[0].home?'vs':'@'} {top[0].opponent.abbr} · {clockText(top[0].startsAt)} · {top[0].confidence} confidence</small></span>
-     <span className="gp-pick-num"><b>{pct(top[0].chance)}</b><small>{odds(top[0].price)}</small></span>
+     <span className="gp-hero-logo"><Logo team={lead[0].team} size={56}/></span>
+     <span><b>{lead[0].team.short||lead[0].team.abbr}</b><small>{which==='both'?`${lead[0].sport?.toUpperCase()} · `:''}{lead[0].home?'vs':'@'} {lead[0].opponent.abbr} · {clockText(lead[0].startsAt)} · {lead[0].confidence} confidence</small></span>
+     <span className="gp-pick-num"><b>{pct(lead[0].chance)}</b><small>{odds(lead[0].price)}</small></span>
     </div>
+    {showValue&&lead[0].market!=null&&<dl className="gp-pick-edge">
+     <div><dt>Our model</dt><dd>{pct(lead[0].chance)}</dd></div>
+     <div><dt>The market</dt><dd>{pct(lead[0].market)}</dd></div>
+     <div><dt>Edge</dt><dd data-tone="up">{edgeText(lead[0].edge)}</dd></div>
+     <div><dt>Value</dt><dd data-tone="up">{evText(lead[0].ev)}</dd></div>
+    </dl>}
    </section>
-   {top.length>1&&<Section title="Next most likely"><ul className="gp-legs">{top.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'}/>)}</ul></Section>}
+   {lead.length>1&&<Section title={showValue?'More value picks':'Next most likely'}><ul className="gp-legs">{lead.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'} value={showValue}/>)}</ul></Section>}
    <Section title={mode==='payout'?`Parlays paying ${payout}x or more`:`${legs}-leg parlays`} icon={Layers}>
     {combos.length?<ol className="gp-parlays">{combos.map((combo,index)=><li key={combo.legs.map(leg=>leg.game+leg.side).join()} style={{'--i':index}}>
      <div className="gp-parlay-head">

@@ -80,6 +80,15 @@ MODELS = {
 }
 # v2's settings and weights, from the backtest (tools/game-predictor-backtest):
 # chosen on validation seasons, then scored once on the test seasons.
+# Whose pick it is (Nov 8, the owner: "I want the model to be the deciding
+# factor not just what the market says in that case I can just go to draft
+# kings and pick all the -200"): our model's winner, chance and score, the
+# line beside it to measure the edge (the blend stays as a second opinion,
+# predictions.blend). The backtest: NBA ours alone 74% of winners vs the
+# line's 73%; NFL ours 63% vs 66% (weaker; False here puts the NFL back on
+# the blend).
+MODEL_PICKS = {"nba": True, "nfl": True}
+
 V2 = {
     "nba": {"lam": 12, "half_life": 50, "keep": 0.75, "pace_keep": 0.75, "window": 30, "shrink_minutes": 200,
             "regular_minutes": 12, "rate_minutes": 200,
@@ -1480,8 +1489,9 @@ def _call(margin, total):
 
 
 def confidence_of(blend, ours, market_margin, warnings):
-    """(High / Medium / Low, why): how sure the blend is, whether our model
-    and the line pick the same team, and the data warnings."""
+    """(High / Medium / Low, why): how sure the pick is (our model's, or the
+    blend's when the model couldn't rate the game), whether our model and
+    the line pick the same team, and the data warnings."""
     p = max(blend["chance"].values())
     split = ours is not None and market_margin is not None and (ours["margin"] >= 0) != (market_margin >= 0)
     severe = [item for item in warnings if item["level"] == "high"]
@@ -2020,7 +2030,11 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
     home_chance = phi(margin / sigma)
     chance = {"home": home_chance, "away": 1 - home_chance}
     blend = {**_call(margin, total), "chance": {side: round(value, 4) for side, value in chance.items()}, "weight": weight}
-    winner = blend["winner"]
+    # The pick: our model's when it rated the game, its margin over the line's
+    # total (the line's total was the closer one).
+    head = {**_call(built["margin"], total), "chance": ours["chance"]} if ours is not None and MODEL_PICKS.get(sport) else blend
+    picked_by = "model" if head is not blend else "line" if weight == 0.0 else "blend"
+    winner = head["winner"]
     market = None
     if line:
         # The moneylines' chances with the margin taken out, else the spread's.
@@ -2032,7 +2046,8 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
         market = {**line, "chance": market_chance}
     prices = (market or {}).get("moneyline") or {}
     ev = {"blend": moneyline_ev(prices, blend["chance"]), "ours": moneyline_ev(prices, (ours or {}).get("chance"))}
-    best = max((side for side, item in ev["blend"].items() if item["ev"] > 0), key=lambda side: ev["blend"][side]["ev"], default=None)
+    ev["pick"] = ev["ours"] if picked_by == "model" else ev["blend"]
+    best = max((side for side, item in ev["pick"].items() if item["ev"] > 0), key=lambda side: ev["pick"][side]["ev"], default=None)
     ev["best"] = best
     warnings = list((built or {}).get("warnings") or [])
     if built and market_margin is None:
@@ -2041,7 +2056,7 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
         warnings.append(_warn("medium", "Our model couldn't rate this game: the prediction is the line's."))
     if built and market_margin is not None and abs(built["margin"] - market_margin) >= v2["disagree"]:
         warnings.append(_warn("high", f"Our model and the line are {abs(built['margin'] - market_margin):.1f} points apart: check for late news."))
-    confidence, why = confidence_of(blend, ours, market_margin, warnings)
+    confidence, why = confidence_of(head, ours, market_margin, warnings)
     # How many of the three views (ours alone, the market, ESPN's) pick the blend's winner.
     views = [view for view in ((ours or {}).get("chance", {}).get("home"), ((market or {}).get("chance") or {}).get("home"),
                                (game.get("espn") or {}).get("home")) if view is not None]
@@ -2052,7 +2067,7 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
     made = {"sport": sport, "id": game["id"], "startsAt": game.get("startsAt"), "state": game.get("state"), "detail": game.get("detail"),
             "venue": game.get("venue"), "neutral": bool(game.get("neutral")),
             "home": team("home"), "away": team("away"), "winner": winner,
-            "chance": blend["chance"], "margin": blend["margin"], "total": blend["total"], "score": blend["score"],
+            "chance": head["chance"], "margin": head["margin"], "total": head["total"], "score": head["score"], "pickedBy": picked_by,
             "predictions": {"ours": ours, "blend": blend}, "model": (built or {}).get("model") or "line",
             "market": market, "espn": game.get("espn"), "ours": ours, "ev": ev, "warnings": warnings,
             "blowout": {"chance": round(blowout, 3), "by": blow, "level": "High" if blowout >= 0.45 else "Medium" if blowout >= 0.3 else "Low"},
@@ -2155,7 +2170,8 @@ def board_game(found) -> dict:
     priced = all(prices.get(side) is not None and abs(prices[side]) >= 100 for side in ("home", "away"))
     return {"id": found["id"], "sport": found["sport"], "startsAt": found["startsAt"], "home": team("home"), "away": team("away"), "winner": found["winner"],
             "chance": found["chance"], "prices": {side: prices.get(side) for side in ("home", "away")},
-            "ev": {side: item["ev"] for side, item in ((found.get("ev") or {}).get("blend") or {}).items()},
+            "market": ((found.get("market") or {}).get("chance")) or None,
+            "ev": {side: item["ev"] for side, item in ((found.get("ev") or {}).get("pick") or (found.get("ev") or {}).get("blend") or {}).items()},
             "score": found.get("score"), "confidence": found["confidence"], "model": found.get("model"),
             "held": "No moneyline yet" if not priced else high[0] if high else None}
 

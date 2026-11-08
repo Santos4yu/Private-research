@@ -76,6 +76,38 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
 
+### Nov 8 (e): the model decides the pick; the Generator leads with best value
+
+- The owner: "I feel like the model is just giving us the low odds ones
+  like -200 ... I wanna know that it's actually finding the edge and not
+  just going for what the market is favoring", then "I want the model to be
+  the deciding factor not just what the market says in that case I can just
+  go to draft kings and pick all the -200". It was so: the pick was the
+  blend (NBA 75% line + 25% ours, NFL 90/10), and the Generator ranked by
+  chance to win.
+- `MODEL_PICKS = {"nba": True, "nfl": True}` (game_predictor.py): when our
+  model rated the game, `prediction()`'s winner / chance / margin / score
+  are our model's (its margin over the line's total, the closer total);
+  `pickedBy` "model" (else "blend" / "line"). `predictions.blend` stays (Odds
+  tab's second opinion). `ev.pick` = ev at the pick's chance (ours), and
+  `ev.best` from it; confidence from it. `board_game` carries `market` (the
+  no-vig chances) and the pick's ev. The story, the pick block, saved
+  picks' chance, all follow. Backtest: NBA ours alone 74% of winners vs
+  the line's 73% (fine); NFL ours 63% vs 66% (weaker: set False to put the
+  NFL back on the blend). The "ours vs line 7+ apart" high warning still
+  holds a game out of the board.
+- Generator: Order "Best value" first and the default (`valuePicks`: each
+  side our model gives a better chance than the market, 0.5 pt+, positive
+  value, best one a game, by a dollar's average return). The top card says
+  "Best value today" with Our model / The market / Edge (+14 pts) / Value;
+  "More value picks" show "+9 pts" by the price. No value pick: a line says
+  the model agrees with the market, then the most likely. Parlays by payout
+  now stay within 3x the payout asked for (value order put 42x long shots
+  first). Game page "Our pick": "Market 68% · +4 pts · High confidence".
+- Not built yet (offered): a History "Model vs market" panel (record and
+  profit where the model disagreed with the line, against betting every
+  favorite) to show whether the edge is real.
+
 ### Nov 8 (d): NBA live feed from NBA.com's own live data
 
 - The owner, on HOU @ PHX in the 2nd: "The live feed is super slow still
