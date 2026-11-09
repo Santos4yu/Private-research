@@ -84,3 +84,20 @@
 .gr .gr-games>li .gr-game-right b{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
 .gr .gr-games>li .gr-game-right b[data-tone=up]{color:var(--gp-up,#00d68f)}
 .gr .gr-games>li .gr-game-right b[data-tone=down]{color:var(--gp-down,#f16b75)}
+
+/* Nov 9: team logos on every pick (the owner: "make this better like team
+   logos"). The picked team's logo with the result on its corner; the
+   opponent's small logo beside its name. Each pick a soft row. */
+.gr .gr-games>li.gr-pick{grid-template-columns:auto minmax(0,1fr) auto;gap:14px;margin-top:8px;padding:12px 14px;border:1px solid rgba(255,255,255,.06);border-radius:16px;background:rgba(255,255,255,.03)}
+.gr .gr-games>li.gr-pick+li{border-top:1px solid rgba(255,255,255,.06)}
+.gr .gr-games>li.gr-pick[data-result="win"]{background:linear-gradient(90deg,rgba(0,214,143,.07),rgba(255,255,255,.025) 55%)}
+.gr .gr-games>li.gr-pick[data-result="loss"]{background:linear-gradient(90deg,rgba(241,107,117,.08),rgba(255,255,255,.025) 55%)}
+.gr-pick-logo{position:relative;display:grid;place-items:center;width:40px;height:40px}
+.gr-pick-logo .gr-mark{position:absolute;right:-5px;bottom:-5px;width:20px;height:20px;border:2px solid #121212;background:#2a2a2a}
+.gr-pick-logo .gr-mark[data-result="win"]{background:#0f7a55;color:#fff}
+.gr-pick-logo .gr-mark[data-result="loss"]{background:#b23545;color:#fff}
+.gr-logo{flex:none;object-fit:contain}
+.gr-logo-empty{display:inline-grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.08);color:var(--gp-muted,#a9a9a9);font-size:9px;font-weight:800}
+.gr-pick-call{display:flex;align-items:center;gap:6px;font-size:15.5px;font-weight:800}
+.gr-pick-call i{color:var(--gp-faint,#767676);font-size:12.5px;font-weight:650;font-style:normal}
+.gr-pick-call em{margin-left:4px;color:var(--gp-muted,#a9a9a9);font-size:12.5px;font-weight:700;font-style:normal}

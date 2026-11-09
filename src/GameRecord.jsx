@@ -88,15 +88,26 @@ const Mark=({result})=>result==='win'?<i className="gr-mark" data-result="win"><
  :result==='loss'?<i className="gr-mark" data-result="loss"><X size={11} strokeWidth={3} aria-label="Wrong"/></i>
  :<i className="gr-mark"><Minus size={11} strokeWidth={3} aria-label={result==='push'?'Push':'Still to play'}/></i>;
 
+// A team's logo from ESPN's CDN by league and abbreviation (the record keeps
+// only the abbreviations); its letters when the picture can't load.
+const logoOf=(sport,abbr)=>abbr?`https://a.espncdn.com/i/teamlogos/${sport==='nfl'?'nfl':'nba'}/500/${String(abbr).toLowerCase()}.png`:null;
+function TeamLogo({sport,abbr,size=34}){
+ const [bad,setBad]=useState(false);
+ const src=logoOf(sport,abbr);
+ return src&&!bad?<img className="gr-logo" src={src} alt="" width={size} height={size} loading="lazy" onError={()=>setBad(true)}/>
+  :<span className="gr-logo gr-logo-empty" style={{width:size,height:size}}>{String(abbr||'').slice(0,3)}</span>;
+}
+
 function Games({items}){
  const [all,setAll]=useState(false);
  if(!items?.length)return null;
  const shown=all?items:items.slice(0,12);
  return <div className="gr-block"><h4>Picks</h4><ul className="gr-games">{shown.map((entry,index)=>{
   const row=gameRow(entry);
-  return <li key={entry.id} style={{'--i':Math.min(index,12)}}>
-   <Mark result={row.result}/>
-   <span className="gr-game-main"><b>{row.team} over {row.against}{entry.price!=null?<em>{odds(entry.price)}</em>:null}</b>
+  const sport=entry.sport||'nba';
+  return <li key={entry.id} className="gr-pick" data-result={row.result||'pending'} style={{'--i':Math.min(index,12)}}>
+   <span className="gr-pick-logo"><TeamLogo sport={sport} abbr={row.team}/><Mark result={row.result}/></span>
+   <span className="gr-game-main"><b className="gr-pick-call">{row.team}<i>over</i><TeamLogo sport={sport} abbr={row.against} size={18}/>{row.against}{entry.price!=null?<em>{odds(entry.price)}</em>:null}</b>
     <small>{[shortDay(entry.day),row.score||'Still to play'].filter(Boolean).join(' · ')}</small></span>
    <span className="gr-game-right">{entry.result?.units!=null?<b data-tone={entry.result.units>0?'up':entry.result.units<0?'down':undefined}>{unitsText(entry.result.units)}</b>
     :<b>{pct(entry.chance)}</b>}</span>
