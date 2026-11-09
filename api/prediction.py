@@ -286,7 +286,7 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(403, {"error": "Admins only."})
                 if action == "game-record":
                     import game_record
-                    return self._send(200, game_record.read(sport))
+                    return self._send(200, game_record.read(sport, member=_member_id(self.headers, session_with_live_access(self.headers))))
                 import slip_ledger
                 return self._send(200, {"generator": slip_ledger.generator_record(), "board": slip_ledger.board_record(),
                                         "posted": slip_ledger.record()})

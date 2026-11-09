@@ -199,3 +199,26 @@ class PropRecord(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FromHistory(unittest.TestCase):
+    def test_saved_picks_and_kept_predictions_join_the_record(self):
+        import json as _json
+        store = type("S", (), {})()
+        data = {"krazy_data:predictor:v1:history:nba": _json.dumps([
+            {"id": "11", "startsAt": "2026-11-06T00:00:00Z", "madeAt": "2026-11-05T20:00:00Z", "home": {"abbr": "DEN"}, "away": {"abbr": "BOS"},
+             "pick": "home", "chance": 0.62, "result": {"home": 110, "away": 100, "winner": "home", "correct": True}},
+            {"id": "12", "startsAt": "2026-11-06T00:00:00Z", "madeAt": "2026-11-06T01:00:00Z", "home": {"abbr": "NY"}, "away": {"abbr": "MIA"},
+             "pick": "away", "chance": 0.55, "result": None}])}
+        store.get = lambda key: data.get(key)
+        held = {"11": {"id": "11", "filled": True, "result": {"winner": "away", "correct": True}}}
+        with patch.object(game_record.gp, "_read", return_value=[
+                {"id": "13", "startsAt": "2026-11-08T00:00:00Z", "savedAt": "2026-11-07T22:00:00Z", "home": {"abbr": "ATL"}, "away": {"abbr": "WSH"},
+                 "side": "home", "price": -323, "dec": 1.31, "chance": 0.7, "market": 0.74,
+                 "result": {"home": 139, "away": 132, "winner": "home", "correct": True, "units": 0.31}}]):
+            added = game_record.from_history("nba", held, "me", store)
+        # The saved pick and the kept prediction (made before tip-off) replace the replay; the one made after the start doesn't count.
+        self.assertEqual(sorted(entry["id"] for entry in added), ["11", "13"])
+        self.assertEqual((held["11"]["filled"], held["11"]["side"], held["11"]["result"]["correct"]), (False, "home", True))
+        self.assertEqual((held["13"]["by"], held["13"]["result"]["units"]), ("saved", 0.31))
+        self.assertNotIn("12", held)

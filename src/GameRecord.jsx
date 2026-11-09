@@ -145,9 +145,9 @@ function Moneylines({sport}){
  const record=data.record,league=sport.toUpperCase();
  const progress=null;
  // Past games re-run afterwards are not shown: only real picks count (Nov 9, the owner).
- if(!record.games)return <>{progress}<Empty title={`No finished live ${league} picks yet`} text="Every game the model picks before tip-off shows here once it's final."/></>;
+ if(!record.games)return <>{progress}<Empty title={`No finished ${league} picks yet`} text="Every game the model picks before tip-off shows here once it's final."/></>;
  return <>
-  <Headline tally={record} units={record.units} label={`${record.games} live ${league} picks${record.since?` since ${shortDay(record.since)}`:''}`}
+  <Headline tally={record} units={record.units} label={`${record.games} ${league} picks${record.since?` since ${shortDay(record.since)}`:''}`}
    note={record.pending?`${record.pending} still to play`:null}/>
   {progress}
   <dl className="gp-hstats gr-stats">

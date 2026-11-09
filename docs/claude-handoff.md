@@ -66,6 +66,10 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   the day-by-day, splits and the pick list are live picks only; the replay is
   summed apart (`record.replay`) but not shown on the page at all (the owner:
   "it still shows 93-46"; src/GameRecord.jsx).
+- Then: "i wanted it to use my history as the record". game_record.from_history
+  (on every read) adds the admin's saved picks and the site-wide predictions
+  kept Nov 5-6 (krazy_data:predictor:v1|v2:history) as real entries, when made
+  before tip-off; they replace a replay for the same game.
 
 ### Oct 27: phone dock like YouTube's new one
 

@@ -293,12 +293,67 @@ def summary_of(items, now=None) -> dict:
             "pending": sum(1 for entry in items if not entry.get("result")), "days": days[:45]}
 
 
-def read(sport, now=None, store=None, finals=None, remaining=None) -> dict:
+# The site-wide predictions kept before this record began (Nov 5-6:
+# every game someone predicted, saved before its start).
+OLD_HISTORY = ("krazy_data:predictor:v1:history:{sport}", "krazy_data:predictor:v2:history:{sport}")
+
+
+def from_history(sport, held, member=None, store=None) -> list:
+    """Real picks made before their games, from before this record began
+    (Nov 9, the owner: "i wanted it to use my history as the record"): the
+    admin's saved picks first, then the predictions the site kept when a game
+    was predicted. Each becomes the game's entry when the record has none for
+    it, or only a replay. Only picks made before the game started count.
+    Returns the entries added (also put in `held`)."""
+    store = _store(store)
+    added = []
+
+    def take(item, side, by, made, market=None, price=None, dec=None):
+        game_id = str(item.get("id") or "")
+        start, at = gp._when(item.get("startsAt")), gp._when(made)
+        if not game_id or side not in ("home", "away") or not start or not at or at >= start:
+            return
+        if game_id in held and not held[game_id].get("filled"):
+            return
+        team = lambda key: (item.get(key) or {}).get("abbr") if isinstance(item.get(key), dict) else item.get(key)
+        result = item.get("result")
+        if result and not result.get("winner"):
+            result = None
+        if result and "correct" not in result:
+            result = {**result, "correct": result["winner"] == side}
+        entry = {"id": game_id, "sport": sport, "day": _day(start), "startsAt": item.get("startsAt"), "home": team("home"), "away": team("away"),
+                 "side": side, "chance": item.get("chance"), "market": market, "price": price, "dec": dec, "confidence": None, "by": by,
+                 "score": item.get("score"), "filled": False, "at": made, "result": result}
+        held[game_id] = entry
+        added.append(entry)
+
+    if member:
+        try:
+            for item in gp._read(gp._member_key(sport, member), store):
+                take(item, item.get("side"), "saved", item.get("savedAt"), item.get("market"), item.get("price"), item.get("dec"))
+        except Exception:  # noqa: BLE001 -- the saved picks wait for the next look
+            pass
+    for key in OLD_HISTORY:
+        try:
+            raw = store.get(key.format(sport=sport)) if store else None
+            items = json.loads(raw) if raw else []
+        except Exception:  # noqa: BLE001
+            items = []
+        for item in items if isinstance(items, list) else []:
+            take(item, item.get("pick"), "predictor", item.get("madeAt"))
+    return added
+
+
+def read(sport, now=None, store=None, finals=None, remaining=None, member=None) -> dict:
     """The admin's record for a league: {sport, season, record, items (newest
     first), remaining (past games still to fill in)}. Settles what's due."""
     now, store = _now(now), _store(store)
     season = season_of(sport, now)
     held = entries(sport, season, store)
+    try:
+        _put(sport, season, from_history(sport, held, member, store), store)
+    except Exception:  # noqa: BLE001 -- added on the next look
+        pass
     try:
         settle_due(sport, season, held, now, store, finals)
     except Exception:  # noqa: BLE001 -- settled on the next look
