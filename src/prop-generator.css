@@ -2,7 +2,10 @@
    (its colors: game-predictor.css). Nov 8, the owner: "a nicer look and more
    options to see data ... cool animations and transitions and visual effects
    that dont look ai or robotic": numbers that count up, bars that grow, a
-   ring that fills, rows that grow open; flat colors, no glow. */
+   ring that fills, rows that grow open; flat colors, no glow. Nov 9: each
+   pick's game read in full (prop-gameread.js): our number on a line with
+   his games, the read, his games by minutes, how the game could go, the
+   case for and against, and the passes. */
 .pg-controls{display:grid;gap:12px;padding:14px 0 0}
 .pg-strip button{height:34px;font-size:13.5px}
 .pg-count{margin:2px 0 0}
@@ -19,9 +22,9 @@
 .pg-hero-ring{display:grid;justify-items:center;gap:5px}
 .pg-hero-ring>small{color:var(--gp-faint);font-size:11px;font-weight:700}
 .pg-tier{font-size:12.5px;font-weight:800}
-.game-predictor :is(.pg-tier,.pg-row-num small)[data-tier="elite"]{color:var(--gp-up)}
-.game-predictor :is(.pg-tier,.pg-row-num small)[data-tier="strong"]{color:color-mix(in srgb,var(--gp-up) 70%,#fff)}
-.game-predictor :is(.pg-tier,.pg-row-num small)[data-tier="lean"]{color:var(--gp-muted)}
+.game-predictor :is(.pg-tier,.pg-row-num small)[data-strength="best"]{color:var(--gp-up)}
+.game-predictor :is(.pg-tier,.pg-row-num small)[data-strength="strong"]{color:color-mix(in srgb,var(--gp-up) 70%,#fff)}
+.game-predictor :is(.pg-tier,.pg-row-num small)[data-strength="play"]{color:var(--gp-muted)}
 
 /* The confidence ring. */
 .pg-ring{position:relative;display:grid;place-items:center}
@@ -56,37 +59,85 @@
 .pg-chart-key .is-over::before{width:9px;height:9px;border-radius:2px;background:color-mix(in srgb,var(--gp-up) 72%,#0c0c0c)}
 .pg-chart-axis small{overflow:hidden;color:var(--gp-faint);font-size:9.5px;font-weight:700;text-align:center;text-overflow:clip;white-space:nowrap}
 
-/* The four reads behind it. */
-.pg-signals{display:grid;gap:10px;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--gp-rule);list-style:none}
-.pg-signals li{display:grid;grid-template-columns:84px minmax(0,1fr) auto;align-items:center;gap:10px;animation:gp-rise .4s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 60ms)}
-.pg-signals li>span:first-child{color:var(--gp-muted);font-size:12px;font-weight:700}
-.pg-signal-bar{height:5px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.08)}
-.pg-signal-bar i{display:block;height:100%;border-radius:inherit;background:color-mix(in srgb,var(--gp-up) 70%,#fff);transform:scaleX(var(--w,0));transform-origin:left;
- animation:gp-grow .8s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 60ms + .1s)}
-.pg-signals b{font-size:12.5px;font-weight:750;white-space:nowrap;font-variant-numeric:tabular-nums}
-
-/* Why, and saving it. */
-.pg-why{margin-top:14px}
-.pg-why summary{display:inline-flex;align-items:center;gap:6px;list-style:none;color:var(--gp-muted);font-size:13px;font-weight:750;cursor:pointer}
-.pg-why summary::-webkit-details-marker{display:none}
-.pg-why summary svg{transition:transform .25s var(--gp-ease)}
-.pg-why[open] summary svg{transform:rotate(180deg)}
-.pg-why .pg-whylist{margin-top:10px}
-/* The reasons: a title and a sentence each, a thin line down the side in
-   green when it's for the pick; the matchup's biggest reads under it. */
-.pg-whylist{display:grid;gap:12px;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--gp-rule);list-style:none}
-.pg-whylist>li{display:grid;gap:3px;padding-left:12px;border-left:2px solid var(--gp-rule);color:inherit;animation:gp-rise .4s var(--gp-ease) both}
-.pg-whylist>li[data-tone="up"]{border-left-color:color-mix(in srgb,var(--gp-up) 70%,transparent)}
-.pg-whylist>li[data-tone="down"]{border-left-color:color-mix(in srgb,var(--gp-down) 70%,transparent)}
+/* The case: a title and a sentence each, a thin line down the side, green
+   for it, red against, plain for what's worth knowing. */
+.pg-whylist{display:grid;gap:12px;margin:10px 0 0;padding:0;list-style:none}
+.pg-whylist>li{display:grid;gap:3px;padding-left:12px;border-left:2px solid var(--gp-rule);color:inherit;animation:gp-rise .4s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 40ms)}
+.pg-whylist>li[data-side="for"]{border-left-color:color-mix(in srgb,var(--gp-up) 70%,transparent)}
+.pg-whylist>li[data-side="against"]{border-left-color:color-mix(in srgb,var(--gp-down) 70%,transparent)}
+.pg-whylist>li[data-side="for"] b{color:color-mix(in srgb,var(--gp-up) 75%,#fff)}
+.pg-whylist>li[data-side="against"] b{color:color-mix(in srgb,var(--gp-down) 80%,#fff)}
 .pg-whylist b{color:var(--gp-muted);font-size:12.5px;font-weight:800}
 .pg-whylist p{margin:0;color:color-mix(in srgb,var(--gp-text) 90%,transparent);font-size:13.5px;line-height:1.5}
-.pg-whylist ul{display:grid;gap:4px;margin:4px 0 0;padding:0;list-style:none}
-.game-predictor .pg-whylist ul li{position:relative;padding-left:14px;color:var(--gp-muted);font-size:13px;line-height:1.45}
-.pg-whylist ul li::before{content:"";position:absolute;left:2px;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--gp-faint)}
-.pg-whylist ul li[data-tone="up"]::before{background:var(--gp-up)}
-.pg-whylist ul li[data-tone="down"]::before{background:var(--gp-down)}
-.pg-row-more .pg-whylist{margin-top:14px}
-.pg-save{margin-top:14px}
+.pg-save{margin-top:16px}
+
+/* Our number on one line with his games: a dot a game (stacked when two
+   land together), the line as a dashed tick, our number sliding out from it. */
+.pg-numline{margin:22px 0 4px}
+.pg-numline-track{position:relative;height:58px;margin:0 6px}
+.pg-numline-track::before{content:"";position:absolute;left:0;right:0;bottom:16px;height:2px;border-radius:2px;background:rgba(255,255,255,.1)}
+.pg-numline-game{position:absolute;bottom:calc(20px + var(--lift,0px));width:8px;height:8px;margin-left:-4px;border-radius:50%;background:rgba(255,255,255,.28);
+ animation:pg-pop .45s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 35ms + .1s)}
+.pg-numline-game[data-over]{background:color-mix(in srgb,var(--gp-up) 80%,#0c0c0c)}
+@keyframes pg-pop{from{opacity:0;transform:translateY(6px) scale(.4)}}
+.pg-numline-line{position:absolute;bottom:4px;height:44px;border-left:1.5px dashed rgba(255,255,255,.5)}
+.pg-numline-line small{position:absolute;top:100%;left:0;transform:translate(-50%,2px);color:var(--gp-muted);font-size:10.5px;font-weight:750;white-space:nowrap}
+.pg-numline-ours{position:absolute;bottom:12px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--gp-gold);box-shadow:0 0 0 3px rgba(0,0,0,.45);
+ transition:left 1s var(--gp-ease) .25s}
+.pg-numline-ours[data-over]{background:var(--gp-up)}
+.pg-numline-ours small{position:absolute;bottom:calc(100% + 26px);left:50%;transform:translateX(-50%);padding:2px 7px;border-radius:7px;background:#1b1b1b;color:var(--gp-muted);
+ font-size:10.5px;font-weight:700;white-space:nowrap}
+.pg-numline-ours small b{color:var(--gp-text);font-weight:850}
+.pg-numline-key{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:20px;color:var(--gp-faint);font-size:11px;font-weight:650}
+.pg-numline-key span{display:inline-flex;align-items:center;gap:6px}
+.pg-numline-key :is(.is-over,.is-under)::before{content:"";width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.28)}
+.pg-numline-key .is-over::before{background:color-mix(in srgb,var(--gp-up) 80%,#0c0c0c)}
+
+/* The read in a few sentences. */
+.pg-summary{margin:14px 0 0;color:color-mix(in srgb,var(--gp-text) 92%,transparent);font-size:14.5px;line-height:1.55}
+
+/* His games, two ways. */
+.pg-games{margin-top:16px}
+.pg-games .pg-chart{margin-top:22px}
+.pg-seg{width:max-content;max-width:100%}
+.pg-seg button{height:30px;padding:0 13px;font-size:12.5px}
+.pg-scatter{margin-top:10px}
+.pg-scatter svg{display:block;width:100%;height:auto;overflow:visible}
+.pg-scatter-axis{stroke:rgba(255,255,255,.12);stroke-width:1}
+.pg-scatter-tick{fill:var(--gp-faint);font-size:10px;font-weight:700}
+.pg-scatter-line{stroke:rgba(255,255,255,.5);stroke-width:1.5;stroke-dasharray:4 4}
+.pg-scatter-tonight line{stroke:color-mix(in srgb,var(--gp-gold) 70%,transparent);stroke-width:1.5;stroke-dasharray:2 3}
+.pg-scatter-tonight text{fill:var(--gp-gold);font-size:10px;font-weight:750}
+.pg-scatter-hit{fill:transparent;cursor:pointer}
+.pg-scatter-mark{fill:rgba(255,255,255,.3);stroke:rgba(0,0,0,.45);stroke-width:2;pointer-events:none;transform-box:fill-box;transform-origin:center;
+ animation:pg-dot .45s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 30ms);transition:r .2s var(--gp-ease)}
+.pg-scatter-mark[data-over]{fill:color-mix(in srgb,var(--gp-up) 82%,#0c0c0c)}
+.pg-scatter-mark[data-picked]{r:7.5;stroke:var(--gp-text)}
+@keyframes pg-dot{from{opacity:0;transform:scale(.3)}}
+.pg-scatter-note{min-height:18px;margin:6px 0 0;color:var(--gp-faint);font-size:12px;font-weight:600}
+.pg-scatter-note b{color:var(--gp-text);font-weight:800}
+
+/* How the game could go; the case. */
+.pg-block{margin-top:18px;padding-top:14px;border-top:1px solid var(--gp-rule)}
+.pg-block h4{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0;color:var(--gp-muted);font-size:12.5px;font-weight:800}
+.pg-block h4 small{color:var(--gp-faint);font-size:11.5px;font-weight:700}
+.pg-scen{display:grid;gap:11px;margin:12px 0 0;padding:0;list-style:none}
+.pg-scen li{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;align-items:center;gap:12px;animation:gp-rise .4s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 60ms)}
+.pg-scen-name{min-width:0;font-size:13.5px;font-weight:750}
+.pg-scen-name small{display:block;margin-top:2px;color:var(--gp-faint);font-size:11.5px;font-weight:650}
+.pg-scen-bar{height:5px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.08)}
+.pg-scen-bar i{display:block;height:100%;border-radius:inherit;background:color-mix(in srgb,var(--gp-text) 55%,transparent);transform:scaleX(var(--w,0));transform-origin:left;
+ animation:gp-grow .8s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 60ms + .1s)}
+.pg-scen b{display:inline-flex;align-items:center;gap:4px;min-width:58px;justify-content:flex-end;color:var(--gp-down);font-size:14px;font-weight:850;font-variant-numeric:tabular-nums}
+.pg-scen b[data-clears]{color:var(--gp-up)}
+
+/* While the games are read. */
+.pg-reading{display:grid;gap:12px;margin:16px 0 14px}
+.pg-reading p{display:grid;gap:3px;margin:0}
+.pg-reading b{font-size:15px;font-weight:800}
+.pg-reading span{color:var(--gp-muted);font-size:13px;line-height:1.4}
+.pg-reading-bar::after{transition:width .5s var(--gp-ease);animation:none}
+.pg-more{width:100%;justify-content:center}
 
 /* The rest: a row each, growing open on a tap. */
 .pg-list{margin:0;padding:0;list-style:none}
@@ -98,6 +149,9 @@
 .pg-row-who{min-width:0}
 .pg-row-who b{display:block;overflow:hidden;font-size:14.5px;font-weight:800;white-space:nowrap;text-overflow:ellipsis}
 .pg-row-who small{display:block;margin-top:2px;overflow:hidden;color:var(--gp-muted);font-size:12.5px;font-weight:650;white-space:nowrap;text-overflow:ellipsis}
+.pg-row-who em{display:block;margin-top:3px;color:var(--gp-faint);font-size:12px;font-style:normal;font-weight:600;line-height:1.35}
+.pg-row[data-pass] .pg-row-num b{color:var(--gp-muted)}
+.pg-row[data-pass] .pg-row-num small{color:var(--gp-faint)}
 .pg-mini{display:flex;align-items:flex-end;gap:2px;height:22px}
 .pg-mini i{width:4px;height:calc(var(--h,.5) * 100%);border-radius:2px;background:rgba(255,255,255,.16);transform-origin:bottom;animation:pg-bar .5s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 25ms)}
 .pg-mini i[data-over]{background:color-mix(in srgb,var(--gp-up) 72%,#0c0c0c)}
@@ -112,5 +166,5 @@
 @media (max-width:560px){
  .pg-hero .sa-face{--size:56px}
  .pg-hero-who b{font-size:19px}
- .pg-signals li{grid-template-columns:76px minmax(0,1fr) auto;gap:8px}
+ .pg-scen li{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) auto;gap:9px}
 }

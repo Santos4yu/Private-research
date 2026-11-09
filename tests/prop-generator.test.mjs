@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {analysisOf, bestSlips, generateProps, PAYOUTS} from '../src/prop-generator.js';
+import {bestSlips, generateProps, PAYOUTS} from '../src/prop-generator.js';
 import {finderWindow} from '../src/unified-finder-data.js';
 
 const real = JSON.parse(readFileSync(new URL('./fixtures/nba-2025-26-league.json', import.meta.url)));
@@ -36,16 +36,6 @@ test('the props worth playing: overs the model likes, regular lines, one a playe
   assert.deepEqual(generateProps(rows, null), []);
 });
 
-test('the analysis says why in plain words', () => {
-  const [item] = generateProps([row('Hot Guy', HOT, 12.5)], real);
-  const parts = analysisOf(item);
-  assert.deepEqual(parts.map(part => part.key).slice(0, 4), ['chance', 'form', 'role', 'matchup']);
-  assert.match(parts[0].text, /^Our model has Hot Guy over 12\.5 points about \d+% of the time, \d+ points better than even\. A PrizePicks slip pays for itself from about 55-58% a pick/);
-  assert.match(parts[1].text, /^He's gone over this line in 9 of his last 10 and 92% of his games this season\./);
-  assert.match(parts[1].text, /averaging 15\.7 points over his last 10, above the line\./);
-  assert.match(parts[3].text, /^A \d+ matchup against DEN \(/);
-});
-
 test('the best slips: every leg hitting, what a dollar returns, two legs a game at most', () => {
   const item = (id, chance, game) => ({row: {id, player: id, gameId: game}, grade: {chance}});
   const items = [item('a', 0.7, 'g1'), item('b', 0.68, 'g1'), item('c', 0.66, 'g1'), item('d', 0.6, 'g2'), item('e', 0.58, 'g3')];
@@ -67,8 +57,6 @@ test('the main stats from the heart of the rotation: no bench minutes, no blocks
   const found = generateProps(rows, real);
   assert.deepEqual(found.map(item => item.row.player), ['Hot Guy']);
   assert.equal(Math.round(found[0].minutes), 30);
-  const role = analysisOf(found[0]).find(part => part.key === 'role');
-  assert.equal(role.text, '30 minutes a game over his last 10.');
   // With the rotation known: a starter on lighter minutes stays, a bench player on them doesn't.
   const rotation = (lastStart) => ({...real, rotation: {OKC: {players: [{id: 'Light Guy', name: 'Light Guy', games: 10, starts: lastStart ? 10 : 0, lastStart, playedLast: true, last3: true}]}}});
   const light = row('Light Guy', HOT, 12.5);

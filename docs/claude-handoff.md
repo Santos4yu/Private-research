@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-09 (the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,68 @@ Last updated 2026-11-08 (Game Predictor live games: a game on its own clock, the
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 9: the prop generator reads each game and makes the call
+
+- The owner, on the Nov 8 (g) boards: "I feel those aren't confident
+  enough and aren't using the correct data it should think more human less
+  robot and actually make decisions that may happen in the game using real
+  raw data to support it".
+- What was missing: the board pass (`propGrades`) never saw tonight's
+  injury report for the prop model (only the matchup score did, and for a
+  starter it leaves his own team's absences out), nor his splits with and
+  without a teammate (the strongest read in the backtest), nor who's back.
+- `src/prop-gameread.js` (new). `deepCandidates(strict, loose, league)`:
+  the board's best 16 (`generateProps`), plus up to 6 regulars from a team
+  with a 24+ minute player likely out tonight (`generateProps(..., {strict:
+  false})`, since PrizePicks moves those lines and his record at the new
+  number understates him). For each: `tonightGame(row, league)` builds his
+  game from `league.tonight` (ESPN report, a GTD code read as a game-time
+  decision; spread and total), `teammateSplits` takes his with / without
+  splits from the player-context, then `gradeLeg` again with the game in
+  (prop model reads the splits; the news caps a questionable player).
+- `readGame(item, league, context)` gives the projection (`read.projection`,
+  now also kept on board grades as `projection`), minutes (`model.usage`),
+  `beats` (each `{key, title, text, side: for/against/info, weight,
+  short}`, every one from his games or tonight's reports): his status;
+  who's out (his average without them and with them, how often over);
+  who's back (`backTonight` + split; under the line with him is a pass);
+  their side's outs (`outTonight`); his minutes (last five, his games at
+  tonight's minutes or more, the trend); the game line (points his team
+  should score vs its usual `teamStats.off.pts`, this season's when 5+
+  games); blowout risk (spread 8+, chance of a 15+ margin, margin SD 12.5)
+  or a close game (4.5 or less); pace (both teams' possessions vs league);
+  their defense (the matchup score's position / defense / recent reads);
+  players like him against them (player-context `similar`); his form and
+  streak; the line vs his season average; head to head; home / away; rest
+  (`league.rest`, back-to-backs). `scenariosOf`: close / his team pulls
+  away / they do, from the spread, starters 86% of their minutes in a
+  blowout (bench 112%), the three averaging to tonight's minutes.
+- The call: a pass (with its reason) if he's out or doubtful, a teammate
+  back puts him under the line, the model with the news in is under 52%,
+  our number isn't 3% over the line, a starter in a likely blowout (35%+)
+  would be under, or confidence is under 56. Confidence: model (50% to
+  60%), projection room (16% = full), record, the case (share of the
+  weight for it), matchup at 30/25/20/15/10. Best bet 78+, Strong play 68+,
+  Play. `summaryOf` writes the read: our number and minutes, the top
+  reasons, the worry.
+- Page (`PropGenerator.jsx`): loads each candidate's player-context (4 at
+  a time, 9 s each, kept for the visit) and tonight's reports; a "Reading
+  tonight's games" bar meanwhile (12 s at most, then it reads without
+  what's missing). Best play: strength word, Confidence ring, our number
+  on a line with his last 10 as dots (slides out from the line), the read,
+  His games (Last 10 bars / By minutes scatter, tap for the nearest game),
+  How the game could go (three rows: chance, minutes, his number, check or
+  cross), The case (green for, red against, plain info). More plays (rows
+  show the confidence and "34.5 proj"), then "We passed on" behind a
+  button (each with its reason), then slips from the plays. Order: best,
+  most over the line, chance, matchup, form. `analysisOf` and the old
+  Signals / Why panel are gone.
+- Checked with made-up rows and contexts in the browser (Playwright, the
+  board seeded into IndexedDB, player-context and tonight answered by the
+  script). Not yet on a real board: the first real night may show few
+  plays if the model's held-back chances sit near 52%; `CALL` and
+  `CONFIDENCE` in prop-gameread.js are the knobs.
 
 ### Nov 8 (g): the prop generator, better picks and a page to explore
 

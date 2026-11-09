@@ -26,7 +26,7 @@ test('his form and the matchup together: hot leans over, cold fades, a tough mat
   assert.equal(cold.tier, 'fade');
   // Boston were the stingiest on points last season: the same form grades lower.
   assert.ok(tough.rank < hot.rank && tough.chance < hot.chance);
-  assert.deepEqual(Object.keys(hot).sort(), ['blowout', 'chance', 'edge', 'label', 'needs', 'priced', 'rank', 'tier', 'tone']);
+  assert.deepEqual(Object.keys(hot).sort(), ['blowout', 'chance', 'edge', 'label', 'needs', 'priced', 'projection', 'rank', 'tier', 'tone']);
   assert.equal(hot.blowout, null);
   assert.equal(hot.needs, 0.5);
 });

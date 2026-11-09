@@ -1,8 +1,9 @@
 // The NBA prop generator (Nov 8, the owner: "a prop generator that does a
 // full analysis rmemver our mlb props that would generate good props that's
 // what I want to but for nba"): tonight's NBA props graded the way the Props
-// tab grades them, the ones worth playing picked out, each with the reasons
-// in plain words, and the best slips made from them.
+// tab grades them, the ones worth playing picked out, and the best slips
+// made from them. Each candidate's game is then read in full and called a
+// play or a pass (prop-gameread.js).
 //
 //  - Each line's chance to go over: props-grade.js (the prop model on his
 //    recent games and role, the matchup, tonight's spread, what results have
@@ -123,7 +124,7 @@ const gameOf = row => row.gameId || row.eventId || `${row.awayTeamAbbr || ''}@${
  * score}]. `grades` and `reads` can be passed in (already worked out by the
  * page); otherwise they're worked out here from the rows and league numbers.
  */
-export function generateProps(rows, league, {now = Date.now(), grades = null, reads = null, most = 25} = {}) {
+export function generateProps(rows, league, {now = Date.now(), grades = null, reads = null, most = 25, strict = true} = {}) {
   if (!league || !rows?.length) return [];
   const graded = grades || propGrades(rows, league);
   const scored = reads || spreadScores(rows, league);
@@ -135,13 +136,15 @@ export function generateProps(rows, league, {now = Date.now(), grades = null, re
     const starts = Date.parse(row.startsAt || '');
     if (Number.isFinite(starts) && starts - now < LOCK_MINUTES * 60000) continue;
     const grade = graded.get(row.id);
-    if (!grade || !PICK_TIERS.includes(grade.tier) || !finite(grade.chance) || grade.edge <= 0) continue;
+    if (!grade || !finite(grade.chance)) continue;
+    // Not strict (prop-gameread.js deepCandidates): any graded line, for the full read to judge.
+    if (strict && (!PICK_TIERS.includes(grade.tier) || grade.edge <= 0)) continue;
     const read = scored.get(row.id) || null;
     const records = {l5: recordOf(row, 'l5'), l10: recordOf(row, 'l10'), l20: recordOf(row, 'l20'), season: recordOf(row, 'season')};
     const form = formRate(records), average = averageOf(row);
     // His record and his average have to back the model up.
-    if (form != null && form < FORM_FLOOR) continue;
-    if (average != null && average <= row.line) continue;
+    if (strict && form != null && form < FORM_FLOOR) continue;
+    if (strict && average != null && average <= row.line) continue;
     const {signals, confidence} = signalsOf({chance: grade.chance, form, matchup: read?.score, average, line: row.line});
     const score = confidence + (MARKET_WEIGHT[row.marketKey] || 0);
     const games = (row.gameLog || []).filter(game => finite(game.value)).slice(-10).map(game => ({value: game.value, opponent: game.opponent, date: game.date}));
@@ -150,53 +153,6 @@ export function generateProps(rows, league, {now = Date.now(), grades = null, re
     if (!best.has(key) || best.get(key).score < score) best.set(key, item);
   }
   return [...best.values()].sort((a, b) => b.score - a.score).slice(0, most);
-}
-
-const pctText = value => `${Math.round(value * 100)}%`;
-const lineText = row => `${row.line} ${statWords(row)}`;
-
-/**
- * The reasons for one prop in plain words: [{key, title, text, tone}].
- * The model's chance and what it needs; his record and average at the line;
- * the matchup score and its biggest reads; tonight's game.
- */
-export function analysisOf(item) {
-  const {row, grade, read, records} = item;
-  const out = [];
-  const needs = grade.needs ?? 0.5;
-  out.push({key: 'chance', title: 'The model', tone: grade.edge >= 0.08 ? 'up' : undefined,
-    text: `Our model has ${row.player} over ${lineText(row)} about ${pctText(grade.chance)} of the time, ${Math.round(grade.edge * 100)} points better than ${needs === 0.5 ? 'even' : `the ${pctText(needs)} it needs`}. A PrizePicks slip pays for itself from about 55-58% a pick, depending on its size.`});
-  const form = [];
-  const recent = records.l10 || records.l5;
-  if (recent) form.push(`over this line in ${recent.hits} of his last ${recent.games}`);
-  if (records.season && records.season.games >= 10) form.push(`${Math.round(records.season.rate)}% of his games this season`);
-  const average = finite(row.windows?.l10?.average) ? row.windows.l10.average : finite(row.average) ? row.average : null;
-  if (form.length || average != null) {
-    const said = form.length ? `He's gone ${form.join(' and ')}.` : '';
-    const avg = average != null ? ` He's averaging ${Math.round(average * 10) / 10} ${statWords(row)} over his last 10${average > row.line ? ', above the line' : ', under the line'}.` : '';
-    out.push({key: 'form', title: 'His form', tone: (records.l10?.rate ?? 50) >= 60 ? 'up' : (records.l10?.rate ?? 50) <= 40 ? 'down' : undefined, text: `${said}${avg}`.trim()});
-  }
-  if (item.minutes != null || item.role) {
-    const minutes = item.minutes != null ? `${Math.round(item.minutes)} minutes a game over his last 10` : '';
-    const role = item.role ? item.role.text.replace(/^./, letter => letter.toUpperCase()) : '';
-    out.push({key: 'role', title: 'His role', text: [role, minutes].filter(Boolean).join('. ') + '.'});
-  }
-  if (read) {
-    const top = [...(read.reads || [])].filter(part => part.text && Math.abs(part.points || 0) >= 0.5)
-      .sort((a, b) => Math.abs(b.points) - Math.abs(a.points)).slice(0, 3);
-    const opponent = row.opponent ? ` against ${row.opponent}` : '';
-    out.push({key: 'matchup', title: 'The matchup', tone: read.score >= 60 ? 'up' : read.score < 40 ? 'down' : undefined,
-      text: `A ${read.score} matchup${opponent} (${String(read.label || '').toLowerCase()}; 50 is even).`,
-      points: top.map(part => ({text: part.text, tone: part.points > 0 ? 'up' : 'down'}))});
-  }
-  if (grade.blowout) {
-    const spread = grade.blowout.spread;
-    out.push({key: 'game', title: 'Tonight\'s game', tone: grade.blowout.role === 'starter' ? 'down' : 'up',
-      text: grade.blowout.role === 'starter'
-        ? `His team is ${spread < 0 ? 'favored' : 'an underdog'} by ${Math.abs(spread)}: a blowout could cut a starter's minutes late. It's in the chance above.`
-        : `A ${Math.abs(spread)}-point spread: if it gets out of hand, bench players get more minutes. It's in the chance above.`});
-  }
-  return out;
 }
 
 /**

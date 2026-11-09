@@ -45,7 +45,7 @@ export function propGrades(rows, league) {
     const needs = baselineOf(graded);
     const found = blowoutOf(row.game?.odds?.spread?.[row.game?.team], graded.read?.model?.recentUsage, (modelKey(row) || '').split(':')[1]);
     out.set(listed.id, {chance: graded.chance, needs, priced: needs !== 0.5 && graded.book != null, edge: graded.chance - needs, tier: graded.tier, label: TIERS[graded.tier].label,
-      rank: TIERS[graded.tier].rank, tone: TIER_TONES[graded.tier],
+      rank: TIERS[graded.tier].rank, tone: TIER_TONES[graded.tier], projection: finite(graded.read?.projection) ? graded.read.projection : null,
       blowout: found && found.change && found.size >= BLOWOUT_TAG ? {...found, spread: row.game.odds.spread[row.game.team]} : null});
   }
   return out;
