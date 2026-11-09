@@ -162,6 +162,24 @@ export function valuePicks(board,count=5){
 /** "+9 pts": how much higher our model has a side than the market. */
 export const edgeText=edge=>edge==null||!Number.isFinite(edge)?'':`${edge>=0?'+':'−'}${Math.abs(edge*100).toFixed(0)} pts`;
 
+/**
+ * Every game on the board with our model's pick (its likelier side), most
+ * likely first (Nov 9, the owner: "it should show all the games coming up and
+ * show the % our model has them as"). A game still waiting on its moneyline
+ * is in too, its price null; the parlays use boardLegs (priced games only).
+ */
+export function gamePicks(board){
+ return (board?.games||[]).flatMap(game=>{
+  const home=game.chance?.home,away=game.chance?.away;
+  if(home==null&&away==null)return [];
+  const side=(home??-1)>=(away??-1)?'home':'away';
+  const raw=game.prices?.[side],price=raw!=null&&Math.abs(raw)>=100?raw:null;
+  const chance=game.chance[side],dec=decimal(price),market=game.market?.[side]??null;
+  return [{game:game.id,side,team:game[side],opponent:game[side==='home'?'away':'home'],home:side==='home',price,chance,dec,market,
+   edge:market==null?null:chance-market,ev:dec?chance*dec-1:null,startsAt:game.startsAt,confidence:game.confidence,sport:game.sport}];
+ }).sort((a,b)=>b.chance-a.chance);
+}
+
 export function likeliest(board,count=5){
  const best=new Map();
  for(const leg of boardLegs(board)){const old=best.get(leg.game);if(!old||leg.chance>old.chance)best.set(leg.game,leg);}

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {cardText,combined} from '../src/game-share.js';
 import {colorGap,gameClockText,inkOn,keyInjuries,liveText,marketNote,pairColors,readGuide,steadySince} from '../src/game-predictor-core.js';
-import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
+import {americanOf,boardLegs,cents,chartFrame,chartPath,moneyText,sideSeries,winOf,dayKey,dayLabel,dayOptions,groupByDay,mergeBoards,byText,decimal,evText,gamePicks,likeliest,lineText,odds,parlays,paysText,pct,pull,recordText,resultOf,startText,twoCalls,unitsText,valueRows} from '../src/game-predictor-core.js';
 
 const game={home:{abbr:'DEN',short:'Nuggets'},away:{abbr:'BOS',short:'Celtics'}};
 
@@ -83,6 +83,12 @@ test('moneylines as payouts',()=>{
 test('the most likely winners, one side a game, held games left out',()=>{
  assert.equal(boardLegs(board).length,6);
  assert.deepEqual(likeliest(board).map(leg=>[leg.team.abbr,leg.chance]),[['BOS',0.85],['DEN',0.78],['MIA',0.52]]);
+});
+
+test('every game with our pick and chance, most likely first, games without a line too',()=>{
+ const picks=gamePicks(board);
+ assert.deepEqual(picks.map(leg=>[leg.team.abbr,leg.chance,leg.price]),[['BOS',0.85,-600],['DEN',0.78,-400],['LAL',0.6,null],['MIA',0.52,-110]]);
+ assert.equal(picks[2].ev,null);
 });
 
 test('parlays: exactly two legs, the most likely first',()=>{

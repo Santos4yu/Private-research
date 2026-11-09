@@ -24,7 +24,7 @@ import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
 import {ChipMenu,Empty,Section,Segmented,Shimmer} from './gp-parts.jsx';
 import {GameRecord} from './GameRecord.jsx';
-import {SPORTS,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import {PropGenerator} from './PropGenerator.jsx';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
@@ -906,7 +906,7 @@ function Leg({leg,mixed,value}){
   <Logo team={leg.team} size={28}/>
   <span><b>{leg.team.short||leg.team.abbr}</b><small>{mixed&&leg.sport?`${leg.sport.toUpperCase()} · `:''}{leg.home?'vs':'@'} {leg.opponent.abbr} · {mixed?startText(leg.startsAt):clockText(leg.startsAt)}</small>
    {value&&leg.market!=null&&<VersusBar chance={leg.chance} market={leg.market} color={teamColor(leg.team)}/>}</span>
-  <span className="gp-leg-num"><b>{pct(leg.chance)}</b><small>{odds(leg.price)}{value&&leg.edge!=null?<> · <em data-tone="up">{edgeText(leg.edge)}</em></>:null}</small></span>
+  <span className="gp-leg-num"><b>{pct(leg.chance)}</b><small>{leg.price==null?'No line yet':odds(leg.price)}{value&&leg.edge!=null?<> · <em data-tone="up">{edgeText(leg.edge)}</em></>:null}</small></span>
  </li>;
 }
 
@@ -936,7 +936,8 @@ function MoneylineGenerator({league,admin}){
  const days=useMemo(()=>dayOptions(new Date(),7),[]);
  const [day,setDay]=useState(days[0].key);
  const [which,setWhich]=useState(league);
- const [mode,setMode]=useState('payout'),[payout,setPayout]=useState(2),[legs,setLegs]=useState(2),[sort,setSort]=useState('value');
+ // Most likely first (Nov 9, the owner: "I want it to be on most likely on default").
+ const [mode,setMode]=useState('payout'),[payout,setPayout]=useState(2),[legs,setLegs]=useState(2),[sort,setSort]=useState('likely');
  const [state,setState]=useState({loading:true});
  const [tries,setTries]=useState(0);
  useEffect(()=>{
@@ -957,7 +958,8 @@ function MoneylineGenerator({league,admin}){
   return()=>control.abort();
  },[day,which,tries]);
  const board=state.data;
- const top=useMemo(()=>likeliest(board,6),[board]);
+ // Every game that day, our model's pick and its chance in each.
+ const top=useMemo(()=>gamePicks(board),[board]);
  // Best value first (Nov 8): where our model sees more than the market, not just the biggest favorite.
  const value=useMemo(()=>valuePicks(board,6),[board]);
  const showValue=sort==='value'&&value.length>0;
@@ -995,7 +997,7 @@ function MoneylineGenerator({league,admin}){
     <div className="gp-pick-main">
      <span className="gp-hero-logo"><Logo team={lead[0].team} size={56}/></span>
      <span><b>{lead[0].team.short||lead[0].team.abbr}</b><small>{which==='both'?`${lead[0].sport?.toUpperCase()} · `:''}{lead[0].home?'vs':'@'} {lead[0].opponent.abbr} · {clockText(lead[0].startsAt)} · {lead[0].confidence} confidence</small></span>
-     <span className="gp-pick-num"><b>{pct(lead[0].chance)}</b><small>{odds(lead[0].price)}</small></span>
+     <span className="gp-pick-num"><b>{pct(lead[0].chance)}</b><small>{lead[0].price==null?'No line yet':odds(lead[0].price)}</small></span>
     </div>
     {showValue&&lead[0].market!=null&&<div className="gp-pick-versus"><VersusBar chance={lead[0].chance} market={lead[0].market} color={teamColor(lead[0].team)}/>
      <span><small>Our model <b>{pct(lead[0].chance)}</b></small><small>The market <b>{pct(lead[0].market)}</b></small></span></div>}
@@ -1005,7 +1007,8 @@ function MoneylineGenerator({league,admin}){
      <div><dt>Price</dt><dd>{odds(lead[0].price)}</dd></div>
     </dl>}
    </section>
-   {lead.length>1&&<Section title={showValue?'More value picks':'Next most likely'}><ul className="gp-legs">{lead.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'} value={showValue}/>)}</ul></Section>}
+   {showValue?lead.length>1&&<Section title="More value picks"><ul className="gp-legs">{lead.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'} value/>)}</ul></Section>
+    :<Section title={`Every game ${when}`}><ul className="gp-legs">{lead.map(leg=><Leg key={`${leg.sport}:${leg.game}`} leg={leg} mixed={which==='both'}/>)}</ul></Section>}
    <Section title={`${mixed?'NBA + NFL parlays':'Parlays'}${mode==='payout'?` paying ${payout}x or more`:`, ${legs} legs`}`} icon={Layers}>
     {mixed&&state.next?.length>0&&<p className="gp-note gp-mixed-note">No {state.next.map(sport=>sport.toUpperCase()).join(' or ')} games {when}: {state.next.length===1?'its':'their'} legs are from {state.next.length===1?'its':'their'} next games.</p>}
     {combos.length?<ol className="gp-parlays">{combos.map((combo,index)=><li key={combo.legs.map(leg=>leg.game+leg.side).join()} style={{'--i':index}}>

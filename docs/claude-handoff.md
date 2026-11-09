@@ -113,6 +113,17 @@ Last updated 2026-11-09 (the moneyline Generator's NBA + NFL parlays: a leg from
   top, fading into their color (--heat RGB per tone) over a 2px edge, the
   rate in that color (finder-board.css, the "hit rates and the streak" rules).
 
+### Nov 9: Generator moneylines open on Most likely, every game listed
+
+- The owner: "I want it to be on most likely on default and it should show
+  all the games coming up and show the % our model has them as". The
+  Generator's moneyline Order starts on Most likely (was Best value). Under
+  the top pick, "Every game {day}" lists each game that day (both leagues
+  with NBA + NFL), our model's side and its chance, most likely first
+  (game-predictor-core `gamePicks`); a game still waiting on its moneyline is
+  in it with "No line yet" (the parlays still take priced games only, via
+  boardLegs). Best value keeps its own list.
+
 ### Nov 9: History follows the pick up to tip-off (hourly record timer)
 
 - The owner: "if any lines switch for the predictor and it changes its
