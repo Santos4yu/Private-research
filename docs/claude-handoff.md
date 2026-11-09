@@ -113,6 +113,21 @@ Last updated 2026-11-09 (the moneyline Generator's NBA + NFL parlays: a leg from
   top, fading into their color (--heat RGB per tone) over a 2px edge, the
   rate in that color (finder-board.css, the "hit rates and the streak" rules).
 
+### Nov 9: History follows the pick up to tip-off (hourly record timer)
+
+- The owner: "if any lines switch for the predictor and it changes its
+  prediction make sure it changes in the history aswell". `remember` already
+  replaced a game's entry whenever side, chance, market, price or confidence
+  changed while the game was still to start; the record only missed changes
+  between writes (board reads while the page is open, timer at 16:50 and
+  22:50 UTC). vercel.json now runs `predictor-cron&step=record` every hour at
+  :50 from 16:50 to 02:50 UTC (11:50 AM-9:50 PM Eastern), each its own
+  once-a-day entry (`&run=HHMM` keeps the paths apart; the Hobby plan takes
+  one run a day per entry and may fire any time in that hour). The timer
+  reads the Eastern date (`_us_day`), so the runs after midnight UTC still
+  read that night's games. A pick saved by the admin is replaced by the live
+  pick the same way until tip-off.
+
 ### Nov 9: Game Predictor counts day-to-day players at their chance to sit
 
 - The owner, on MEM @ TOR (TOR 74% with Barnes and Quickley day-to-day,
