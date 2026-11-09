@@ -484,22 +484,30 @@ html:root .unified-finder .finder-table .finder-pf, html:root .unified-finder .f
   html:root .unified-finder .finder-pf-diff small { color: var(--fb-muted); font: 600 10px/1 var(--font-sans); }
   html:root .unified-finder .finder-table td.finder-num:nth-child(4) small { display: none; }
 
-  /* The hit rates and the streak: filled cells, green to red, the record under the rate. */
+  /* The hit rates and the streak (Nov 9, the owner: "they should be nice and
+     gradient"): each cell dark at the top, fading into its color at the
+     bottom over a bright edge, the rate in that color, the record under it. */
   html:root .unified-finder .finder-table tbody tr { min-height: 54px; align-items: stretch; }
   html:root .unified-finder .finder-table tbody td:is(.finder-stat, :nth-child(5)) { padding: 1px !important; }
+  html:root .unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)) { --heat: 255, 255, 255; --heat-text: #C9CCD1; }
+  html:root .unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=good] { --heat: 63, 227, 158; --heat-text: #5CF0B2; }
+  html:root .unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=mid] { --heat: 242, 184, 76; --heat-text: #F7C866; }
+  html:root .unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=low] { --heat: 240, 92, 112; --heat-text: #FF7F8F; }
   html:root .unified-finder .finder-table .finder-heat { display: flex !important; height: 100% !important; min-height: 50px; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-    border-radius: 3px; background: rgba(255, 255, 255, .03); color: #fff; }
+    border-radius: 4px; color: var(--heat-text); }
+  html:root .unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)) {
+    background: linear-gradient(180deg, rgba(var(--heat), .015) 0%, rgba(var(--heat), .07) 45%, rgba(var(--heat), .26) 100%) !important;
+    box-shadow: inset 0 -2px rgba(var(--heat), .85), inset 0 1px rgba(255, 255, 255, .03) !important;
+  }
+  html:root .unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)):not([data-tone]) { background: rgba(255, 255, 255, .025) !important; box-shadow: inset 0 -2px rgba(255, 255, 255, .08) !important; }
   html:root .unified-finder .finder-table .finder-heat::after { content: none !important; display: none !important; }
-  html:root .unified-finder .finder-table .finder-heat[data-tone=good] { background: linear-gradient(180deg, #13a874, #0d7f58); }
-  html:root .unified-finder .finder-table .finder-heat[data-tone=mid] { background: linear-gradient(180deg, #c98f22, #9c6c12); }
-  html:root .unified-finder .finder-table .finder-heat[data-tone=low] { background: linear-gradient(180deg, #c7344a, #9b2337); }
-  html:root .unified-finder .finder-table .finder-heat strong { color: #fff !important; font: 800 13.5px/1 var(--font-sans); }
-  html:root .unified-finder .finder-table .finder-heat small { color: rgba(255, 255, 255, .8) !important; font: 700 10px/1 var(--font-sans); }
+  html:root .unified-finder .finder-table .finder-heat strong { color: var(--heat-text) !important; font: 800 13.5px/1 var(--font-sans); }
+  html:root .unified-finder .finder-table .finder-heat small { color: rgba(var(--heat), .72) !important; font: 700 10px/1 var(--font-sans); }
+  html:root .unified-finder .finder-table .finder-heat:not([data-tone]) small { color: var(--fb-faint) !important; }
   html:root .unified-finder .finder-table td.finder-num { display: flex !important; flex-direction: column; align-items: center; justify-content: center; }
-  html:root .unified-finder .finder-table td.finder-num:nth-child(5) { border-radius: 3px; background: rgba(255, 255, 255, .03) !important; }
-  html:root .unified-finder .finder-table td.finder-num:nth-child(5)[data-tone=good] { background: linear-gradient(180deg, #13a874, #0d7f58) !important; }
-  html:root .unified-finder .finder-table td.finder-num:nth-child(5)[data-tone=low] { background: linear-gradient(180deg, #c7344a, #9b2337) !important; }
-  html:root .unified-finder .finder-table td.finder-num:nth-child(5) :is(b, small) { color: #fff !important; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5) { border-radius: 4px; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5) b { color: var(--heat-text) !important; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5) small { color: rgba(var(--heat), .72) !important; }
 }
 @media (min-width: 761px) and (max-width: 1180px) {
   html:root .unified-finder { --fb-cols: minmax(170px, 2fr) minmax(96px, 1.1fr) 66px 56px 74px 56px 60px repeat(3, minmax(52px, 1fr)) minmax(52px, 1fr); }

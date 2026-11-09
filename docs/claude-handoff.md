@@ -94,6 +94,10 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   on one row) and every card on the right. 1051-1320px puts the windows
   strip under the filters (the left column is too slim beside them). The
   phone keeps its own panel.
+- Then, with PickFinder's board: the hit-rate cells "should be nice and
+  gradient". On a computer the L5-Season and Streak cells are dark at the
+  top, fading into their color (--heat RGB per tone) over a 2px edge, the
+  rate in that color (finder-board.css, the "hit rates and the streak" rules).
 
 ### Nov 9: History's record is live picks only
 
