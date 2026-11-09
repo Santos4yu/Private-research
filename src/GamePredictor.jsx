@@ -815,7 +815,7 @@ function WhosOut({prediction}){
   <div className="gp-two">{sides.map(({side,shown,others})=><div key={side}>
    <p className="gp-team-head"><Logo team={prediction[side]} size={20}/>{prediction[side].short||prediction[side].abbr}</p>
    {shown.length?<ul className="gp-out">{shown.slice(0,5).map((player,index)=><li key={index} data-out={player.out?'':undefined}>
-    <span><b>{player.name}</b><small>{[player.position,player.status,player.injury].filter(Boolean).join(' · ')}</small></span>
+    <span><b>{player.name}</b><small>{[player.position,player.status,player.chance!=null&&!player.out?`${Math.round(player.chance*100)}% to sit`:null,player.injury].filter(Boolean).join(' · ')}</small></span>
     {player.impact>0&&<em>−{player.impact} pts</em>}
    </li>)}</ul>:<p className="gp-note">Nobody who matters.</p>}
    {others>0&&<p className="gp-note gp-out-more">{others} more on the report, {rest}.</p>}

@@ -99,6 +99,25 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   top, fading into their color (--heat RGB per tone) over a 2px edge, the
   rate in that color (finder-board.css, the "hit rates and the streak" rules).
 
+### Nov 9: Game Predictor counts day-to-day players at their chance to sit
+
+- The owner, on MEM @ TOR (TOR 74% with Barnes and Quickley day-to-day,
+  Leonard out): "kinda concerning". Leonard was right (0.1: he'd missed 7 of
+  9, so TOR's ratings already lack him). Day-to-day players counted as
+  playing. Now predictor_nba.miss_chance: doubtful 75%, questionable / GTD 50%,
+  probable 10%, plain day-to-day 40% (from ESPN's status, fantasy code and
+  note; no injury-report history to fit them on). Each counts at value x that
+  chance in the margin; scenarios carry chance, ifOut, ifIn; "Who's out" names
+  them with "(N% to sit)"; the page's injury rows say "N% to sit".
+  game_predictor._sit_warnings adds a Check first line when a team's
+  day-to-day players are worth 1.5+ points together: the pick's chance if they
+  all sit and if they all play.
+- Tested and NOT shipped: pulling an early-season player's value toward his
+  last-season Game Score a minute instead of toward 0. Walk-forward backtest
+  (validation 2025-26 before Jan 15): MAE 10.834 -> 10.850, early games
+  10.466 -> 10.484, logloss and test the same; the injury weight drops
+  0.210 -> 0.166 to make up for it. No gain, so values stay as they were.
+
 ### Nov 9: History's record is live picks only
 
 - The owner: the record said 139 NBA games "since Oct 20" — "thats not true ive

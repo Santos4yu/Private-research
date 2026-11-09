@@ -242,6 +242,21 @@ def classify(status) -> str:
     return "other"
 
 
+def miss_chance(item) -> float:
+    """How likely a questionable player sits tonight, from ESPN's status, code
+    and note: doubtful 75%, questionable or a game-time decision 50%, probable
+    10%, a plain day-to-day 40%. (No history of injury reports to fit these
+    on; they're the usual rates for each listing.)"""
+    text = " ".join(str(item.get(field) or "") for field in ("status", "code", "comment")).lower()
+    if "doubtful" in text:
+        return 0.75
+    if any(word in text for word in ("questionable", "gtd", "game-time", "game time")):
+        return 0.5
+    if "probable" in text:
+        return 0.1
+    return 0.4
+
+
 def predict(game, rt, states, params, key):
     """The independent prediction: margin (home), total, the parts, who's out and the questionable scenarios.
     None when either team has no ratings."""
@@ -269,8 +284,14 @@ def predict(game, rt, states, params, key):
                      "inRatings": round(player["reflect"] * 100) if player else None}
             if kind == "out" and counted:
                 lost[side] += player["value"] * player["reflect"]
-            if kind == "questionable" and counted and cost >= 0.3:
-                questionable[side].append(entry)
+            # Nov 9, the owner, on TOR at 74% with Barnes and Quickley day-to-day:
+            # a questionable player counts at his chance to sit, not as playing.
+            if kind == "questionable" and counted:
+                chance = miss_chance(item)
+                lost[side] += player["value"] * player["reflect"] * chance
+                entry["chance"], entry["expected"] = chance, round(cost * chance, 1)
+                if cost >= 0.3:
+                    questionable[side].append(entry)
             out[side].append(entry)
         out[side].sort(key=lambda e: ({"out": 0, "questionable": 1}.get(e["kind"], 2), -e["impact"]))
     home_edge = 0.0 if game.get("neutral") else params["home"]
@@ -279,7 +300,9 @@ def predict(game, rt, states, params, key):
     margin = rated + hurt + home_edge
     total = params["total_rating"] * rtotal + params["total_injury"] * (lost["home"] + lost["away"]) + params["total_const"]
     net = lambda team: rt["off"][team] - rt["def"][team]
-    named = lambda side: ", ".join(f"{e['name']} {e['impact']:.1f}" for e in out[side] if e["kind"] == "out" and e["impact"] > 0)
+    named = lambda side: ", ".join([f"{e['name']} {e['impact']:.1f}" for e in out[side] if e["kind"] == "out" and e["impact"] > 0]
+                                   + [f"{e['name']} {e['expected']:.1f} ({round(e['chance'] * 100)}% to sit)" for e in out[side]
+                                      if e["kind"] == "questionable" and e.get("expected", 0) > 0])
     parts = [
         {"key": "ratings", "label": "Team strength (schedule-adjusted)", "points": round(rated, 1),
          "text": f"Net rating {net(home):+.1f} vs {net(away):+.1f} per 100 possessions"},
@@ -290,8 +313,9 @@ def predict(game, rt, states, params, key):
     scenarios = []
     for side, sign in (("home", -1), ("away", 1)):
         for entry in questionable[side]:
-            scenarios.append({"name": entry["name"], "team": game[side]["abbr"], "status": entry["status"],
-                              "ifOut": margin + sign * entry["impact"], "impact": entry["impact"]})
+            scenarios.append({"name": entry["name"], "team": game[side]["abbr"], "status": entry["status"], "chance": entry["chance"],
+                              "ifOut": margin + sign * entry["impact"] * (1 - entry["chance"]),
+                              "ifIn": margin - sign * entry["impact"] * entry["chance"], "impact": entry["impact"]})
     return {"margin": margin, "total": total, "poss": poss, "rmargin": rmargin, "parts": parts, "out": out, "scenarios": scenarios,
             "effs": {"home": eff_h, "away": eff_a}, "lost": lost}
 

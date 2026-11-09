@@ -1130,6 +1130,8 @@ def _with_home(sport, built, game, season, home, away, usual):
     built["margin"] += delta
     for scenario in built.get("scenarios") or []:
         scenario["ifOut"] += delta
+        if "ifIn" in scenario:
+            scenario["ifIn"] += delta
     built["homeInfo"]["edge"] = round(edge, 1)
     record = lambda spot: f"{spot['w']}-{spot['l']}" if spot else None
     at_home, on_road = record(built["homeInfo"]["home"]["home"]), record(built["homeInfo"]["away"]["away"])
@@ -1258,8 +1260,9 @@ def nba_model_v2(game, context) -> dict | None:
         warnings.append(_warn("medium", f"The box scores stop at {_day_text(context['lastDate'])}: newer games aren't counted yet."))
     for scenario in built["scenarios"]:
         other = away if scenario["team"] == home else home
-        warnings.append(_warn("info", f"{scenario['name']} ({scenario['team']}) is {str(scenario['status'] or 'questionable').lower()}: "
-                                      f"if he sits, about {scenario['impact']:.1f} points swing to {other}."))
+        warnings.append(_warn("info", f"{scenario['name']} ({scenario['team']}) is {str(scenario['status'] or 'questionable').lower()}, "
+                                      f"counted as {round(scenario['chance'] * 100)}% to sit: if he sits, about "
+                                      f"{scenario['impact'] * (1 - scenario['chance']):.1f} more points swing to {other}."))
     built.update({"rest": {side: (rest[side] or {}).get("days") for side in rest}, "restInfo": rest,
                   "teams": {"home": profile("home"), "away": profile("away")}, "leaguePace": rt["pace_mu"],
                   "sigma": _staged_sigma(fewest, params["sigma_by_games"]), "model": "v2", "warnings": warnings})
@@ -1269,7 +1272,31 @@ def nba_model_v2(game, context) -> dict | None:
     built["adjusted"] = {side: {"off": round(rt["mu"] + rt["off"][game[side]["abbr"]], 1), "def": round(rt["mu"] + rt["def"][game[side]["abbr"]], 1),
                                 "net": round(rt["off"][game[side]["abbr"]] - rt["def"][game[side]["abbr"]], 1)} for side in ("home", "away")}
     built["boxScoresThrough"] = context["lastDate"].isoformat() if context.get("lastDate") else None
-    return _with_home("nba", built, game, season, home, away, params["home"])
+    built = _with_home("nba", built, game, season, home, away, params["home"])
+    built["warnings"].extend(_sit_warnings(built, home, away))
+    return built
+
+
+def _sit_warnings(built, home, away) -> list:
+    """Check first, when a team's day-to-day players are worth 1.5+ points
+    together: our pick's chance if they all sit and if they all play (the
+    number itself counts each at his chance to sit)."""
+    margin, sigma, warnings = built["margin"], built["sigma"], []
+    pick = home if margin >= 0 else away
+    chance = lambda m: phi((m if pick == home else -m) / sigma)
+    for team, sign in ((home, -1), (away, 1)):
+        rows = [s for s in built.get("scenarios") or [] if s["team"] == team]
+        if not rows or sum(s["impact"] for s in rows) < 1.5:
+            continue
+        sits = margin + sign * sum(s["impact"] * (1 - s["chance"]) for s in rows)
+        plays = margin - sign * sum(s["impact"] * s["chance"] for s in rows)
+        names = _list_text([s["name"] for s in rows])
+        one = len(rows) == 1
+        warnings.append(_warn("medium", f"{names} ({team}) {'is' if one else 'are'} day-to-day: "
+                                        f"if {'he sits' if one else 'they all sit'}, {pick} {round(chance(sits) * 100)}%; "
+                                        f"if {'he plays' if one else 'they all play'}, {pick} {round(chance(plays) * 100)}%. "
+                                        f"Check the injury report near tip-off."))
+    return warnings
 
 
 def nba_players_v2(game, context, built) -> dict:

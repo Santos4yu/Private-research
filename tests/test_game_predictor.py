@@ -467,12 +467,42 @@ class NbaV2Tests(unittest.TestCase):
         star = self.context["states"]["DEN"]["regulars"]["Dstar"]
         self.assertAlmostEqual(healthy["margin"] - hurt["margin"], gp.V2["nba"]["injury"] * star["value"] * star["reflect"], places=6)
         self.assertEqual((hurt["out"]["home"][0]["name"], hurt["out"]["home"][0]["out"]), ("Nikola Jokic", True))
-        # A questionable regular: the swing if he sits, as a note.
+        # A questionable regular counts at his chance to sit (questionable: half),
+        # and Check first gives the pick's chance if he sits and if he plays.
+        cost = gp.V2["nba"]["injury"] * star["value"] * star["reflect"]
         maybe = gp.nba_model_v2(game({"DEN": [{"id": "Dstar", "name": "Nikola Jokic", "status": "Questionable"}]}), self.context)
-        self.assertAlmostEqual(maybe["margin"], healthy["margin"], places=6)
+        self.assertAlmostEqual(healthy["margin"] - maybe["margin"], cost * 0.5, places=6)
         self.assertTrue(any("if he sits" in item["text"] for item in maybe["warnings"]))
+        # Under 1.5 points together: no Check first line for him.
+        self.assertFalse([item for item in maybe["warnings"] if item["level"] == "medium" and "day-to-day" in item["text"]])
+        scenario = maybe["scenarios"][0]
+        self.assertAlmostEqual(scenario["ifOut"] - scenario["ifIn"], -scenario["impact"], places=6)
+        dtd = gp.nba_model_v2(game({"DEN": [{"id": "Dstar", "name": "Nikola Jokic", "status": "Day-To-Day"}]}), self.context)
+        self.assertAlmostEqual(healthy["margin"] - dtd["margin"], cost * 0.4, places=6)
         players = gp.nba_players_v2(game(), self.context, healthy)
         self.assertEqual(set(players["home"]["avg"]), {"pts", "reb", "ast"})
+
+    def test_sit_warnings(self):
+        # TOR at home by 5 with two day-to-day regulars worth 1.8 and 1.5.
+        built = {"margin": 5.0, "sigma": 10.0, "scenarios": [
+            {"name": "Scottie Barnes", "team": "TOR", "chance": 0.5, "impact": 1.8},
+            {"name": "Immanuel Quickley", "team": "TOR", "chance": 0.4, "impact": 1.5}]}
+        [warning] = gp._sit_warnings(built, "TOR", "MEM")
+        sits = gp.phi((5.0 - 1.8 * 0.5 - 1.5 * 0.6) / 10.0)
+        plays = gp.phi((5.0 + 1.8 * 0.5 + 1.5 * 0.4) / 10.0)
+        self.assertEqual(warning["level"], "medium")
+        self.assertEqual(warning["text"], f"Scottie Barnes and Immanuel Quickley (TOR) are day-to-day: if they all sit, TOR {round(sits * 100)}%; "
+                                          f"if they all play, TOR {round(plays * 100)}%. Check the injury report near tip-off.")
+        built["scenarios"] = [{"name": "Immanuel Quickley", "team": "TOR", "chance": 0.4, "impact": 1.2}]
+        self.assertEqual(gp._sit_warnings(built, "TOR", "MEM"), [])
+
+    def test_miss_chance(self):
+        import predictor_nba
+        self.assertEqual(predictor_nba.miss_chance({"status": "Day-To-Day"}), 0.4)
+        self.assertEqual(predictor_nba.miss_chance({"status": "Day-To-Day", "comment": "Barnes is questionable for Monday's game."}), 0.5)
+        self.assertEqual(predictor_nba.miss_chance({"status": "Day-To-Day", "code": "GTD"}), 0.5)
+        self.assertEqual(predictor_nba.miss_chance({"status": "Day-To-Day", "comment": "He is listed as probable."}), 0.1)
+        self.assertEqual(predictor_nba.miss_chance({"status": "Day-To-Day", "comment": "Doubtful to play Monday."}), 0.75)
 
 
 class NflV2Tests(unittest.TestCase):

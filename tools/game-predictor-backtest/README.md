@@ -32,3 +32,7 @@ EV, history v2, cron snapshots; see docs/claude-handoff.md). Not kept from the
 backtest: the NFL total weights (nfl_v2_params.json wasn't committed), so the NFL
 total is the line's, else 2*mu + the points ratings. NBA staged sigma kept as
 chosen, though picked after seeing test.
+
+Nov 9: player values pulled toward last season's Game Score a minute (not 0)
+early on: validation MAE 10.834 -> 10.850, early (<=15 games) 10.466 -> 10.484,
+logloss same, injury weight 0.210 -> 0.166. No gain; not used.
