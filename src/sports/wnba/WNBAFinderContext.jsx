@@ -22,10 +22,12 @@ function WinPredictor({matchup}){
  const [away,home]=m.teams;const market=m.odds?.noVig;
  const source=m.predictor?{away:m.predictor.away,home:m.predictor.home,}:market?{away:market.away,home:market.home}:null;
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.status?.detail||'Pregame'}</small></header>
-  {/* The two teams, each its chance, and one bar split between them (Oct 30: the ring read as busy). */}
-  {source?<><div className="wp-teams">{[away,home].map((team,index)=><div className="wp-team" key={team.id} data-side={index?'home':'away'}><Logo src={team.logo} size={30}/>
-    <span><strong>{team.abbr}</strong><small>{team.record||'Record unavailable'}{index===1?' · Home':''}</small></span><b>{fmt(index?source.home:source.away)}%</b></div>)}</div>
-   <div className="wp-bar" role="img" aria-label={`${away.abbr} ${source.away}%, ${home.abbr} ${source.home}%`}><i style={{width:`${source.away}%`}}/></div></>
+  {/* The two teams either side of a ring split between them (Nov 9, the owner with PickFinder's page: "i want this layout"). */}
+  {source?<div className="wp-ring-row">
+   {[away,home].map((team,index)=><div className="wp-ring-team" key={team.id} data-side={index?'home':'away'} style={{order:index?3:1}}><Logo src={team.logo} size={34}/>
+    <strong>{team.abbr}</strong><small>{team.record||'—'}{index===1?' · Home':''}</small><b data-tone={(index?source.home:source.away)>=50?'good':'low'}>{fmt(index?source.home:source.away)}%</b></div>)}
+   <div className="wp-ring" style={{order:2,'--away':`${source.away}%`,'--ac':source.away>=50?'#13a874':'#F06A77','--hc':source.away>=50?'#F06A77':'#13a874'}} role="img" aria-label={`${away.abbr} ${source.away}%, ${home.abbr} ${source.home}%`}><span/></div>
+  </div>
   :<Empty>No pregame prediction or moneyline is posted for this game yet.</Empty>}
  </section>;
 }

@@ -58,6 +58,20 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 9: Finder board and player page after PickFinder's layout
+
+- The owner, with PickFinder's props table and player page: "i want this
+  layout" (both). Computer board (finder-board.css, last block): the line
+  under the player; Apps (each app's O/U), Moneyline (team win chance),
+  Defense, IP (a book's over/under odds with the margin out), Avg L10, Diff,
+  then L5 L10 L15 H2H, Streak and Season as filled green/amber/red cells.
+  The new cells are the last children of each row (the phone layout places
+  cells by nth-child) and `order` lays them out on a computer. Player page:
+  the research tabs are icon tiles on a computer (FinderPlayerLayout Tabs
+  `icons`), the basketball win predictor is a ring again (the owner asked
+  for the bar on Oct 30; this layout has the ring). The odds cards row was
+  already there. The Finder hides the site background photo (styles.css).
+
 ### Nov 9: History's record is live picks only
 
 - The owner: the record said 139 NBA games "since Oct 20" — "thats not true ive

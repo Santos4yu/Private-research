@@ -421,3 +421,87 @@ html:root .unified-finder .finder-table .finder-heat[data-tone=low] { --tone: #E
   html:root .unified-finder .finder-table tbody tr { transition: none; }
   html:root .unified-finder .finder-table .finder-heat::after { animation: none; }
 }
+
+/* ------------------------------------------------------------ the PickFinder-style board (Nov 9)
+
+   The owner, with PickFinder's props table: "i want this layout". In our
+   colors: the line under the player, then Apps (each app's over and under),
+   Moneyline (his team's win chance), Defense, IP (the books' odds for the
+   over and under), Avg L10, Diff, and the hit rates as filled cells, green
+   to red, the streak among them. The new cells come last in each row so
+   the phone layout (which places cells by their order) is untouched; on a
+   computer `order` puts every column in its place. */
+html:root .unified-finder .finder-table .finder-pf, html:root .unified-finder .finder-pf-line { display: none; }
+@media (min-width: 761px) {
+  html:root .unified-finder {
+    --fb-cols: minmax(210px, 2.3fr) minmax(118px, 1.25fr) 74px 62px 82px 62px 66px repeat(4, minmax(58px, 1fr)) 54px minmax(58px, 1fr);
+  }
+  html:root .unified-finder .finder-table .finder-pf { display: flex; }
+  html:root .unified-finder .finder-pf-line { display: block; margin-top: 3px; color: var(--fb-muted); font: 600 11.5px/1.2 var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html:root .unified-finder .finder-pf-line b { color: var(--fb-text); font-weight: 800; }
+  html:root .unified-finder .finder-pf-line b[data-side=more] { color: var(--fb-good); }
+  html:root .unified-finder .finder-pf-line b[data-side=less] { color: var(--fb-low); }
+  html:root .unified-finder .finder-table tr > :nth-child(1) { order: 1; }
+  html:root .unified-finder .finder-table tr > :nth-child(2) { display: none; }
+  html:root .unified-finder .finder-table tr > .finder-pf-apps { order: 2; }
+  html:root .unified-finder .finder-table tr > .finder-pf-ml { order: 3; }
+  html:root .unified-finder .finder-table tr > :nth-child(3) { order: 4; }
+  html:root .unified-finder .finder-table tr > .finder-pf-ip { order: 5; }
+  html:root .unified-finder .finder-table tr > :nth-child(4) { order: 6; }
+  html:root .unified-finder .finder-table tr > .finder-pf-diff { order: 7; }
+  html:root .unified-finder .finder-table tr > :nth-child(6) { order: 8; }
+  html:root .unified-finder .finder-table tr > :nth-child(7) { order: 9; }
+  html:root .unified-finder .finder-table tr > :nth-child(8) { order: 10; }
+  html:root .unified-finder .finder-table tr > :nth-child(9) { order: 11; }
+  html:root .unified-finder .finder-table tr > :nth-child(5) { order: 12; }
+  html:root .unified-finder .finder-table tr > :nth-child(10) { order: 13; }
+  html:root .unified-finder .finder-table th.finder-pf { align-items: center; justify-content: center; color: var(--fb-muted); font: 700 11px/1 var(--font-sans); letter-spacing: .02em; }
+  html:root .unified-finder .finder-table th.finder-pf-apps { justify-content: flex-start; }
+  html:root .unified-finder .finder-table th:is(:nth-child(n+3)) { text-align: center; }
+  html:root .unified-finder .finder-table th:is(:nth-child(n+3)) > button { margin-inline: auto; }
+
+  /* Apps: each app's logo with its over and under. */
+  html:root .unified-finder .finder-table td.finder-pf-apps { align-items: center; gap: 8px; min-width: 0; }
+  html:root .unified-finder .finder-pf-app { display: inline-flex; align-items: center; gap: 5px; }
+  html:root .unified-finder .finder-pf-app img { flex: none; width: 18px; height: 18px; border-radius: 5px; object-fit: contain; }
+  html:root .unified-finder .finder-pf-app > span { display: grid; gap: 2px; }
+  html:root .unified-finder .finder-pf-app i { color: var(--fb-text); font: 700 10.5px/1 var(--font-sans); font-style: normal; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  html:root .unified-finder .finder-pf-apps em { padding: 3px 6px; border-radius: 999px; background: rgba(255, 255, 255, .08); color: var(--fb-muted); font: 700 10px/1 var(--font-sans); font-style: normal; }
+
+  /* Moneyline, Defense: a pill. IP: the over and under stacked. Diff: the gap and its share of the line. */
+  html:root .unified-finder .finder-table td:is(.finder-pf-ml, .finder-pf-ip, .finder-pf-diff) { align-items: center; justify-content: center; text-align: center; }
+  html:root .unified-finder .finder-pf-ml b { padding: 5px 9px; border: 1px solid currentColor; border-radius: 999px; font: 800 12px/1 var(--font-sans); font-variant-numeric: tabular-nums; }
+  html:root .unified-finder .finder-pf-ml b[data-tone=good] { color: var(--fb-good); background: rgba(63, 227, 158, .1); }
+  html:root .unified-finder .finder-pf-ml b[data-tone=low] { color: var(--fb-low); background: rgba(240, 106, 119, .1); }
+  html:root .unified-finder .finder-pf-ip > span { display: grid; gap: 3px; }
+  html:root .unified-finder .finder-pf-ip i { color: var(--fb-muted); font: 700 10.5px/1 var(--font-sans); font-style: normal; font-variant-numeric: tabular-nums; }
+  html:root .unified-finder .finder-pf-ip i[data-tone=good] { color: var(--fb-good); }
+  html:root .unified-finder .finder-pf-ip i[data-tone=low] { color: var(--fb-low); }
+  html:root .unified-finder .finder-table td.finder-pf-diff { flex-direction: column; gap: 3px; }
+  html:root .unified-finder .finder-pf-diff b { color: var(--fb-text); font: 800 13px/1 var(--font-sans); }
+  html:root .unified-finder .finder-pf-diff b[data-tone=good] { color: var(--fb-good); }
+  html:root .unified-finder .finder-pf-diff b[data-tone=low] { color: var(--fb-low); }
+  html:root .unified-finder .finder-pf-diff small { color: var(--fb-muted); font: 600 10px/1 var(--font-sans); }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(4) small { display: none; }
+
+  /* The hit rates and the streak: filled cells, green to red, the record under the rate. */
+  html:root .unified-finder .finder-table tbody tr { min-height: 54px; align-items: stretch; }
+  html:root .unified-finder .finder-table tbody td:is(.finder-stat, :nth-child(5)) { padding: 1px !important; }
+  html:root .unified-finder .finder-table .finder-heat { display: flex !important; height: 100% !important; min-height: 50px; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    border-radius: 3px; background: rgba(255, 255, 255, .03); color: #fff; }
+  html:root .unified-finder .finder-table .finder-heat::after { content: none !important; display: none !important; }
+  html:root .unified-finder .finder-table .finder-heat[data-tone=good] { background: linear-gradient(180deg, #13a874, #0d7f58); }
+  html:root .unified-finder .finder-table .finder-heat[data-tone=mid] { background: linear-gradient(180deg, #c98f22, #9c6c12); }
+  html:root .unified-finder .finder-table .finder-heat[data-tone=low] { background: linear-gradient(180deg, #c7344a, #9b2337); }
+  html:root .unified-finder .finder-table .finder-heat strong { color: #fff !important; font: 800 13.5px/1 var(--font-sans); }
+  html:root .unified-finder .finder-table .finder-heat small { color: rgba(255, 255, 255, .8) !important; font: 700 10px/1 var(--font-sans); }
+  html:root .unified-finder .finder-table td.finder-num { display: flex !important; flex-direction: column; align-items: center; justify-content: center; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5) { border-radius: 3px; background: rgba(255, 255, 255, .03) !important; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5)[data-tone=good] { background: linear-gradient(180deg, #13a874, #0d7f58) !important; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5)[data-tone=low] { background: linear-gradient(180deg, #c7344a, #9b2337) !important; }
+  html:root .unified-finder .finder-table td.finder-num:nth-child(5) :is(b, small) { color: #fff !important; }
+}
+@media (min-width: 761px) and (max-width: 1180px) {
+  html:root .unified-finder { --fb-cols: minmax(170px, 2fr) minmax(96px, 1.1fr) 66px 56px 74px 56px 60px repeat(3, minmax(52px, 1fr)) minmax(52px, 1fr); }
+  html:root .unified-finder .finder-table tr > :is(:nth-child(5), :nth-child(9)) { display: none !important; }
+}

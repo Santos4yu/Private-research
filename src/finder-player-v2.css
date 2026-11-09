@@ -562,3 +562,24 @@ html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-val {
   html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-val { font-size: 12.5px !important; }
   html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary { padding-top: 6px !important; padding-bottom: 10px !important; }
 }
+
+/* ---------------------------------------------------- PickFinder-style parts (Nov 9)
+   The owner, with PickFinder's player page: "i want this layout". In our
+   colors: the research tabs as icon tiles on a computer, and the win
+   predictor as a ring. */
+@media (min-width: 1181px) {
+  .fp2 .fp2-tabs.fp2-tabs-research { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; padding: 0; border: 0; background: none; overflow: visible; }
+  .fp2 .fp2-tabs.fp2-tabs-research > button { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-height: 66px; padding: 10px 6px !important;
+    border: 1px solid rgba(255, 255, 255, .07) !important; border-radius: 12px !important; background: #141414 !important; color: #9b9b9b !important; font: 700 12px/1.1 var(--font-sans, Inter, sans-serif) !important; }
+  .fp2 .fp2-tabs.fp2-tabs-research > button::after { content: none !important; }
+  .fp2 .fp2-tabs.fp2-tabs-research > button[aria-pressed=true] { border-color: rgba(255, 255, 255, .22) !important; background: #1f1f1f !important; color: #fff !important; }
+}
+.mlb-win-predictor .wp-ring-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 4px 2px; }
+.mlb-win-predictor .wp-ring-team { display: grid; justify-items: center; gap: 3px; min-width: 70px; }
+.mlb-win-predictor .wp-ring-team strong { color: #f2f2f2; font: 800 14px/1 var(--font-sans, Inter, sans-serif); }
+.mlb-win-predictor .wp-ring-team small { color: #9b9b9b; font: 600 11px/1 var(--font-sans, Inter, sans-serif); }
+.mlb-win-predictor .wp-ring-team b { font: 800 13px/1 var(--font-sans, Inter, sans-serif); }
+.mlb-win-predictor .wp-ring-team b[data-tone=good] { color: #3FE39E; }
+.mlb-win-predictor .wp-ring-team b[data-tone=low] { color: #F06A77; }
+.mlb-win-predictor .wp-ring { position: relative; width: 112px; height: 112px; border-radius: 50%; background: conic-gradient(var(--ac, #F06A77) 0 var(--away), var(--hc, #13a874) var(--away) 100%); }
+.mlb-win-predictor .wp-ring > span { position: absolute; inset: 16px; border-radius: 50%; background: var(--fp2-panel, #141414); }

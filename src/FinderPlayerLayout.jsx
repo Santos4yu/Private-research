@@ -15,11 +15,17 @@
 // section stays mounted and is hidden when not picked, so a tab opens at
 // once and keeps where it was.
 import React,{useCallback,useState} from 'react';
+import {ChartColumn,Crosshair,HeartPulse,LayoutGrid,ListOrdered,Newspaper,Shield,Swords,Target,Users,Wind,CalendarDays,Activity} from 'lucide-react';
 import {FinderPlayerBanner} from './FinderPlayerBanner';
 import './finder-player-v2.css';
 
-function Tabs({list,picked,onPick,className,label}){
- return <nav className={`fp2-tabs ${className}`} aria-label={label}>{list.map(([key,name])=><button type="button" key={key} aria-pressed={picked===key} onClick={()=>onPick(key)}>{name}</button>)}</nav>;
+// Each research tab's icon, for the tiles on a computer (Nov 9, the owner
+// with PickFinder's player page: "i want this layout").
+const TAB_ICONS={matchup:Swords,defense:Shield,shooting:Target,similar:Users,injuries:HeartPulse,rankings:ListOrdered,news:Newspaper,
+ odds:ChartColumn,weather:Wind,schedule:CalendarDays,usage:Activity,pitcher:Crosshair};
+function Tabs({list,picked,onPick,className,label,icons=false}){
+ return <nav className={`fp2-tabs ${className}`} aria-label={label}>{list.map(([key,name])=>{const Icon=TAB_ICONS[String(key).replace(/^his:/,'').toLowerCase()]||LayoutGrid;
+  return <button type="button" key={key} aria-pressed={picked===key} onClick={()=>onPick(key)}>{icons&&<Icon size={17} aria-hidden="true"/>}<span>{name}</span></button>;})}</nav>;
 }
 
 // His sections' keys carry a prefix: a sport's research can have a tab of
@@ -57,7 +63,7 @@ export function FinderPlayerLayout({row,playerRows,onBack,className='',style,not
    <div className="fp2-research">
     {/* A phone (and a narrow window): one row for every tab. */}
     <Tabs className="fp2-tabs-all" label="Research" list={[...researchList,...hisList]} picked={group==='research'?shownResearch:HIS+hisTab} onPick={pick}/>
-    <Tabs className="fp2-tabs-research" label="Matchup research" list={researchList} picked={shownResearch} onPick={pick}/>
+    <Tabs className="fp2-tabs-research" label="Matchup research" list={researchList} picked={shownResearch} onPick={pick} icons/>
     <div className="fp2-section fp2-matchup">{renderResearch?.(shownResearch)}</div>
    </div>
   </div>}
