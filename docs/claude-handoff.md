@@ -85,6 +85,15 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   `icons`), the basketball win predictor is a ring again (the owner asked
   for the bar on Oct 30; this layout has the ring). The odds cards row was
   already there. The Finder hides the site background photo (styles.css).
+- Then: "wheres like the border on the trends and stuff". From 761px up
+  (finder-player-v2.css, "Framed panels" block) each part is a framed card
+  (#141414, 1px white-8.5% line, 14-18px corners): the odds cards, the stat
+  tabs as a row of pills, the chart (a `.gamelog-modal::before` drawn behind
+  grid rows bet-start / summary-end, the phone's trick, with the modal padded
+  by --fp2-pad), his Game log / Stats / Depth, the research tiles (all seven
+  on one row) and every card on the right. 1051-1320px puts the windows
+  strip under the filters (the left column is too slim beside them). The
+  phone keeps its own panel.
 
 ### Nov 9: History's record is live picks only
 

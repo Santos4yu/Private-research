@@ -583,3 +583,68 @@ html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-val {
 .mlb-win-predictor .wp-ring-team b[data-tone=low] { color: #F06A77; }
 .mlb-win-predictor .wp-ring { position: relative; width: 112px; height: 112px; border-radius: 50%; background: conic-gradient(var(--ac, #F06A77) 0 var(--away), var(--hc, #13a874) var(--away) 100%); }
 .mlb-win-predictor .wp-ring > span { position: absolute; inset: 16px; border-radius: 50%; background: var(--fp2-panel, #141414); }
+
+/* ---------------------------------------------------- Framed panels (Nov 9)
+   The owner, next to PickFinder's page: "wheres like the border on the
+   trends and stuff". On a computer (and a tablet) each part sits in its own
+   framed card, a shade lighter than the page: the odds cards, the stats as
+   a row of pills, the chart (title, buttons, filters, windows, chart and
+   averages, one card drawn behind them), his games, and every card and tile
+   on the right. A phone keeps its own panel (above). */
+@media (min-width: 761px) {
+  html:root .fp2 { --fp2-panel: #141414; --fp2-line: rgba(255, 255, 255, .085); --fp2-pad: 20px; }
+
+  /* The chart: one card behind the title down to the averages. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal { isolation: isolate; padding: 0 var(--fp2-pad) 18px !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal::before {
+    content: ""; display: block; grid-column: 1 / -1; grid-row: bet-start / summary-end; align-self: stretch; justify-self: stretch; z-index: -1;
+    margin: -18px calc(var(--fp2-pad) * -1) -18px; border: 1px solid var(--fp2-line); border-radius: 18px; background: var(--fp2-panel); pointer-events: none;
+  }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge :is(#gamelog-quotes-slot, #gamelog-stat-tabs) { margin-inline: calc(var(--fp2-pad) * -1) !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary { padding-bottom: 0 !important; }
+
+  /* The odds cards, framed. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-quotes-slot { margin-bottom: 12px !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-card { border: 1px solid var(--fp2-line) !important; background: var(--fp2-panel) !important; }
+
+  /* The stats: their own card, a row of pills, the picked one lit. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs {
+    gap: 4px !important; margin-bottom: 32px !important; padding: 6px !important;
+    border: 1px solid var(--fp2-line) !important; border-radius: 14px !important; background: var(--fp2-panel) !important; box-shadow: none !important;
+  }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button { height: 38px !important; padding: 0 13px !important; border-radius: 10px !important; transition: background-color .15s ease; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button:hover { background: rgba(255, 255, 255, .05) !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { background: rgba(255, 255, 255, .13) !important; }
+
+  /* His games: one card, the tabs along its top, the table flush inside. */
+  html:root .fp2 .fp2-his { margin-top: 18px; padding: 4px 16px 16px; border: 1px solid var(--fp2-line); border-radius: 18px; background: var(--fp2-panel); }
+  html:root .fp2 .fp2-his .fp2-tabs { margin: 0 -16px 12px; padding: 0 8px; }
+  html:root .fp2 .fp2-his .fp2-section > .mlb-context-card { border: 0 !important; border-radius: 12px !important; background: rgba(255, 255, 255, .025) !important; box-shadow: none !important; }
+
+  /* The right: every card framed on the same shade. */
+  html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) { border: 1px solid var(--fp2-line) !important; background: var(--fp2-panel) !important; }
+  html:root .fp2 .fp2-research .fp2-tabs-all { box-shadow: none; padding: 5px; border: 1px solid var(--fp2-line); border-radius: 14px; background: var(--fp2-panel); }
+  html:root .fp2 .fp2-research .fp2-tabs-all > button { height: 38px; border-radius: 10px; }
+  html:root .fp2 .fp2-research .fp2-tabs-all > button[aria-pressed=true] { background: rgba(255, 255, 255, .1) !important; box-shadow: none; }
+}
+@media (min-width: 1051px) and (max-width: 1180px) {
+  html:root .fp2 .fp2-tabs.fp2-tabs-research { padding: 5px; border: 1px solid var(--fp2-line); border-radius: 14px; background: var(--fp2-panel); box-shadow: none; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button { height: 38px; border-radius: 10px; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button[aria-pressed=true] { background: rgba(255, 255, 255, .1) !important; box-shadow: none; }
+}
+@media (min-width: 1181px) {
+  html:root .fp2 .fp2-tabs.fp2-tabs-research { grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); margin-bottom: 14px; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button { border-color: var(--fp2-line) !important; background: var(--fp2-panel) !important; transition: background-color .15s ease, border-color .15s ease; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button:hover { border-color: rgba(255, 255, 255, .16) !important; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button[aria-pressed=true] { border-color: rgba(255, 255, 255, .28) !important; background: #1f1f1f !important; }
+}
+@media (min-width: 761px) and (max-width: 1050px) {
+  html:root .fp2 { --fp2-pad: 16px; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button { padding: 9px 5px !important; }
+}
+/* A narrower computer: the left column is too slim for the windows beside the
+   buttons, so they take their own row under the filters. */
+@media (min-width: 1051px) and (max-width: 1320px) {
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: "quotes" "tabs" "bet" "tool" "filters" "windows" "chart" "summary" "odds" !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs { margin-top: 14px !important; }
+}
