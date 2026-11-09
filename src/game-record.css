@@ -1,0 +1,78 @@
+/* The admin's record on top of History (GameRecord.jsx). Same page, same
+   look: sections on the page split by hairlines, numbers that grow in, bars
+   that fill, green for right and red for wrong only. */
+.gr{margin-top:18px}
+.gr-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.gr-top h2{margin:0;font-size:22px;font-weight:850;letter-spacing:-.02em}
+.gr-top .gp-seg{min-width:210px}
+.gr-head{display:grid;gap:4px;margin-top:18px;animation:gp-rise .45s var(--gp-ease) both}
+.gr-head-main{display:flex;align-items:baseline;gap:10px}
+.gr-head-main b{font-size:40px;font-weight:850;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums}
+.gr-head-main em{color:var(--gp-muted);font-size:18px;font-style:normal;font-weight:800;font-variant-numeric:tabular-nums}
+.gr-head strong{font-size:16px;font-weight:850;font-variant-numeric:tabular-nums}
+.gr-head small{color:var(--gp-faint);font-size:12.5px;font-weight:650}
+.gr-stats{margin-top:16px}
+.gr-note{margin:14px 0 0}
+.gr-filling{display:flex;align-items:center;gap:9px;margin:12px 0 0;color:var(--gp-muted);font-size:13px;font-weight:650}
+.gr-filling-dot{width:8px;height:8px;border-radius:50%;background:var(--gp-gold);animation:gr-blink 1.2s ease-in-out infinite}
+@keyframes gr-blink{50%{opacity:.25}}
+
+.gr-block{margin-top:20px;padding-top:14px;border-top:1px solid var(--gp-rule)}
+.gr-block h4{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0;color:var(--gp-muted);font-size:12.5px;font-weight:800}
+.gr-block h4 small{color:var(--gp-faint);font-size:11.5px;font-weight:700}
+
+/* A split: name and record, a bar of how often (the mark is 50%), the rate. */
+.gr-split{display:grid;gap:12px;margin:12px 0 0;padding:0;list-style:none}
+.gr-split li{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 46px;align-items:center;gap:12px;animation:gp-rise .4s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 50ms)}
+.gr-split-name{min-width:0;font-size:13.5px;font-weight:750}
+.gr-split-name small{display:block;margin-top:2px;color:var(--gp-faint);font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums}
+.gr-split-bar{position:relative;height:6px;border-radius:99px;background:rgba(255,255,255,.08)}
+.gr-split-bar::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1.5px;background:rgba(255,255,255,.3)}
+.gr-split-bar i{position:absolute;inset:0 auto 0 0;width:calc(var(--w,0) * 100%);border-radius:inherit;background:color-mix(in srgb,var(--gp-up) 75%,#0c0c0c);
+ transform-origin:left;animation:gp-grow .8s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 50ms + .1s)}
+.gr-split b{text-align:right;font-size:14px;font-weight:850;font-variant-numeric:tabular-nums}
+
+/* Day by day: wins up from the middle, losses down, a column a day. */
+.gr-days{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;height:116px;margin-top:12px}
+.gr-day{display:grid;grid-template-rows:1fr 1fr;gap:2px;min-width:0;padding:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.gr-day-up,.gr-day-down{position:relative;display:block}
+.gr-day-up i,.gr-day-down i{position:absolute;left:0;right:0;height:calc(var(--h,0) * 100%);transform-origin:bottom;animation:gr-bar .55s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 18ms)}
+.gr-day-up i{bottom:0;border-radius:4px 4px 1px 1px;background:color-mix(in srgb,var(--gp-up) 72%,#0c0c0c)}
+.gr-day-down i{top:0;border-radius:1px 1px 4px 4px;background:color-mix(in srgb,var(--gp-down) 70%,#0c0c0c);transform-origin:top}
+.gr-day[data-picked] i{filter:brightness(1.35)}
+.gr-day:not([data-picked]) i{opacity:.8}
+@keyframes gr-bar{from{transform:scaleY(0)}}
+.gr-days-note{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;margin:8px 0 0;color:var(--gp-muted);font-size:12.5px;font-weight:650;font-variant-numeric:tabular-nums}
+.gr-days-note>b{color:var(--gp-text);font-weight:800}
+.gr-key{display:inline-flex;align-items:center;gap:6px;margin-left:auto;color:var(--gp-faint);font-size:11.5px}
+.gr-key i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-left:6px}
+.gr-key .is-win{background:color-mix(in srgb,var(--gp-up) 72%,#0c0c0c)}
+.gr-key .is-loss{background:color-mix(in srgb,var(--gp-down) 70%,#0c0c0c)}
+
+/* Every pick: a row each. */
+.gr-games{margin:10px 0 0;padding:0;list-style:none}
+.gr-games li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 0;animation:gp-rise .4s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 30ms)}
+.gr-games li+li{border-top:1px solid var(--gp-rule)}
+.gr-mark{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.08);color:var(--gp-muted);font-style:normal}
+.gr-mark[data-result="win"]{background:color-mix(in srgb,var(--gp-up) 22%,transparent);color:var(--gp-up)}
+.gr-mark[data-result="loss"]{background:color-mix(in srgb,var(--gp-down) 22%,transparent);color:var(--gp-down)}
+.gr-game-main{min-width:0}
+.gr-game-main b{display:flex;align-items:baseline;gap:7px;overflow:hidden;font-size:14px;font-weight:800;white-space:nowrap;text-overflow:ellipsis}
+.gr-game-main b em{color:var(--gp-muted);font-size:12.5px;font-style:normal;font-weight:700}
+.gr-game-main small{display:block;margin-top:2px;overflow:hidden;color:var(--gp-faint);font-size:12px;font-weight:600;white-space:nowrap;text-overflow:ellipsis}
+.gr-game-right{display:grid;justify-items:end;gap:1px;font-variant-numeric:tabular-nums}
+.gr-game-right b{font-size:15px;font-weight:850}
+.gr-game-right small{color:var(--gp-faint);font-size:11px;font-weight:650}
+.gr-more{width:100%;justify-content:center;margin-top:8px}
+
+/* Props: three parts down the page. */
+.gr-part+.gr-part{margin-top:26px;padding-top:4px;border-top:1px solid var(--gp-rule)}
+.gr-part-head{display:flex;align-items:baseline;gap:9px;margin:18px 0 0;font-size:17px;font-weight:850;letter-spacing:-.015em}
+.gr-part-head small{color:var(--gp-faint);font-size:12px;font-weight:650;letter-spacing:0}
+
+.gp-mine-head{margin:34px 0 0;padding-top:20px;border-top:1px solid var(--gp-rule);font-size:20px;font-weight:850;letter-spacing:-.02em}
+@media (max-width:560px){
+ .gr-head-main b{font-size:34px}
+ .gr-top .gp-seg{min-width:0;width:100%}
+ .gr-split li{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 42px;gap:9px}
+}

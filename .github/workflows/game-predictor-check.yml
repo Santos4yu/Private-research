@@ -4,7 +4,8 @@
 # container can't reach ESPN. Then v2's NFL model on this week's games, its
 # play-by-play tables built here from nflverse (the site's are built by the
 # predictor cron). DraftKings' own feed (the moneylines on the page) and how
-# its games match ESPN's. Run by hand.
+# its games match ESPN's. The record's replay of past games (game_record.py).
+# Run by hand.
 name: Game predictor check
 
 on:
@@ -16,7 +17,7 @@ permissions:
 jobs:
   espn:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - run: python -m pip install --quiet requests numpy
@@ -125,6 +126,44 @@ jobs:
               print("   QBs:", built and built["starters"], "| warnings:", [item["text"] for item in made["warnings"]])
               print("   parts:", [(part["key"], part["points"], part["text"]) for part in made["factors"]])
               print("   write-up:", [point["text"] for point in (made.get("story") or {}).get("points", []) if point["key"] in ("teams", "home", "extras")])
+      - name: The record's season so far, past games replayed (game_record.py)
+        shell: python
+        run: |
+          import sys, traceback
+          sys.path.insert(0, ".")
+          from datetime import datetime, timedelta, timezone
+          import game_predictor as gp
+          import game_record
+          import nfl_team_epa
+          from backend.sports.nfl import finder
+          now = datetime.now(timezone.utc)
+          # The NFL: last weeks' finals from ESPN, each called as of its date (the ratings from nflverse here).
+          try:
+              season = gp._nfl_season(now)
+              table, last, games = nfl_team_epa.build(season), nfl_team_epa.build(season - 1), finder.games_index()
+              gp._nfl_v2 = lambda when: gp.nfl_context(table, last, games, (when - timedelta(hours=5)).date(), season)
+              past = game_record.past_games("nfl", now, season)
+              print("NFL finished games this season:", len(past))
+              made = [game_record.replay("nfl", game, now) for game in past[-6:]]
+              for entry in made:
+                  if entry:
+                      print(f"  {entry['day']} {entry['away']} @ {entry['home']}: took {entry[entry['side']]} {entry['chance']} (market {entry['market']}, {entry['price']}) "
+                            f"{entry['confidence']} -> {entry['result']['away']}-{entry['result']['home']} correct {entry['result']['correct']} units {entry['result'].get('units')}")
+              print("  summed:", {key: value for key, value in game_record.summary_of([entry for entry in made if entry], now).items() if key in ("games", "wins", "losses", "units")})
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
+          # The NBA: does a finished game's summary still have its line and final (the season's games come from the stored season on the site)?
+          try:
+              for back in (2, 3):
+                  day = (now - timedelta(days=back, hours=5)).strftime("%Y%m%d")
+                  events = gp._espn("nba", "/scoreboard", {"dates": day}).get("events") or []
+                  for event in events[:3]:
+                      summary = gp._espn("nba", "/summary", {"event": event["id"]})
+                      parsed = gp.summary_game("nba", event["id"], summary)
+                      print(f"  NBA {day} {parsed['away'] and parsed['away']['abbr']} @ {parsed['home'] and parsed['home']['abbr']}: state {parsed['state']} "
+                            f"line {parsed['line']} final {gp.final_of(summary)}")
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
       - name: NBA games on now, NBA.com's live feed against ESPN's
         shell: python
         run: |

@@ -1,8 +1,9 @@
-// Small pieces the Game Predictor's pages share (GamePredictor.jsx and
-// PropGenerator.jsx): the loading shimmer, the empty state, a section with
-// its heading, and the menu pill.
+// Small pieces the Game Predictor's pages share (GamePredictor.jsx,
+// PropGenerator.jsx, GameRecord.jsx): the loading shimmer, the empty state,
+// a section with its heading, the menu pill and the sliding switch.
 import React,{useEffect,useRef,useState} from 'react';
 import {CalendarDays,Check,ChevronDown} from 'lucide-react';
+import {useInk,inkStyle} from './use-ink.js';
 
 export const Shimmer=({rows=4,tall})=><div className={`gp-shimmer${tall?' is-tall':''}`} role="status" aria-label="Loading">{Array.from({length:rows},(_,index)=><span key={index} style={{'--i':index}}/>)}</div>;
 export const Empty=({icon:Icon=CalendarDays,title,text,children})=><div className="gp-empty"><Icon size={22} aria-hidden="true"/><b>{title}</b>{text&&<p>{text}</p>}{children}</div>;
@@ -34,5 +35,14 @@ export function ChipMenu({label,value,options,onChange}){
     </button>
    </React.Fragment>)}
   </div>}
+ </div>;
+}
+
+// A switch of two or three, one pill sliding to the picked one.
+export function Segmented({options,value,onChange,label,wide}){
+ const row=useRef(null),ink=useInk(row,value,'[aria-checked=true]');
+ return <div className={`gp-seg${wide?' is-wide':''}`} role="radiogroup" aria-label={label} ref={row}>
+  <span className="gp-seg-ink" style={inkStyle(ink)} aria-hidden="true"/>
+  {options.map(([key,text])=><button type="button" role="radio" key={key} aria-checked={value===key} onClick={()=>onChange(key)}>{text}</button>)}
  </div>;
 }

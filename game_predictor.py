@@ -442,27 +442,28 @@ def slate(sport, now=None) -> dict:
     return {"sport": sport, "games": games, "fetchedAt": now.isoformat()}
 
 
-def _summary(sport, event_id):
-    """One game from ESPN's summary: teams, status, line, its projection,
-    both injury reports and each team's last five."""
+def summary_game(sport, event_id, summary) -> dict:
+    """One game from ESPN's summary payload: teams, status, line, its
+    projection, both injury reports and each team's last five."""
     from backend.sports.wnba import matchup
+    competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
+    sides = {competitor.get("homeAway"): _competitor(competitor) for competitor in competition.get("competitors") or []}
+    status = (competition.get("status") or {}).get("type") or {}
+    predictor = summary.get("predictor") or {}
+    home_p = _num((predictor.get("homeTeam") or {}).get("gameProjection"))
+    away_p = _num((predictor.get("awayTeam") or {}).get("gameProjection"))
+    venue = (summary.get("gameInfo") or {}).get("venue") or {}
+    return {"id": str(event_id), "sport": sport, "startsAt": competition.get("date"), "state": status.get("state"),
+            "detail": status.get("shortDetail") or status.get("detail"), "neutral": bool(competition.get("neutralSite")),
+            "venue": venue.get("fullName"), "home": sides.get("home"), "away": sides.get("away"),
+            "line": _line((summary.get("pickcenter") or [None])[0], sides),
+            "espn": {"home": home_p / 100, "away": away_p / 100} if home_p is not None and away_p is not None else None,
+            "injuries": matchup._injuries(summary), "lastFive": matchup._last_five(summary)}
 
-    def load():
-        summary = _espn(sport, "/summary", {"event": event_id})
-        competition = ((summary.get("header") or {}).get("competitions") or [{}])[0]
-        sides = {competitor.get("homeAway"): _competitor(competitor) for competitor in competition.get("competitors") or []}
-        status = (competition.get("status") or {}).get("type") or {}
-        predictor = summary.get("predictor") or {}
-        home_p = _num((predictor.get("homeTeam") or {}).get("gameProjection"))
-        away_p = _num((predictor.get("awayTeam") or {}).get("gameProjection"))
-        venue = (summary.get("gameInfo") or {}).get("venue") or {}
-        return {"id": str(event_id), "sport": sport, "startsAt": competition.get("date"), "state": status.get("state"),
-                "detail": status.get("shortDetail") or status.get("detail"), "neutral": bool(competition.get("neutralSite")),
-                "venue": venue.get("fullName"), "home": sides.get("home"), "away": sides.get("away"),
-                "line": _line((summary.get("pickcenter") or [None])[0], sides),
-                "espn": {"home": home_p / 100, "away": away_p / 100} if home_p is not None and away_p is not None else None,
-                "injuries": matchup._injuries(summary), "lastFive": matchup._last_five(summary)}
-    found = _kept(f"summary:{sport}:{event_id}", SUMMARY_SECONDS, load)
+
+def _summary(sport, event_id):
+    """One game from ESPN's summary (summary_game), read at most every SUMMARY_SECONDS."""
+    found = _kept(f"summary:{sport}:{event_id}", SUMMARY_SECONDS, lambda: summary_game(sport, event_id, _espn(sport, "/summary", {"event": event_id})))
     # DraftKings' moneyline right now (its own read is seconds old, not
     # minutes) for a game still to start: once it's on, the prediction keeps
     # the line it had at tip-off (the chart has the live price).
@@ -2130,8 +2131,8 @@ def _still_to_start(found, now) -> bool:
 
 def snapshot(sport, now=None, store=None) -> dict:
     """The cron, twice a day: each game's market chance from the current
-    lines, for its chart (sample_odds). No predictions are kept: the
-    history is only the picks members save."""
+    lines, for its chart (sample_odds). A member's history is only the
+    picks they save; the site's own record of every pick is game_record.py."""
     now = now or datetime.now(timezone.utc)
     store = _store() if store is None else store
     games = slate(sport, now)["games"]
@@ -2212,6 +2213,11 @@ def board(sport, now=None, store=None, day=None) -> dict:
         games = [game for game in listed if game["state"] == "pre" and (start := _when(game["startsAt"])) and start > now]
         results = _predict_many(sport, games[:BOARD_GAMES], now, store)
         made = [found for found, _ in results if found and _still_to_start(found, now)]
+        try:  # The site's own record keeps every game's pick (game_record.py).
+            import game_record
+            game_record.remember(sport, made, now=now, store=store)
+        except Exception:  # noqa: BLE001 -- never at the cost of the board
+            pass
         return {"sport": sport, "day": day, "games": [board_game(found) for found in made], "fetchedAt": now.isoformat()}
     return _kept(f"board:{sport}:{day or 'next'}", BOARD_SECONDS, load)
 

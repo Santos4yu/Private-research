@@ -651,8 +651,9 @@ class handler(BaseHTTPRequestHandler):
         table (nfl_team_epa.py) once nflverse has the night's games;
         step=epa-last builds last season's if it isn't kept yet (its
         ratings' starting point); step=snapshot adds each game's market
-        chance to its chart in both leagues (no predictions are kept: a
-        member's history is only the picks they save)."""
+        chance to its chart in both leagues; step=record keeps every game's
+        pick for the admin's record, settles it and fills in the season so
+        far (game_record.py)."""
         import hmac
         secret = os.getenv("CRON_SECRET", "")
         if secret:
@@ -669,6 +670,20 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(200, {"ok": True, "season": season, "skipped": "already kept"})
                 size, stored = nfl_team_epa.refresh(season)
                 return self._send(200 if stored else 500, {"ok": stored, "season": season, "bytes": size, "stored": stored})
+            if step == "record":
+                # The site's own moneyline record (game_record.py): today's
+                # picks kept, what's due settled, a step of the season so far.
+                from concurrent.futures import ThreadPoolExecutor
+                import game_predictor
+                import game_record
+
+                def keep(sport):
+                    try:
+                        return game_record.timer(sport)
+                    except Exception as exc:  # noqa: BLE001 -- the other league still runs
+                        return {"sport": sport, "error": type(exc).__name__}
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    return self._send(200, {"ok": True, "leagues": list(pool.map(keep, game_predictor.SPORTS))})
             if step == "snapshot":
                 from concurrent.futures import ThreadPoolExecutor
                 import game_predictor

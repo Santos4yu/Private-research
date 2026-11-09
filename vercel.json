@@ -43,6 +43,8 @@
     { "path": "/api/v2-admin?action=predictor-cron&step=epa", "schedule": "30 12 * * *" },
     { "path": "/api/v2-admin?action=predictor-cron&step=epa-last", "schedule": "50 12 * * *" },
     { "path": "/api/v2-admin?action=predictor-cron&step=snapshot", "schedule": "40 16 * * *" },
-    { "path": "/api/v2-admin?action=predictor-cron&step=snapshot&run=late", "schedule": "40 22 * * *" }
+    { "path": "/api/v2-admin?action=predictor-cron&step=snapshot&run=late", "schedule": "40 22 * * *" },
+    { "path": "/api/v2-admin?action=predictor-cron&step=record", "schedule": "50 16 * * *" },
+    { "path": "/api/v2-admin?action=predictor-cron&step=record&run=late", "schedule": "50 22 * * *" }
   ]
 }

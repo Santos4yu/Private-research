@@ -27,6 +27,7 @@ import {propGrades} from './props-grade.js';
 import {spreadScores} from './nba-matchup-score.js';
 import {callsOf,deepCandidates,minutesPoints,readGame,summaryOf} from './prop-gameread.js';
 import {hasPlayerContext,playerContextParams,wnbaGet} from './sports/wnba/wnba-research.js';
+import {pickPayload} from './slip-history.js';
 import {ChipMenu,Empty,Section,Shimmer} from './gp-parts.jsx';
 import './prop-generator.css';
 
@@ -110,6 +111,27 @@ function useGameReads(strict,loose,league,tonight){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [ready,candidates,league,tick]);
  return {reads,done,total:candidates.length,ready};
+}
+
+// The calls kept for the site's record (Nov 9, the owner wants the
+// generator's full record in History; slip_ledger.generator_add): the plays
+// and the passes on games still to start, sent again only when they change.
+const SENT_KEY='pg-calls-sent';
+const callPayload=read=>({...pickPayload({row:read.row,side:'OVER',grade:{tier:read.tier,chance:read.chance,rawChance:read.deep?.rawChance}}),
+ strength:read.call.strength||null,confidence:read.confidence,projection:Number.isFinite(read.projection)?read.projection:null});
+function useKeepCalls(reads,ready){
+ useEffect(()=>{
+  if(!ready||!reads.length)return;
+  const open=reads.filter(read=>Date.parse(read.row.startsAt||'')>Date.now()+10*60000);
+  const plays=open.filter(read=>read.call.play).slice(0,40),passes=open.filter(read=>!read.call.play).slice(0,40);
+  if(!plays.length&&!passes.length)return;
+  const sign=[...plays.map(read=>`${read.row.id}:${read.call.strength}:${read.confidence}`),...passes.map(read=>`x:${read.row.id}`)].sort().join('|');
+  try{const last=JSON.parse(sessionStorage.getItem(SENT_KEY)||'null');if(last?.sign===sign)return;}catch{/* send it */}
+  fetch('/api/prediction?action=game-prop-plays',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({plays:plays.map(callPayload),passes:passes.map(callPayload)})})
+   .then(response=>{if(response.ok)try{sessionStorage.setItem(SENT_KEY,JSON.stringify({sign,at:Date.now()}));}catch{/* sent again next time */}})
+   .catch(()=>{});
+ },[reads,ready]);
 }
 
 // A row of choices with one soft pill gliding to the picked one (scrolls on a phone).
@@ -320,6 +342,7 @@ function Reading({done,total}){
 export function PropGenerator({admin}){
  const {data,rows,league,strict,loose}=usePropBoard();
  const {reads,done,total,ready}=useGameReads(strict,loose,league,data.tonight);
+ useKeepCalls(reads,ready);
  const saved=useSlipIds();
  const [stat,setStat]=useState('all'),[sort,setSort]=useState('best'),[game,setGame]=useState('all');
  const [open,setOpen]=useState(null),[showPasses,setShowPasses]=useState(false);

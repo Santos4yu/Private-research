@@ -22,7 +22,8 @@ import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Flame,Info,Layers,RefreshCw,Share,Trophy,UserX,X,Zap} from 'lucide-react';
 import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
-import {ChipMenu,Empty,Section,Shimmer} from './gp-parts.jsx';
+import {ChipMenu,Empty,Section,Segmented,Shimmer} from './gp-parts.jsx';
+import {GameRecord} from './GameRecord.jsx';
 import {SPORTS,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,likeliest,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import {PropGenerator} from './PropGenerator.jsx';
@@ -107,14 +108,6 @@ function Logo({team,size=28}){
 }
 
 // A row of choices with one soft pill gliding to the picked one.
-function Segmented({options,value,onChange,label,wide}){
- const row=useRef(null),ink=useInk(row,value,'[aria-checked=true]');
- return <div className={`gp-seg${wide?' is-wide':''}`} role="radiogroup" aria-label={label} ref={row}>
-  <span className="gp-seg-ink" style={inkStyle(ink)} aria-hidden="true"/>
-  {options.map(([key,text])=><button type="button" role="radio" key={key} aria-checked={value===key} onClick={()=>onChange(key)}>{text}</button>)}
- </div>;
-}
-
 function Tabs({value,onChange}){
  const row=useRef(null),ink=useInk(row,value,'[aria-selected=true]');
  return <nav className="gp-tabs" role="tablist" aria-label="Game Predictor" ref={row}>
@@ -1013,7 +1006,14 @@ function MoneylineGenerator({league,admin}){
 // (the score from the pick's side, the time left, its chance now), still to
 // come (taken back with the x until it starts), settled (won or lost and
 // what it paid). Each row leads with the picked team's logo.
-function HistoryView({state,live,admin,onRetry,onRemove}){
+// History: the member's saved picks; for the admin, the site's own record on
+// top (GameRecord.jsx: every moneyline the model picked, and the props).
+function HistoryView({sport,admin,...rest}){
+ if(!admin)return <MyPicks admin={admin} {...rest}/>;
+ return <><GameRecord sport={sport}/><h2 className="gp-mine-head">Your saved picks</h2><MyPicks admin={admin} {...rest}/></>;
+}
+
+function MyPicks({state,live,admin,onRetry,onRemove}){
  const {data,error,loading}=state;
  const record=data?.record;
  const items=data?.items||[];
@@ -1137,7 +1137,7 @@ export function GamePredictor(){
   <div className="gp-view" key={view}>
    {view==='predict'&&<PredictView slate={slate} live={liveList} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>}
    {view==='generate'&&<Generator league={sport} admin={admin}/>}
-   {view==='history'&&<HistoryView state={history} live={liveList} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
+   {view==='history'&&<HistoryView sport={sport} state={history} live={liveList} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
   </div>
 
  </div>;

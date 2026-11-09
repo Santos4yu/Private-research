@@ -277,6 +277,19 @@ class handler(BaseHTTPRequestHandler):
                 if not member:
                     return self._send(401, {"error": "Sign in to see your picks.", "authRequired": True})
                 return self._send(200, game_predictor.history(sport, member))
+            if action in ("game-record", "game-prop-record"):
+                # The site's own record, the admin's only: every game the
+                # model picked (game_record.py), or the props (the generator's
+                # plays, the Props tab's top picks, the posted record).
+                from v2.board import admin_auth
+                if not admin_auth.is_admin_request(self.headers):
+                    return self._send(403, {"error": "Admins only."})
+                if action == "game-record":
+                    import game_record
+                    return self._send(200, game_record.read(sport))
+                import slip_ledger
+                return self._send(200, {"generator": slip_ledger.generator_record(), "board": slip_ledger.board_record(),
+                                        "posted": slip_ledger.record()})
             if action == "game-chart":
                 event = arg("event")
                 if not event.isdigit() or len(event) > 14:
@@ -314,6 +327,43 @@ class handler(BaseHTTPRequestHandler):
         except Exception:  # noqa: BLE001 -- ESPN or the stored season can't be read right now
             return self._send(503, {"error": "The predictor can't reach its data right now. Try again in a minute."})
         return self._send(404, {"error": "Unknown predictor action."})
+
+    def _game_record_post(self, action):
+        """The site's own record: a step of filling in the season so far
+        (game-record-fill: {sport}, the admin's), or the prop generator's
+        calls from a page view (game-prop-plays: {plays, passes}, anyone
+        signed in to the section; slip_ledger.generator_add)."""
+        from site_controls import allowed
+        if not allowed(self.headers, 'predictor'):
+            return self._send(503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
+        if not session_with_live_access(self.headers):
+            return self._send(401, {"error": "Sign in first.", "authRequired": True})
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        if length > 98_304:
+            return self._send(413, {"error": "That request is too large."})
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}") if length else {}
+        except ValueError:
+            body = {}
+        body = body if isinstance(body, dict) else {}
+        try:
+            if action == "game-record-fill":
+                from v2.board import admin_auth
+                if not admin_auth.is_admin_request(self.headers):
+                    return self._send(403, {"error": "Admins only."})
+                import game_predictor
+                import game_record
+                sport = str(body.get("sport") or "").lower()
+                if sport not in game_predictor.SPORTS:
+                    return self._send(400, {"error": "Pick the NBA or the NFL."})
+                return self._send(200, game_record.fill(sport))
+            import slip_ledger
+            return self._send(200, slip_ledger.generator_add(body))
+        except Exception:  # noqa: BLE001
+            return self._send(503, {"error": "Not kept right now. Try again in a minute."})
 
     def _game_predictor_post(self, action):
         """Save a pick (game-save: {sport, event, side, stake?}) to the
@@ -475,6 +525,8 @@ class handler(BaseHTTPRequestHandler):
         game_action = (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower()
         if game_action in ("game-save", "game-remove"):
             return self._game_predictor_post(game_action)
+        if game_action in ("game-record-fill", "game-prop-plays"):
+            return self._game_record_post(game_action)
         session = session_with_live_access(self.headers)
         if not session:
             return self._send(401, {

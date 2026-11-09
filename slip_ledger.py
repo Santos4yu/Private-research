@@ -647,6 +647,18 @@ def tick(now=None, limit=8):
         posted = settle(_ledger(_days(now + timedelta(days=1), 4), RECORD), now, limit=limit, space=RECORD)
     except Exception:  # noqa: BLE001 -- settled on the next turn
         posted = {}
+    # The prop generator's plays, and the Props tab's picks summed up a day at a time.
+    generated, archived = {}, []
+    try:
+        generated = settle(_ledger(_days(now + timedelta(days=1), 4), GEN), now, limit=limit, space=GEN)
+        if generated:
+            _memory.pop("generator", None)
+    except Exception:  # noqa: BLE001 -- settled on the next turn
+        generated = {}
+    try:
+        archived = archive_board_days(now)
+    except Exception:  # noqa: BLE001 -- summed up on the next turn
+        archived = []
     if posted:
         _forget()
     news = alerts(entries, now, limit=limit)
@@ -657,7 +669,7 @@ def tick(now=None, limit=8):
         learned = {"picks": fitted["picks"], "at": fitted["at"]} if fitted else None
     except Exception:  # noqa: BLE001 -- never at the cost of settling
         learned = None
-    return {"settled": len(settled), "record": len(posted), **news, "learned": learned}
+    return {"settled": len(settled), "record": len(posted), "generator": len(generated), "archived": len(archived), **news, "learned": learned}
 
 
 # ---------------------------------------------------------------- the admin's record
@@ -977,4 +989,203 @@ def public_results(now=None, entries=None):
            "at": now.isoformat()}
     if entries is None:
         _memory["public"] = (time.time(), out)
+    return out
+
+
+# ---------------------------------------------------------------- the prop generator's record
+
+# The NBA prop generator's calls (src/prop-gameread.js) as its page shows
+# them before the games (Nov 9, the owner: "Is there any way to see our full
+# record for the props ... admin only"): one hash a day like the ledger,
+# kept a season, settled from the box score the same way. A play takes the
+# newer read until its game starts; one the page passes on by then is
+# marked dropped and doesn't count (the last call before tip-off stands).
+GEN = "gen:"
+GEN_KEEP_DAYS = 400
+# The first day plays were kept, and the most a page sends at once.
+GEN_START = "2026-11-09"
+GEN_SEND = 40
+STRENGTHS = ("best", "strong", "play")
+GEN_MARKETS = ("player_points", "player_rebounds", "player_assists", "player_threes", "player_points_rebounds",
+               "player_points_assists", "player_points_rebounds_assists")
+
+
+def _gen_pick(raw, now):
+    """A play from the generator's page, checked: an NBA Over on a regular
+    main-stat line before its game, or None."""
+    if not isinstance(raw, dict) or raw.get("sport") != "nba" or (raw.get("settle") or {}).get("key") not in GEN_MARKETS:
+        return None
+    pick = clean_pick({**raw, "side": "OVER", "modifier": "standard", "source": "board"}, now)
+    if not pick or pick["late"] or not 0 < pick["line"] < 100:
+        return None
+    starts = _time(pick["startsAt"])
+    if not starts or (starts - now).total_seconds() > 40 * 3600:
+        return None
+    confidence = _number(raw.get("confidence"))
+    projection = _number(raw.get("projection"))
+    return {**pick, "strength": raw.get("strength") if raw.get("strength") in STRENGTHS else "play",
+            "confidence": int(min(100, max(0, confidence))) if confidence is not None else None,
+            "projection": round(projection, 2) if projection is not None else None}
+
+
+def generator_add(payload, now=None):
+    """The generator's calls from a page view: {kept, dropped}. `plays` are
+    kept (a kept one takes the newer read until its game starts); `passes`
+    already kept as plays are marked dropped, and back if played again."""
+    now = now or datetime.now(timezone.utc)
+    payload = payload if isinstance(payload, dict) else {}
+    plays = [pick for pick in (_gen_pick(raw, now) for raw in (payload.get("plays") or [])[:GEN_SEND]) if pick]
+    passes = [pick for pick in (_gen_pick(raw, now) for raw in (payload.get("passes") or [])[:GEN_SEND]) if pick]
+    marked = [(pick, False) for pick in plays] + [(pick, True) for pick in passes]
+    if not marked:
+        return {"kept": 0, "dropped": 0}
+    keyed = []
+    for pick, dropped in marked:
+        day = _eastern_day(_time(pick["startsAt"]) or now)
+        keyed.append((day, pick_key(pick, day), pick, dropped))
+    reads = _pipeline([["HGET", PREFIX + GEN + day, key] for day, key, _, _ in keyed])
+    writes, kept, dropped_count = [], 0, 0
+    for (day, key, pick, dropped), raw in zip(keyed, reads):
+        held = _load(raw)
+        if isinstance(held, dict) and (held.get("result") or held.get("late")):
+            continue
+        if dropped:
+            if not isinstance(held, dict) or held.get("dropped"):
+                continue
+            entry = {**held, "dropped": True, "droppedAt": now.isoformat()}
+            dropped_count += 1
+        else:
+            entry = {**(held if isinstance(held, dict) else {"at": now.isoformat(), "result": None, "value": None, "owners": [], "alerted": []}),
+                     **{name: value for name, value in pick.items() if name != "late"}, "late": False, "dropped": False, "seenAt": now.isoformat()}
+            kept += 1
+        writes.append(["HSET", PREFIX + GEN + day, key, json.dumps(entry, separators=(",", ":"))])
+        writes.append(["EXPIRE", PREFIX + GEN + day, GEN_KEEP_DAYS * 86400])
+    if writes:
+        _pipeline(writes)
+        _memory.pop("generator", None)
+    return {"kept": kept, "dropped": dropped_count}
+
+
+def _gen_days(now):
+    first = datetime.fromisoformat(GEN_START).date()
+    today = datetime.fromisoformat(_eastern_day(now + timedelta(days=1))).date()
+    return [(first + timedelta(days=offset)).isoformat() for offset in range(max(1, (today - first).days + 1))][-GEN_KEEP_DAYS:]
+
+
+def _tally(picks):
+    hits = sum(1 for pick in picks if pick.get("result") == "hit")
+    misses = sum(1 for pick in picks if pick.get("result") == "miss")
+    decided = hits + misses
+    return {"hits": hits, "misses": misses, "picks": decided, "rate": round(hits / decided, 4) if decided else None,
+            "pushes": sum(1 for pick in picks if pick.get("result") == "push"), "voids": sum(1 for pick in picks if pick.get("result") == "void")}
+
+
+GEN_FIELDS = ("player", "playerId", "team", "opponent", "stat", "line", "value", "result", "strength", "confidence", "projection", "chance",
+              "headshot", "startsAt")
+
+
+def generator_record(now=None, entries=None, settle_limit=6):
+    """The generator's record: every play kept and not dropped, settled
+    (settling what's due on the way): overall, by strength, by stat, the
+    last 7 and 30 days, day by day and the latest plays."""
+    now = now or datetime.now(timezone.utc)
+    held = _memory.get("generator")
+    if entries is None and held and time.time() - held[0] < RECORD_FRESH:
+        return held[1]
+    rows = entries if entries is not None else _ledger(_gen_days(now), GEN)
+    if entries is None:
+        try:
+            changed = settle(rows, now, limit=settle_limit, space=GEN)
+            rows = [(day, key, changed.get((day, key), pick)) for day, key, pick in rows]
+        except Exception:  # noqa: BLE001 -- settled on the next look
+            pass
+    plays = [(day, pick) for day, _, pick in rows if not pick.get("dropped")]
+    done = [pick for _, pick in plays if pick.get("result")]
+    today = datetime.fromisoformat(_eastern_day(now)).date()
+    since = lambda days: (today - timedelta(days=days)).isoformat()
+    by_day = {}
+    for day, pick in plays:
+        by_day.setdefault(day, []).append(pick)
+    stats = sorted({pick.get("stat") for _, pick in plays if pick.get("stat")})
+    latest = sorted(plays, key=lambda item: (item[1].get("startsAt") or "", item[1].get("confidence") or 0), reverse=True)[:40]
+    out = {"since": GEN_START, "all": _tally(done),
+           "last7": _tally([pick for day, pick in plays if day >= since(7)]), "last30": _tally([pick for day, pick in plays if day >= since(30)]),
+           "strengths": {strength: _tally([pick for pick in done if pick.get("strength") == strength]) for strength in STRENGTHS},
+           "stats": {stat: _tally([pick for pick in done if pick.get("stat") == stat]) for stat in stats},
+           "days": [{"day": day, **_tally(picks)} for day, picks in sorted(by_day.items(), reverse=True)][:45],
+           "pending": sum(1 for _, pick in plays if not pick.get("result")),
+           "latest": [{**{field: pick.get(field) for field in GEN_FIELDS}, "day": day} for day, pick in latest], "at": now.isoformat()}
+    if entries is None:
+        _memory["generator"] = (time.time(), out)
+    return out
+
+
+# ---------------------------------------------------------------- the Props tab's own picks, day by day
+
+# The site's top picks it logs for itself (learn: the 'board' source, the
+# Props tab's grades as the Parlay Builder and the assistant read them)
+# outlive the ledger's LEDGER_DAYS as a small summary a day: each sport's
+# tiers, hits and misses (Overs on regular lines). The timer writes a few
+# days a turn once they're settled (archive_board_days); the admin's record
+# reads them (board_record).
+BOARD_DAY = "boardday:"
+BOARD_KEEP_DAYS = 800
+BOARD_SPAN = 365
+BOARD_TIERS = ("elite", "strong", "lean")
+
+
+def board_day(picks):
+    """{sport: {tier: [hits, misses]}} for one day's ledger picks."""
+    out = {}
+    for pick in picks:
+        if pick.get("source") != "board" or pick.get("late") or pick.get("side") != "OVER" or (pick.get("modifier") or "standard") != "standard":
+            continue
+        if pick.get("tier") not in BOARD_TIERS or pick.get("result") not in ("hit", "miss"):
+            continue
+        cell = out.setdefault(pick["sport"], {}).setdefault(pick["tier"], [0, 0])
+        cell[0 if pick["result"] == "hit" else 1] += 1
+    return out
+
+
+def archive_board_days(now=None, most=3):
+    """Up to `most` finished days (2 to LEDGER_DAYS - 1 days back) not yet
+    summed up, summed up. Returns the days written."""
+    now = now or datetime.now(timezone.utc)
+    days = _days(now, LEDGER_DAYS)[2:]
+    have = _pipeline([["GET", PREFIX + BOARD_DAY + day] for day in days])
+    missing = [day for day, value in zip(days, have) if value is None][:most]
+    if not missing:
+        return []
+    by_day = {}
+    for day, _, pick in _ledger(missing):
+        by_day.setdefault(day, []).append(pick)
+    _pipeline([["SET", PREFIX + BOARD_DAY + day, json.dumps(board_day(by_day.get(day, [])), separators=(",", ":")), "EX", BOARD_KEEP_DAYS * 86400]
+               for day in missing])
+    return missing
+
+
+def board_record(now=None):
+    """The Props tab's top picks over the days summed up so far: each sport
+    and tier, and overall, {sports, tiers, all, days, since, through}."""
+    now = now or datetime.now(timezone.utc)
+    held = _memory.get("board")
+    if held and time.time() - held[0] < RECORD_FRESH:
+        return held[1]
+    days = _days(now, BOARD_SPAN)[2:]
+    values = _pipeline([["GET", PREFIX + BOARD_DAY + day] for day in days])
+    kept = [(day, _load(value)) for day, value in zip(days, values) if value is not None]
+    count = lambda cells: {"hits": sum(cell[0] for cell in cells), "misses": sum(cell[1] for cell in cells)}
+    rate = lambda counts: {**counts, "picks": counts["hits"] + counts["misses"],
+                           "rate": round(counts["hits"] / (counts["hits"] + counts["misses"]), 4) if counts["hits"] + counts["misses"] else None}
+    cells = [(day, sport, tier, cell) for day, summary in kept if isinstance(summary, dict)
+             for sport, tiers in summary.items() if isinstance(tiers, dict) for tier, cell in tiers.items()
+             if tier in BOARD_TIERS and isinstance(cell, list) and len(cell) == 2]
+    sports = sorted({sport for _, sport, _, _ in cells})
+    out = {"all": rate(count([cell for *_, cell in cells])),
+           "tiers": {tier: rate(count([cell for _, _, t, cell in cells if t == tier])) for tier in BOARD_TIERS},
+           "sports": {sport: {"all": rate(count([cell for _, s, _, cell in cells if s == sport])),
+                              **{tier: rate(count([cell for _, s, t, cell in cells if s == sport and t == tier])) for tier in BOARD_TIERS}}
+                      for sport in sports},
+           "since": min((day for day, _ in kept), default=None), "through": max((day for day, _ in kept), default=None), "days": len(kept)}
+    _memory["board"] = (time.time(), out)
     return out

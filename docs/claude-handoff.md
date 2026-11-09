@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-09 (the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-09 (the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,62 @@ Last updated 2026-11-09 (the NBA prop generator reads each pick's game in full a
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 9 (b): the admin's record in History (moneylines and props)
+
+- The owner: "Is there any way to see our full record for the props and
+  moneylines and can we get the past ones? I want to be able to see the
+  overall record for admin only tho so for admin just automatically put it
+  in history".
+- Before: no predictions were kept, only the picks members save; the prop
+  generator's picks weren't kept at all.
+- Moneylines, `game_record.py` (new): one hash per league and season
+  (`game-predictor:record:v1:{sport}:{season}`, field = ESPN event id).
+  `remember` runs inside `game_predictor.board()`'s load (every board read)
+  and the new timer step (v2-admin `predictor-cron&step=record`, crons
+  16:50 and 22:50 UTC in vercel.json: `timer` = today's board, settle,
+  a 15 s fill step): each game still to start keeps its latest pick (side,
+  our chance, market's no-vig chance, moneyline, confidence, pickedBy).
+  `settle_due` uses `gp._finals` + `gp.settle` (units at the moneyline).
+  `fill` = the season so far: `past_games` (NBA from the stored season,
+  `predictor_nba.games_of`, before today; NFL from ESPN's scoreboard week
+  by week), oldest date first, the model built as of 2 h before each game
+  (`_nba_v2(before)` / `_nfl_v2(before)` only read games before that date),
+  `prediction()` on ESPN's summary (`summary_game`, split out of
+  `_summary`), settled from the final. Marked `filled` (a game nothing can
+  call is kept as `skipped`, not tried again or counted). `summary_of`:
+  overall, last 7 / 30 days, took the market's favorite vs the underdog,
+  by confidence, day by day.
+- Props, `slip_ledger.py`: `GEN = "gen:"` hashes a day (kept 400 days,
+  from `GEN_START` 2026-11-09). The generator page posts its calls
+  (`game-prop-plays`: plays and passes on games 10+ min away, again only
+  when they change; `_gen_pick` takes NBA Overs on regular main-stat lines
+  within 40 h). A kept play takes newer reads until its game; a pass after
+  a play marks it `dropped` (not counted). Settled by `tick()` (and on
+  read). `generator_record`: overall, by strength, by stat, days, latest.
+  The Props tab's own top picks (ledger `board` source: Elite / Strong /
+  Lean Overs on regular lines) are summed up a day at a time
+  (`archive_board_days`, 3 days a tick, days 2-39 back, `boardday:` keys
+  kept 800 days) so they outlive the ledger's 40 days; `board_record` sums
+  them by tier and sport. The posted record (Results page) is
+  `slip_ledger.record()`.
+- API (api/prediction.py): GET `game-record` (sport) and `game-prop-record`
+  are admin only (`admin_auth.is_admin_request`); POST `game-record-fill`
+  ({sport}, admin) and `game-prop-plays` (anyone signed in to the section:
+  a member could post made-up plays; low risk, noted here).
+- Page: History shows the admin `GameRecord.jsx` (+ `game-record.css`,
+  `game-record-core.js`) above "Your saved picks": Moneylines / Props
+  switch. Moneylines for the league picked at the top: the record, units,
+  last 7 / 30, a day-by-day chart (wins up, losses down, tap a day), the
+  favorite / underdog and confidence splits, every pick. While past games
+  are missing it fills them in a step at a time ("Filling in the season so
+  far: N games to go"). Props: the generator's record (empty until its
+  first plays settle), the Props tab's top picks, the posted record.
+  `Segmented` moved to gp-parts.jsx.
+- The check workflow has a step replaying last weeks' NFL finals and
+  printing whether finished NBA games keep their line in ESPN's summary.
+  Not yet seen on the live site: the first fill (NBA about 150 games, NFL
+  about 140) runs when the admin opens History, or a step per timer run.
 
 ### Nov 9: the prop generator reads each game and makes the call
 
