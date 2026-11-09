@@ -592,7 +592,17 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   root.style.setProperty("--theme-accent-dim", `color-mix(in srgb, ${primary} 14%, transparent)`);
   root.style.setProperty("--theme-on-accent", accentTextColor(primary));
   localStorage.removeItem(THEME_KEY);
-  if (persist) localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, base, bright, grad, sway, look, scout: true, mono: true }));
+  if (persist) {
+    localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, base, bright, grad, sway, look, scout: true, mono: true }));
+    // A color picked here is this device's choice over the admin's site-wide
+    // colors, as "Use my own instead" does: otherwise the next site-status
+    // check (every few seconds) put the site's colors back (Nov 9, the owner:
+    // "itll change for maybe 15-30 seconds and randomly go back to the black").
+    try {
+      if (siteUpdatedAt) localStorage.setItem("vortex_appearance_reverted_version", siteUpdatedAt);
+      renderAppearanceNotice();
+    } catch (_) { /* before the site's settings arrive there's nothing to opt out of */ }
+  }
   if (syncControls) syncLookControls(base, bright, grad, sway);
   window.dispatchEvent(new CustomEvent("propscout:colors"));
   if (syncControls && els.primaryAccent) {
@@ -1229,6 +1239,9 @@ function wireSettingsPanel() {
     const save = () => {
       localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, look: lookOf(theme.base, theme.bright, theme.grad, theme.sway), scout: true, mono: true }));
       appliedTheme = { ...theme, tint: 0 };
+      // Picked here, so it stands over the admin's site-wide colors (see applyAccentTheme).
+      if (siteUpdatedAt) localStorage.setItem(APPEARANCE_REVERT_KEY, siteUpdatedAt);
+      renderAppearanceNotice();
       window.dispatchEvent(new CustomEvent("propscout:colors"));
       els.accentStatus.textContent = "Colors saved automatically on this device.";
     };
