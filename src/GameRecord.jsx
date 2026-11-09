@@ -17,10 +17,7 @@ import {decidedOf,gameRow,rateOf,recordText,shortDay} from './game-record-core.j
 import './game-record.css';
 
 const KINDS=[['moneylines','Moneylines'],['props','Props']];
-const LEVELS=['High','Medium','Low'];
 const STRENGTH_WORDS={best:'Best bets',strong:'Strong plays',play:'Plays'};
-const TIER_WORDS={elite:'Elite',strong:'Strong',lean:'Lean'};
-const SPORT_WORDS={nba:'NBA',nfl:'NFL',mlb:'MLB',wnba:'WNBA',nhl:'NHL',cfb:'College football',soccer:'Soccer'};
 // Fill steps a visit may take (each up to about 30 s on the server).
 const FILL_STEPS=40;
 
@@ -84,20 +81,6 @@ function Headline({tally,units,label,note}){
  </div>;
 }
 
-// Rows of a split: what it is, the record, a bar of how often it hit (the
-// middle mark is 50%), the units when there are any.
-function Split({title,rows}){
- const shown=rows.filter(([,tally])=>decidedOf(tally)>0);
- if(!shown.length)return null;
- return <div className="gr-block"><h4>{title}</h4><ul className="gr-split">{shown.map(([label,tally],index)=>{
-  const rate=rateOf(tally);
-  return <li key={label} style={{'--i':index}}>
-   <span className="gr-split-name">{label}<small>{recordText(tally)}{tally.units!=null?` · ${unitsText(tally.units)}`:''}</small></span>
-   <span className="gr-split-bar"><i style={{'--w':rate??0}}/></span>
-   <b>{pct(rate)}</b>
-  </li>;
- })}</ul></div>;
-}
 
 // Each day with games, wins up and losses down. Tap a day for it.
 
@@ -109,13 +92,14 @@ function Games({items}){
  const [all,setAll]=useState(false);
  if(!items?.length)return null;
  const shown=all?items:items.slice(0,12);
- return <div className="gr-block"><h4>Every pick<small>newest first</small></h4><ul className="gr-games">{shown.map((entry,index)=>{
+ return <div className="gr-block"><h4>Picks</h4><ul className="gr-games">{shown.map((entry,index)=>{
   const row=gameRow(entry);
   return <li key={entry.id} style={{'--i':Math.min(index,12)}}>
    <Mark result={row.result}/>
    <span className="gr-game-main"><b>{row.team} over {row.against}{entry.price!=null?<em>{odds(entry.price)}</em>:null}</b>
     <small>{[shortDay(entry.day),row.score||'Still to play'].filter(Boolean).join(' · ')}</small></span>
-   <span className="gr-game-right"><b>{pct(entry.chance)}</b><small>{entry.market!=null?`market ${pct(entry.market)}`:'our chance'}</small></span>
+   <span className="gr-game-right">{entry.result?.units!=null?<b data-tone={entry.result.units>0?'up':entry.result.units<0?'down':undefined}>{unitsText(entry.result.units)}</b>
+    :<b>{pct(entry.chance)}</b>}</span>
   </li>;
  })}</ul>
  {items.length>12&&!all&&<button type="button" className="gp-soft gr-more" onClick={()=>setAll(true)}>Show all {items.length}</button>}
@@ -131,15 +115,9 @@ function Moneylines({sport}){
  // Past games re-run afterwards are not shown: only real picks count (Nov 9, the owner).
  if(!record.games)return <>{progress}<Empty title={`No finished ${league} picks yet`} text="Every game the model picks before tip-off shows here once it's final."/></>;
  return <>
-  <Headline tally={record} units={record.units} label={`${record.games} ${league} picks${record.since?` since ${shortDay(record.since)}`:''}`}
-   note={record.pending?`${record.pending} still to play`:null}/>
-  {progress}
-  <dl className="gp-hstats gr-stats">
-   <div><dt>Last 7 days</dt><dd>{recordText(record.last7)}<small>{pct(record.last7.pct)}{record.last7.units!=null?` · ${unitsText(record.last7.units)}`:''}</small></dd></div>
-   <div><dt>Last 30 days</dt><dd>{recordText(record.last30)}<small>{pct(record.last30.pct)}{record.last30.units!=null?` · ${unitsText(record.last30.units)}`:''}</small></dd></div>
-  </dl>
-  <Split title="Favorite or underdog" rows={[['Took the market\'s favorite',record.favorites],['Took the underdog',record.underdogs]]}/>
-  <Split title="By confidence" rows={LEVELS.map(level=>[`${level} confidence`,record.confidence?.[level]])}/>
+  {/* Straight to the record (Nov 9, the owner: "get straight to the point of our record not all this extra stuff"). */}
+  <div className="gr-card"><Headline tally={record} units={record.units} label={`${record.games} ${league} picks${record.since?` since ${shortDay(record.since)}`:''}`}
+   note={record.pending?`${record.pending} still to play`:null}/></div>
   <Games items={data.items}/>
  </>;
 }
@@ -165,34 +143,21 @@ function Props(){
  const {data,error,loading}=useProps(true);
  if(loading&&!data)return <Shimmer rows={3}/>;
  if(error&&!data)return <p className="gp-note gr-note">{error}</p>;
- const {generator,board,posted}=data;
- const genStats=Object.entries(generator?.stats||{}).sort((a,b)=>decidedOf(b[1])-decidedOf(a[1]));
+ const {generator,board}=data;
  return <>
   <section className="gr-part">
    <h3 className="gr-part-head">Prop generator<small>since {shortDay(generator.since)}</small></h3>
    {decidedOf(generator.all)?<>
-    <Headline tally={generator.all} label="NBA plays" note={generator.pending?`${generator.pending} still to play`:null}/>
-    <dl className="gp-hstats gr-stats">
-     <div><dt>Last 7 days</dt><dd>{recordText(generator.last7)}<small>{pct(generator.last7.rate)}</small></dd></div>
-     <div><dt>Last 30 days</dt><dd>{recordText(generator.last30)}<small>{pct(generator.last30.rate)}</small></dd></div>
-    </dl>
-    <Split title="By strength" rows={Object.entries(STRENGTH_WORDS).map(([key,label])=>[label,generator.strengths?.[key]])}/>
-    <Split title="By stat" rows={genStats}/>
+    <div className="gr-card"><Headline tally={generator.all} label="NBA plays" note={generator.pending?`${generator.pending} still to play`:null}/></div>
    </>:<p className="gp-note gr-note">{generator.pending?`${generator.pending} ${generator.pending===1?'play':'plays'} kept so far, still to play. `:''}Every play the generator shows is kept from now on and settled from the box score.</p>}
    <PropPlays plays={generator.latest}/>
   </section>
   <section className="gr-part">
    <h3 className="gr-part-head">Props tab top picks<small>{board.since?`${shortDay(board.since)} to ${shortDay(board.through)}`:'the last 40 days'}</small></h3>
    {decidedOf(board.all)?<>
-    <Headline tally={board.all} label="Elite, Strong and Lean overs the site graded" note={`${board.days} days`}/>
-    <Split title="By grade" rows={Object.entries(TIER_WORDS).map(([key,label])=>[label,board.tiers?.[key]])}/>
-    <Split title="By sport" rows={Object.entries(board.sports||{}).map(([sport,counts])=>[SPORT_WORDS[sport]||sport.toUpperCase(),counts.all])}/>
+    <div className="gr-card"><Headline tally={board.all} label="Elite, Strong and Lean overs the site graded" note={`${board.days} days`}/></div>
    </>:<p className="gp-note gr-note">The last 40 days are being added up, a few days at a time. Check back in an hour.</p>}
   </section>
-  {posted?.picks>0&&<section className="gr-part">
-   <h3 className="gr-part-head">Posted record<small>Results page, last {posted.days} days</small></h3>
-   <Split title="By grade" rows={['elite','strong','lean','risky','fade'].map(tier=>[tier[0].toUpperCase()+tier.slice(1),posted.tiers?.[tier]])}/>
-  </section>}
  </>;
 }
 

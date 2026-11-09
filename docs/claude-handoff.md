@@ -66,6 +66,11 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   CSS at the end of src/game-predictor.css: pill tab switches, the scoreboard
   as one card with each team's color down its side, sections as soft cards,
   team-tinted pick buttons, game rows as cards.
+- Then History: "get straight to the point of our record not all this extra
+  stuff". GameRecord shows one record card (record, %, units, picks since,
+  still to play) and the picks (each: the call, day and score, units won or
+  lost); the last 7 / 30 days, favorite/underdog, by-confidence, by-strength,
+  by-stat, by-grade, by-sport and the posted record are gone.
 
 ### Nov 9: Finder board and player page after PickFinder's layout
 

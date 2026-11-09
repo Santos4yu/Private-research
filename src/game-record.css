@@ -76,3 +76,11 @@
  .gr-top .gp-seg{min-width:0;width:100%}
  .gr-split li{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 42px;gap:9px}
 }
+
+/* Nov 9: straight to the record. The record in one card, then the picks. */
+.gr .gr-card{margin:14px 0 6px;padding:18px 18px 16px;border:1px solid rgba(255,255,255,.07);border-radius:20px;
+ background:radial-gradient(120% 140% at 0 0,rgba(0,214,143,.09),transparent 60%),rgba(255,255,255,.035)}
+.gr .gr-card .gr-head{margin:0}
+.gr .gr-games>li .gr-game-right b{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.gr .gr-games>li .gr-game-right b[data-tone=up]{color:var(--gp-up,#00d68f)}
+.gr .gr-games>li .gr-game-right b[data-tone=down]{color:var(--gp-down,#f16b75)}
