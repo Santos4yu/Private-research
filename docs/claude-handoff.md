@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-09 (the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -75,6 +75,25 @@ Last updated 2026-11-09 (the admin's record in History: every moneyline the mode
   bright rim and a soft sheen gradient across the top; icons 25px with a
   faint drop shadow so they read over any content. Keep it clear glass:
   more tint or blur is what made it look foggy.
+
+### Nov 9 (c): the Game Predictor on a laptop
+
+- The owner, with laptop screenshots of the games list and a game page:
+  "we need to make this better for laptop its just to empty and same for
+  the inside" (both were the phone's single 780px column).
+- `useMedia(query)` in GamePredictor.jsx; `WIDE` (1100px+) and `WIDER`
+  (1380px+). On WIDE, Predict is `.gp-split`: the list (320-380px) on the
+  left, the picked game on the right in `.gp-detail` (a soft surface in its
+  two teams' colors, the page background contained in it). Opening a game
+  there picks it in place (no history entry, no scroll); the first live
+  game, else the next to start, is picked on its own. The picked row has a
+  soft fill. The live list keeps polling while a game is open. The page
+  container widens to 1480px (`#panel-predictor:has(.game-predictor.is-wide)`)
+  for Predict only; Generator and History stay the phone column.
+- `GamePage` takes `embedded` (no back button; header left-aligned, bigger)
+  and on WIDER splits (`is-split`): Chance on the left always, the other
+  tabs on the right with their own tab bar (Live / Recap first when the
+  game is on or over, else Why). Narrower or on a phone it's as before.
 
 ### Nov 9 (b): the admin's record in History (moneylines and props)
 

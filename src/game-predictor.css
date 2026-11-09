@@ -660,3 +660,37 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 .gp-legchips b{font-size:12.5px;font-weight:800}
 .gp-legchips small{color:var(--gp-muted);font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
 
+
+/* A laptop or bigger (Nov 9, the owner: "we need to make this better for
+   laptop its just to empty and same for the inside"): the page takes the
+   width, the games list on the left and the picked game beside it on a
+   soft surface in its two teams' colors; wider still, the game page in two
+   columns (its chance on the left, the game, odds, why or players right). */
+@media (min-width:1100px){
+ :root[data-theme] #app-shell #panel-predictor:has(.game-predictor.is-wide){max-width:1480px!important}
+ .gp-split{display:grid;grid-template-columns:minmax(320px,380px) minmax(0,1fr);gap:26px;align-items:start;margin-top:14px}
+ .gp-split>.gp-days{min-width:0}
+ .gp-split .gp-day:first-child{margin-top:0}
+ .gp-game[data-picked]>.gp-game-row{background:var(--gp-soft-2)}
+ .gp-game[data-picked]>.gp-game-row .gp-chev{color:var(--gp-text);transform:translateX(2px)}
+ .gp-detail{position:relative;isolation:isolate;min-width:0;min-height:72vh;padding:10px 26px 26px;border-radius:26px;overflow:hidden;
+  animation:gp-fade .35s var(--gp-ease) both}
+ .gp-detail .gp-page-bg{position:absolute;border-radius:inherit;animation:none;
+  background:radial-gradient(80% 50% at 0% 0%,color-mix(in srgb,var(--away) 20%,transparent),transparent 70%),
+   radial-gradient(80% 50% at 100% 0%,color-mix(in srgb,var(--home) 20%,transparent),transparent 70%),rgba(255,255,255,.03)}
+ .gp-detail .gp-page{padding-bottom:0}
+ .gp-detail .gp-page-top{grid-template-columns:minmax(0,1fr);padding-top:8px}
+ .gp-detail .gp-page-top .gp-back-space{display:none}
+ .gp-detail .gp-page-top div{justify-items:start}
+ .gp-detail .gp-page-top b{font-size:20px;font-weight:850;letter-spacing:-.02em}
+ .gp-detail .gp-board{margin-top:12px}
+ .gp-detail .gp-board-name b{font-size:17px}
+ .gp-detail .gp-board-pct{font-size:24px}
+ .gp-detail .gp-board-score{font-size:22px}
+}
+@media (min-width:1380px){
+ .gp-page.is-split .gp-page-cols{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:30px;align-items:start;margin-top:10px}
+ .gp-page.is-split .gp-page-left{min-width:0;padding-top:4px}
+ .gp-page.is-split .gp-page-right{min-width:0;padding-left:30px;border-left:1px solid var(--gp-rule)}
+ .gp-page.is-split .gp-page-right .gp-page-tabs{margin-top:0}
+}

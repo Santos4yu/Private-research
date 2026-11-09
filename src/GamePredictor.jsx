@@ -33,6 +33,21 @@ import './game-predictor.css';
 const read=(key,ok,fallback)=>{try{const value=localStorage.getItem(key);return ok(value)?value:fallback;}catch{return fallback;}};
 const save=(key,value)=>{try{localStorage.setItem(key,value);}catch{/* a preference only */}};
 const VIEWS=[['predict','Predict'],['generate','Generator'],['history','History']];
+// A laptop or bigger (Nov 9, the owner on a laptop: "we need to make this
+// better for laptop its just to empty and same for the inside"): the games
+// list and the picked game side by side; wider still, the game page in two
+// columns (its chance on the left, the game, odds, why or players on the right).
+const WIDE='(min-width: 1100px)',WIDER='(min-width: 1380px)';
+function useMedia(query){
+ const [on,setOn]=useState(()=>typeof matchMedia==='function'&&matchMedia(query).matches);
+ useEffect(()=>{
+  if(typeof matchMedia!=='function')return undefined;
+  const list=matchMedia(query),update=()=>setOn(list.matches);
+  update();list.addEventListener?.('change',update);
+  return()=>list.removeEventListener?.('change',update);
+ },[query]);
+ return on;
+}
 const LEAGUES=[['nba','NBA'],['nfl','NFL'],['both','Both']];
 
 async function call(params,signal){
@@ -148,14 +163,14 @@ function useLiveList(sport,games){
 
 // A game on now in the list (Nov 8): both teams with their score, the time
 // left, and a small line of the chance of the team ahead on it.
-function LiveRow({game,index,onOpen}){
+function LiveRow({game,index,onOpen,picked}){
  const colors=pairColors(game.home,game.away);
  const points=game.spark?.points||[];
  const homeNow=points[points.length-1]?.[1];
  const ahead=homeNow==null?null:homeNow>=0.5?'home':'away';
  const color=ahead&&teamColor({color:colors[ahead]});
  const team=side=><span className="gp-live-team"><Logo team={game[side]} size={24}/><b>{game[side]?.abbr}</b><strong>{game[side]?.score??''}</strong></span>;
- return <li className="gp-game is-live" style={{'--i':index}}>
+ return <li className="gp-game is-live" data-picked={picked||undefined} style={{'--i':index}}>
   <button type="button" className="gp-game-row gp-live-row" onClick={()=>onOpen(game)}>
    <span className="gp-live-teams">{team('away')}{team('home')}</span>
    <span className="gp-live-side" style={color?{'--team':color}:undefined}>
@@ -169,7 +184,7 @@ function LiveRow({game,index,onOpen}){
  </li>;
 }
 
-function PredictView({slate,live,onOpen,admin,onRetry}){
+function PredictView({slate,live,onOpen,admin,onRetry,picked}){
  const sorted=liveFirst(slate.games||[],live);
  const games=sorted.rest;
  if(slate.loading&&!games.length)return <Shimmer rows={5}/>;
@@ -179,13 +194,13 @@ function PredictView({slate,live,onOpen,admin,onRetry}){
  return <div className="gp-days">
   {sorted.live.length>0&&<section className="gp-day gp-day-live">
    <h3 className="gp-day-head">Live now<small>{sorted.live.length} {sorted.live.length===1?'game':'games'}</small></h3>
-   <ul className="gp-games">{sorted.live.map((game,index)=><LiveRow key={game.id} game={game} index={index} onOpen={onOpen}/>)}</ul>
+   <ul className="gp-games">{sorted.live.map((game,index)=><LiveRow key={game.id} game={game} index={index} onOpen={onOpen} picked={picked===game.id}/>)}</ul>
   </section>}
   {groupByDay(games).map(day=><section key={day.key} className="gp-day">
   <h3 className="gp-day-head">{day.label}<small>{day.games.length} {day.games.length===1?'game':'games'}</small></h3>
   <ul className="gp-games">{day.games.map((game,index)=>{const live=game.state==='in';
    const team=side=><span className="gp-team"><Logo team={game[side]} size={30}/><span><b>{game[side]?.abbr}</b>{game[side]?.record&&<small>{game[side].record}</small>}</span></span>;
-   return <li key={game.id} className="gp-game" style={{'--i':index}}>
+   return <li key={game.id} className="gp-game" data-picked={picked===game.id||undefined} style={{'--i':index}}>
     <button type="button" className="gp-game-row" onClick={()=>onOpen(game)}>
      <span className="gp-matchup">{team('away')}<i>@</i>{team('home')}</span>
      <span className="gp-game-meta">{live?<em className="gp-live">Live</em>:game.state==='post'?<b>Final</b>:<b>{clockText(game.startsAt)}</b>}
@@ -241,10 +256,15 @@ const gameTabs=chart=>{const on=['in','post'].includes(chart?.state)&&(chart?.fe
 // The page has its own background (Nov 6, the owner: "a background tho so
 // it's not just transparent"): the site's dark with each team's color in its
 // top corner, and both teams always in colors that don't look alike.
-function GamePage({game,sport,result,admin,onBack,onPick}){
+function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  const [tab,setTab]=useState('chance');
  const chart=useNbaLive(useChart(sport,game.id));
- const analysis=useAnalysis(sport,game.id,tab==='why');
+ // Two columns: the chance always on the left, the other tabs on the right
+ // (the game itself first once it's on, else why).
+ const split=useMedia(WIDER)&&embedded;
+ const sideTabs=gameTabs(chart).filter(([key])=>key!=='chance');
+ const right=split&&tab==='chance'?(sideTabs.some(([key])=>key==='live')?'live':'why'):tab;
+ const analysis=useAnalysis(sport,game.id,right==='why');
  const raw=result?.data;
  const colors=pairColors(raw?.home||game.home,raw?.away||game.away);
  const prediction=useMemo(()=>raw&&{...raw,home:{...raw.home,color:colors.home},away:{...raw.away,color:colors.away}},[raw,colors.home,colors.away]);
@@ -252,7 +272,7 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
  const now=chancesNow(prediction,chart);
  const home=prediction?.home||game.home,away=prediction?.away||game.away;
  const status=live?<><i className="gp-pulse" aria-hidden="true"/>{liveText(chart?.detail)||'Live'}</>:(chart?.state||game.state)==='post'?'Final':startText(game.startsAt);
- const tabsRow=useRef(null),ink=useInk(tabsRow,tab,'[aria-selected=true]');
+ const tabsRow=useRef(null),ink=useInk(tabsRow,split?right:tab,'[aria-selected=true]');
  const row=(side,team)=>{const color=teamColor({color:colors[side]});const score=chart?.[side]?.score;
   return <li style={color?{'--team':color}:undefined}>
    <Logo team={team} size={32}/>
@@ -261,31 +281,36 @@ function GamePage({game,sport,result,admin,onBack,onPick}){
    <strong className="gp-board-pct">{now?pct(now[side]):'—'}</strong>
   </li>;};
  const tint=hex=>/^[0-9a-f]{6}$/i.test(hex||'')?`#${hex}`:'transparent';
+ const shown=key=>prediction&&<>
+  {key==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
+  {key==='live'&&<LiveTab prediction={prediction} chart={chart}/>}
+  {key==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
+  {key==='why'&&<><Analysis state={analysis} prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
+   <Factors prediction={prediction}/><ReadGuide prediction={prediction} chart={chart}/></>}
+  {key==='players'&&<><Players prediction={prediction}/><Compare prediction={prediction}/></>}
+ </>;
+ const waiting=result?.loading&&!prediction?<Shimmer rows={3} tall/>
+  :result?.error&&!prediction?<p className="gp-note gp-page-note">{admin?result.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p>:null;
+ const tabs=list=><nav className="gp-tabs gp-page-tabs" role="tablist" aria-label="This game" ref={tabsRow}>
+  {list.map(([key,text])=><button type="button" role="tab" key={key} aria-selected={(split?right:tab)===key} onClick={()=>setTab(key)}>{text}</button>)}
+  <span className="gp-tabs-ink" style={inkStyle(ink)} aria-hidden="true"/>
+ </nav>;
  return <>
  <div className="gp-page-bg" style={{'--home':tint(colors.home),'--away':tint(colors.away)}} aria-hidden="true"/>
- <div className="gp-page">
+ <div className={`gp-page${embedded?' is-embedded':''}${split?' is-split':''}`}>
   <header className="gp-page-top">
-   <button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>
+   {onBack?<button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>:<span className="gp-back-space" aria-hidden="true"/>}
    <div><b>{away.abbr} @ {home.abbr}</b><small>{status}</small></div>
    <span className="gp-back-space" aria-hidden="true"/>
   </header>
   <ul className="gp-board">{row('away',away)}{row('home',home)}</ul>
-  <nav className="gp-tabs gp-page-tabs" role="tablist" aria-label="This game" ref={tabsRow}>
-   {gameTabs(chart).map(([key,text])=><button type="button" role="tab" key={key} aria-selected={tab===key} onClick={()=>setTab(key)}>{text}</button>)}
-   <span className="gp-tabs-ink" style={inkStyle(ink)} aria-hidden="true"/>
-  </nav>
-  <div className="gp-page-body" key={tab}>
-   {result?.loading&&!prediction?<Shimmer rows={3} tall/>
-   :result?.error&&!prediction?<p className="gp-note gp-page-note">{admin?result.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p>
-   :prediction?<>
-    {tab==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
-    {tab==='live'&&<LiveTab prediction={prediction} chart={chart}/>}
-    {tab==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
-    {tab==='why'&&<><Analysis state={analysis} prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
-     <Factors prediction={prediction}/><ReadGuide prediction={prediction} chart={chart}/></>}
-    {tab==='players'&&<><Players prediction={prediction}/><Compare prediction={prediction}/></>}
-   </>:null}
-  </div>
+  {split?<div className="gp-page-cols">
+   <div className="gp-page-body gp-page-left">{waiting||shown('chance')}</div>
+   <div className="gp-page-right">{tabs(sideTabs)}<div className="gp-page-body" key={right}>{waiting||shown(right)}</div></div>
+  </div>:<>
+   {tabs(gameTabs(chart))}
+   <div className="gp-page-body" key={tab}>{waiting||shown(tab)}</div>
+  </>}
  </div>
  </>;
 }
@@ -1080,9 +1105,10 @@ export function GamePredictor(){
  const [results,setResults]=useState({});
  const [tries,setTries]=useState(0);
  const [sheet,setSheet]=useState(null);
+ const wide=useMedia(WIDE);
  // The games on now, for the list and for the member's picks on now.
  const pendingPicks=useMemo(()=>(history.data?.items||[]).filter(item=>!item.result).map(item=>({id:item.id,state:'pre',startsAt:item.startsAt,home:item.home,away:item.away})),[history.data]);
- const liveList=useLiveList(sport,open?[]:view==='history'?pendingPicks:view==='predict'?slate.games:[]);
+ const liveList=useLiveList(sport,open&&!wide?[]:view==='history'?pendingPicks:view==='predict'?slate.games:[]);
  useEffect(()=>{
   const control=new AbortController();
   setSlate(old=>({loading:true,games:old.sport===sport?old.games:[],sport}));setResults({});setOpen(null);
@@ -1103,11 +1129,15 @@ export function GamePredictor(){
  useEffect(()=>{if(!open)requestAnimationFrame(()=>window.scrollTo(0,listScroll.current));},[open]);
  const closeGame=()=>{if(marked()&&window.history.length===depth.current){window.history.back();return;}mark.current=null;clearMark();setOpen(null);};
  const openGame=game=>{
-  listScroll.current=window.scrollY;
-  mark.current=`${game.id}:${Date.now()}`;
-  window.history.pushState({...window.history.state,gpGame:mark.current},'',location.href);
-  depth.current=window.history.length;
-  setOpen(game.id);window.scrollTo(0,0);
+  // Beside the list on a laptop: picked in place, no page of its own.
+  if(!wide){
+   listScroll.current=window.scrollY;
+   mark.current=`${game.id}:${Date.now()}`;
+   window.history.pushState({...window.history.state,gpGame:mark.current},'',location.href);
+   depth.current=window.history.length;
+   window.scrollTo(0,0);
+  }
+  setOpen(game.id);
   if(results[game.id]?.data||results[game.id]?.loading)return;
   setResults(old=>({...old,[game.id]:{loading:true}}));
   call({action:'game-predict',sport,event:game.id}).then(data=>setResults(old=>({...old,[game.id]:{data}})))
@@ -1118,12 +1148,18 @@ export function GamePredictor(){
  const pickView=value=>{setView(value);save('game-predictor-view',value);};
  const record=history.data?.record;
  const openedGame=open&&(slate.games||[]).find(game=>game.id===open);
- if(openedGame)return <div className="game-predictor">
+ // On a laptop the list always has a game beside it: the first on now, else the next to start.
+ const firstGame=useMemo(()=>{const sorted=liveFirst(slate.games||[],liveList);return sorted.live[0]||sorted.rest.find(game=>game.state!=='post')||sorted.rest[0]||null;},[slate.games,liveList]);
+ useEffect(()=>{if(wide&&view==='predict'&&!openedGame&&firstGame)openGame(firstGame);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[wide,view,openedGame,firstGame]);
+ const sideBySide=wide&&view==='predict';
+ if(openedGame&&!wide)return <div className="game-predictor">
   <GamePage game={openedGame} sport={sport} result={results[open]} admin={admin} onBack={closeGame}
    onPick={(side,now)=>results[open]?.data&&setSheet({prediction:results[open].data,side,now})}/>
   {sheet&&<PickScreen pick={sheet} onClose={()=>setSheet(null)} onSaved={()=>loadHistory()}/>}
  </div>;
- return <div className="game-predictor">
+ return <div className={`game-predictor${sideBySide?' is-wide':''}`}>
   <div className="gp-list-bg" aria-hidden="true"/>
   <div className="gp-aurora" aria-hidden="true"/>
   <header className="gp-top">
@@ -1135,10 +1171,15 @@ export function GamePredictor(){
   </header>
   <Tabs value={view} onChange={pickView}/>
   <div className="gp-view" key={view}>
-   {view==='predict'&&<PredictView slate={slate} live={liveList} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>}
+   {view==='predict'&&(sideBySide?<div className="gp-split">
+    <PredictView slate={slate} live={liveList} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)} picked={open}/>
+    <div className="gp-detail" key={open||'none'}>{openedGame?<GamePage game={openedGame} sport={sport} result={results[open]} admin={admin} embedded
+     onPick={(side,now)=>results[open]?.data&&setSheet({prediction:results[open].data,side,now})}/>:null}</div>
+   </div>:<PredictView slate={slate} live={liveList} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>)}
    {view==='generate'&&<Generator league={sport} admin={admin}/>}
    {view==='history'&&<HistoryView sport={sport} state={history} live={liveList} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
   </div>
+  {sheet&&sideBySide&&<PickScreen pick={sheet} onClose={()=>setSheet(null)} onSaved={()=>loadHistory()}/>}
 
  </div>;
 }
