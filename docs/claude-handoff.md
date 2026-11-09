@@ -58,6 +58,15 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 9: Game Predictor polish; no small bars
+
+- The owner: "a better nicer layout ... more clean nice buttons and visuals",
+  and remove "the little bars above the live feed" (Momentum, gone) and "the
+  bars that show in the history" (GameRecord DayChart, gone). The look is
+  CSS at the end of src/game-predictor.css: pill tab switches, the scoreboard
+  as one card with each team's color down its side, sections as soft cards,
+  team-tinted pick buttons, game rows as cards.
+
 ### Nov 9: Finder board and player page after PickFinder's layout
 
 - The owner, with PickFinder's props table and player page: "i want this

@@ -13,7 +13,7 @@ import React,{useEffect,useState} from 'react';
 import {Check,Minus,X} from 'lucide-react';
 import {Empty,Segmented,Shimmer} from './gp-parts.jsx';
 import {odds,pct,unitsText} from './game-predictor-core.js';
-import {dayBars,decidedOf,gameRow,rateOf,recordText,shortDay} from './game-record-core.js';
+import {decidedOf,gameRow,rateOf,recordText,shortDay} from './game-record-core.js';
 import './game-record.css';
 
 const KINDS=[['moneylines','Moneylines'],['props','Props']];
@@ -100,22 +100,6 @@ function Split({title,rows}){
 }
 
 // Each day with games, wins up and losses down. Tap a day for it.
-function DayChart({days}){
- const bars=dayBars(days,30);
- const [picked,setPicked]=useState(null);
- if(bars.length<2)return null;
- const shown=picked!=null?bars[picked]:bars[bars.length-1];
- return <div className="gr-block"><h4>Day by day<small>{bars.length} days</small></h4>
-  <div className="gr-days" role="img" aria-label={bars.map(bar=>`${shortDay(bar.day)} ${bar.wins}-${bar.losses}`).join(', ')}>
-   {bars.map((bar,index)=><button type="button" key={bar.day} className="gr-day" data-picked={shown===bar||undefined} style={{'--i':index}}
-    onClick={()=>setPicked(index)} onPointerEnter={event=>{if(event.pointerType==='mouse')setPicked(index);}} aria-label={`${shortDay(bar.day)}: ${bar.wins}-${bar.losses}`}>
-    <span className="gr-day-up"><i style={{'--h':bar.up}}/></span><span className="gr-day-down"><i style={{'--h':bar.down}}/></span>
-   </button>)}
-  </div>
-  <p className="gr-days-note"><b>{shortDay(shown.day)}</b> {shown.wins}-{shown.losses}{shown.units!=null?<span data-tone={tone(shown.units)}> · {unitsText(shown.units)}</span>:null}
-   <span className="gr-key"><i className="is-win"/>Right<i className="is-loss"/>Wrong</span></p>
- </div>;
-}
 
 const Mark=({result})=>result==='win'?<i className="gr-mark" data-result="win"><Check size={11} strokeWidth={3} aria-label="Right"/></i>
  :result==='loss'?<i className="gr-mark" data-result="loss"><X size={11} strokeWidth={3} aria-label="Wrong"/></i>
@@ -154,7 +138,6 @@ function Moneylines({sport}){
    <div><dt>Last 7 days</dt><dd>{recordText(record.last7)}<small>{pct(record.last7.pct)}{record.last7.units!=null?` · ${unitsText(record.last7.units)}`:''}</small></dd></div>
    <div><dt>Last 30 days</dt><dd>{recordText(record.last30)}<small>{pct(record.last30.pct)}{record.last30.units!=null?` · ${unitsText(record.last30.units)}`:''}</small></dd></div>
   </dl>
-  <DayChart days={record.days}/>
   <Split title="Favorite or underdog" rows={[['Took the market\'s favorite',record.favorites],['Took the underdog',record.underdogs]]}/>
   <Split title="By confidence" rows={LEVELS.map(level=>[`${level} confidence`,record.confidence?.[level]])}/>
   <Games items={data.items}/>
@@ -193,7 +176,6 @@ function Props(){
      <div><dt>Last 7 days</dt><dd>{recordText(generator.last7)}<small>{pct(generator.last7.rate)}</small></dd></div>
      <div><dt>Last 30 days</dt><dd>{recordText(generator.last30)}<small>{pct(generator.last30.rate)}</small></dd></div>
     </dl>
-    <DayChart days={generator.days}/>
     <Split title="By strength" rows={Object.entries(STRENGTH_WORDS).map(([key,label])=>[label,generator.strengths?.[key]])}/>
     <Split title="By stat" rows={genStats}/>
    </>:<p className="gp-note gr-note">{generator.pending?`${generator.pending} ${generator.pending===1?'play':'plays'} kept so far, still to play. `:''}Every play the generator shows is kept from now on and settled from the box score.</p>}

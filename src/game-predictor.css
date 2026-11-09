@@ -694,3 +694,47 @@ button.gp-pickrow-x:active{transform:scale(.9)}
  .gp-page.is-split .gp-page-right{min-width:0;padding-left:30px;border-left:1px solid var(--gp-rule)}
  .gp-page.is-split .gp-page-right .gp-page-tabs{margin-top:0}
 }
+
+/* ------------------------------------------------------------ Nov 9 polish
+   The owner: "a better nicer layout that's like more clean nice buttons and
+   visuals". Every section is a soft card on the dark page; the tab rows are
+   pill switches; the scoreboard is one card with each team's color down its
+   side and the leader's chance bright; the pick buttons are tinted in each
+   team's color. */
+.game-predictor .gp-tabs,.gp-screen .gp-tabs{gap:4px;padding:4px;border:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);border-radius:16px;background:rgba(255,255,255,.035)}
+.game-predictor .gp-tabs button,.gp-screen .gp-tabs button{min-height:40px;border-radius:12px;font-size:14px;font-weight:750;transition:color .2s,background-color .25s var(--gp-ease)}
+.game-predictor .gp-tabs button[aria-selected="true"],.gp-screen .gp-tabs button[aria-selected="true"]{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 0 1px rgba(255,255,255,.06),0 4px 14px rgba(0,0,0,.25)}
+.game-predictor .gp-tabs-ink,.gp-screen .gp-tabs-ink{display:none}
+.gp-page-tabs{margin-top:14px}
+
+/* The scoreboard: one card, each team's color down its side. */
+.gp-board{display:grid;gap:0;margin:12px 0 4px!important;padding:4px 14px!important;border:1px solid rgba(255,255,255,.07);border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025))}
+.gp-board li{position:relative;padding:12px 2px!important}
+.gp-board li::before{content:"";position:absolute;left:-14px;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--team,rgba(255,255,255,.2))}
+.gp-board li+li{border-top:1px solid rgba(255,255,255,.06)!important}
+.gp-board-score{font-size:22px!important;font-weight:800!important;color:var(--gp-muted)}
+.gp-board-pct{min-width:78px;text-align:right;font-size:30px!important;font-weight:850!important;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+
+/* Sections: soft cards with room to breathe. */
+.gp-page-body>.gp-sec,.gp-page-left>.gp-sec{margin-top:14px;padding:16px;border:1px solid rgba(255,255,255,.065);border-top:1px solid rgba(255,255,255,.065)!important;border-radius:20px;background:rgba(255,255,255,.03)}
+.gp-kicker{color:var(--gp-text)!important;font-size:13.5px!important;font-weight:800!important;letter-spacing:-.005em}
+
+/* The pick buttons: tinted in each team's color, the chance big. */
+.gp-pick-buttons{gap:10px;margin-top:14px}
+.gp-buy{min-height:56px!important;border:1px solid color-mix(in srgb,var(--team,#888) 45%,transparent)!important;border-radius:16px!important;
+ background:linear-gradient(180deg,color-mix(in srgb,var(--team,#888) 30%,#141414),color-mix(in srgb,var(--team,#888) 16%,#101010))!important;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.gp-buy span{font-size:14px!important;font-weight:800!important;opacity:1!important}
+.gp-buy b{font-size:20px!important}
+.gp-buy:disabled{opacity:.55!important;filter:saturate(.6)!important}
+
+/* Our pick: a highlighted card with the team's color as a glow. */
+.gp-sec.gp-ourpick{background:radial-gradient(120% 140% at 0 0,color-mix(in srgb,var(--team,#888) 18%,transparent),transparent 60%),rgba(255,255,255,.03)!important}
+.gp-ourpick-row strong{font-size:26px;font-weight:850;letter-spacing:-.02em}
+
+/* The game list: each game a card. */
+.gp-game{margin-top:8px}
+.gp-game-row{border:1px solid rgba(255,255,255,.06)!important;background:rgba(255,255,255,.03)!important;transition:background-color .2s,border-color .2s,transform .15s}
+.gp-game-row:hover{border-color:rgba(255,255,255,.12)!important;background:rgba(255,255,255,.05)!important}
+
+/* The last play: a quote card. */
+.gp-chance-sec .gp-lastplay,.gp-lastplay{border-radius:14px}

@@ -432,20 +432,7 @@ function LastPlay({prediction,chart}){
 // Who outscored whom in each stretch of the game (three minutes in the NBA,
 // five in the NFL), lined up under the chart: the home team's above the
 // line, the away team's below, taller the more they won it by.
-function Momentum({prediction,chart}){
- const stretches=chart?.momentum||[],length=chart?.clock?.length;
- if(!length||!stretches.length||!['in','post'].includes(chart.state))return null;
- const most=Math.max(6,...stretches.map(item=>Math.abs(item.home-item.away)));
- const colorOf=side=>teamColor(prediction[side]);
- return <div className="gp-momentum" style={{'--home':colorOf('home')||'#e9e9e9','--away':colorOf('away')||'#8f8f8f'}}>
-  <div className="gp-momentum-bars" role="img" aria-label="Points won in each stretch of the game">
-   {stretches.map((item,index)=>{const net=item.home-item.away;
-    return <span key={item.start} className={net>0?'is-home':net<0?'is-away':'is-even'} title={`${gameClockText(item.start,chart.sport).replace(' left','')}: ${prediction.away.abbr} ${item.away}, ${prediction.home.abbr} ${item.home}`}
-     style={{left:`${item.start/length*100}%`,width:`${(item.end-item.start)/length*100}%`,'--size':Math.max(net?0.14:0,Math.abs(net)/most),'--i':index}}/>;})}
-  </div>
-  <span className="gp-momentum-key"><small className="is-home">{prediction.home.abbr}</small><small className="is-away">{prediction.away.abbr}</small></span>
- </div>;
-}
+// (Nov 9, the owner: the little bars under the chart are gone.)
 
 function ChanceTab({prediction,chart,onPick}){
  const side=prediction.winner,team=prediction[side];
@@ -459,7 +446,6 @@ function ChanceTab({prediction,chart,onPick}){
   <section className="gp-sec gp-chance-sec">
    <span className="gp-kicker">{live?'Live win chance':chart?.state==='post'?'Win chance, start to finish':'Market chance'}</span>
    <TwoLineChart prediction={prediction} chart={chart}/>
-   <Momentum prediction={prediction} chart={chart}/>
    {!live&&chart?.state!=='post'&&marketNote(chart,prediction)&&<p className="gp-chart-note">{marketNote(chart,prediction)}</p>}
    <LastPlay prediction={prediction} chart={chart}/>
    <PickButtons prediction={prediction} chart={chart} onPick={onPick}/>
