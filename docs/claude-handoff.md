@@ -58,6 +58,15 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 9: History's record is live picks only
+
+- The owner: the record said 139 NBA games "since Oct 20" — "thats not true ive
+  only had this like 3 days". game_record.fill replays past games (marked
+  `filled`) and summary_of counted them with the live picks. Now the record,
+  the day-by-day, splits and the pick list are live picks only; the replay is
+  summed apart (`record.replay`) and shown as "Season replay ... Not live picks"
+  under the list (src/GameRecord.jsx).
+
 ### Oct 27: phone dock like YouTube's new one
 
 - The owner sent YouTube's new floating dock: "I want a nice dock like

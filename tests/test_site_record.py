@@ -123,13 +123,16 @@ class MoneylineRecord(unittest.TestCase):
         self.assertEqual(len(replayed), 12)
         self.assertEqual(game_record.fill("nba", NOW, self.store, games=games, replayer=replayer)["remaining"], 0)
         record = game_record.read("nba", NOW, self.store, finals=lambda sport, ids: {}, remaining=0)["record"]
-        self.assertEqual((record["games"], record["wins"], record["filled"], record["since"]), (12, 12, 12, "2026-10-21"))
+        # Replayed games are kept apart: the record is live picks only.
+        self.assertEqual(record["games"], 0)
+        self.assertEqual((record["replay"]["games"], record["replay"]["wins"], record["replay"]["since"]), (12, 12, "2026-10-21"))
         # A game there's nothing to call it on is kept as skipped: not tried again, not counted.
         extra = [{"id": "x1", "when": day(5), "final": (100, 90)}]
         self.assertEqual(game_record.fill("nba", NOW, self.store, games=extra, replayer=lambda game: None), {"added": 0, "remaining": 0, "through": "2026-10-26"})
         self.assertEqual(game_record.fill("nba", NOW, self.store, games=extra, replayer=lambda game: None)["remaining"], 0)
         shown = game_record.read("nba", NOW, self.store, finals=lambda sport, ids: {}, remaining=0)
-        self.assertEqual((shown["record"]["games"], shown["record"]["pending"], len(shown["items"])), (12, 0, 12))
+        # The page's record and list are live picks only; the replay is summed apart.
+        self.assertEqual((shown["record"]["games"], shown["record"]["pending"], len(shown["items"]), shown["record"]["replay"]["games"]), (0, 0, 0, 12))
 
 
 def gen_play(player="Jalen Brunson", stat="Assists", key="player_assists", line=6.5, strength="strong", hours=3, **extra):

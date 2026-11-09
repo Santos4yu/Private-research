@@ -268,6 +268,12 @@ def summary_of(items, now=None) -> dict:
     underdog; by confidence; day by day (newest first)."""
     now = _now(now)
     items = [entry for entry in items if not entry.get("skipped")]
+    # The record is the live picks only: made before the game and kept. The
+    # season replay (games before the record began, re-run afterwards with
+    # only what was known before each one) is counted apart (Nov 9, the
+    # owner: 139 games "thats not true ive only had this like 3 days").
+    replayed = [entry for entry in items if entry.get("filled") and (entry.get("result") or {}).get("winner")]
+    items = [entry for entry in items if not entry.get("filled")]
     settled = [entry for entry in items if (entry.get("result") or {}).get("winner")]
     today = _day(now)
     since = lambda days: (datetime.fromisoformat(today).date() - timedelta(days=days)).isoformat()
@@ -281,7 +287,8 @@ def summary_of(items, now=None) -> dict:
             "favorites": _tally([entry for entry in settled if entry.get("market") is not None and entry["market"] >= 0.5]),
             "underdogs": _tally([entry for entry in settled if entry.get("market") is not None and entry["market"] < 0.5]),
             "confidence": {level: _tally([entry for entry in settled if entry.get("confidence") == level]) for level in CONFIDENCE},
-            "filled": sum(1 for entry in settled if entry.get("filled")),
+            "replay": {"games": len(replayed), **_tally(replayed), "since": min((e["day"] for e in replayed if e.get("day")), default=None),
+                       "through": max((e["day"] for e in replayed if e.get("day")), default=None)},
             "since": min((entry["day"] for entry in settled if entry.get("day")), default=None),
             "pending": sum(1 for entry in items if not entry.get("result")), "days": days[:45]}
 
@@ -301,8 +308,8 @@ def read(sport, now=None, store=None, finals=None, remaining=None) -> dict:
             remaining = sum(1 for game in past_games(sport, now, season) if game["id"] not in held)
         except Exception:  # noqa: BLE001 -- unknown, the page doesn't fill
             remaining = 0
-    items = sorted((entry for entry in held.values() if not entry.get("skipped")), key=lambda entry: entry.get("startsAt") or "", reverse=True)
-    return {"sport": sport, "season": season, "record": summary_of(items, now), "items": items[:SHOWN], "remaining": remaining}
+    items = sorted((entry for entry in held.values() if not entry.get("skipped") and not entry.get("filled")), key=lambda entry: entry.get("startsAt") or "", reverse=True)
+    return {"sport": sport, "season": season, "record": summary_of([e for e in held.values() if not e.get("skipped")], now), "items": items[:SHOWN], "remaining": remaining}
 
 
 def timer(sport, now=None, store=None) -> dict:

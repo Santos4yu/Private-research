@@ -143,10 +143,13 @@ function Moneylines({sport}){
  if(loading&&!data)return <Shimmer rows={3}/>;
  if(error&&!data)return <p className="gp-note gr-note">{error}</p>;
  const record=data.record,league=sport.toUpperCase();
- const progress=filling?<p className="gr-filling"><span className="gr-filling-dot" aria-hidden="true"/>Filling in the season so far: {filling.remaining} {filling.remaining===1?'game':'games'} to go</p>:null;
- if(!record.games)return <>{progress}<Empty title={`No finished ${league} games yet`} text="Every game the model picks shows here once it's final."/></>;
+ const progress=filling?<p className="gr-filling"><span className="gr-filling-dot" aria-hidden="true"/>Replaying the season so far: {filling.remaining} {filling.remaining===1?'game':'games'} to go</p>:null;
+ // Past games re-run afterwards, kept apart from the live picks.
+ const replay=record.replay?.games?<div className="gr-block"><h4>Season replay<small>{shortDay(record.replay.since)} to {shortDay(record.replay.through)}</small></h4>
+  <Headline tally={record.replay} units={record.replay.units} label={`${record.replay.games} past ${league} games re-run with only what was known before each one. Not live picks.`}/></div>:null;
+ if(!record.games)return <>{progress}<Empty title={`No finished live ${league} picks yet`} text="Every game the model picks before tip-off shows here once it's final."/>{replay}</>;
  return <>
-  <Headline tally={record} units={record.units} label={`${record.games} ${league} games${record.since?` since ${shortDay(record.since)}`:''}`}
+  <Headline tally={record} units={record.units} label={`${record.games} live ${league} picks${record.since?` since ${shortDay(record.since)}`:''}`}
    note={record.pending?`${record.pending} still to play`:null}/>
   {progress}
   <dl className="gp-hstats gr-stats">
@@ -157,6 +160,7 @@ function Moneylines({sport}){
   <Split title="Favorite or underdog" rows={[['Took the market\'s favorite',record.favorites],['Took the underdog',record.underdogs]]}/>
   <Split title="By confidence" rows={LEVELS.map(level=>[`${level} confidence`,record.confidence?.[level]])}/>
   <Games items={data.items}/>
+  {replay}
  </>;
 }
 
