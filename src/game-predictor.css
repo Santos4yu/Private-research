@@ -738,3 +738,8 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 
 /* The last play: a quote card. */
 .gp-chance-sec .gp-lastplay,.gp-lastplay{border-radius:14px}
+
+/* Both leagues in one parlay (Nov 9): each chip says its league, and its day when the legs aren't on one. */
+.gp-gen-body>.gp-controls>.gp-seg{margin-bottom:2px}
+.gp-legchip-tag{margin-left:2px;padding:1px 6px;border-radius:6px;background:rgba(255,255,255,.08);color:var(--gp-muted);font-size:10.5px;font-style:normal;font-weight:800;letter-spacing:.02em}
+.gp-mixed-note{margin:0 0 10px}

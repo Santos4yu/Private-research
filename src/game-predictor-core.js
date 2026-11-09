@@ -172,16 +172,22 @@ export function likeliest(board,count=5){
  * or paying at least `payout` times the stake (2 to `most` legs). The most
  * likely to hit first, or the best value (`sort` 'value'). Each:
  * {legs, dec (what a dollar returns), chance (to hit), ev (a dollar's
- * average profit)}. The games are taken as independent of each other. */
-export function parlays(board,{legs=null,payout=null,sort='likely',most=4,top=3}={}){
+ * average profit)}. The games are taken as independent of each other.
+ * `mixed` (Nov 9, the owner: "a parlay between the 2 sports"): only
+ * parlays with a leg from every league on the board, none with one league. */
+export function parlays(board,{legs=null,payout=null,sort='likely',most=4,top=3,mixed=false}={}){
  const pool=boardLegs(board);
- const byGame=[...new Set(pool.map(leg=>leg.game))].map(id=>pool.filter(leg=>leg.game===id));
+ const gameKey=leg=>`${leg.sport||''}:${leg.game}`;
+ const byGame=[...new Set(pool.map(gameKey))].map(id=>pool.filter(leg=>gameKey(leg)===id));
+ const leagues=new Set(pool.map(leg=>leg.sport||''));
+ if(mixed&&leagues.size<2)return [];
+ const covers=picked=>!mixed||new Set(picked.map(leg=>leg.sport||'')).size===leagues.size;
  const sizes=legs?[legs]:Array.from({length:Math.max(0,most-1)},(_,index)=>index+2);
  const deepest=Math.max(0,...sizes),found=[];
  const walk=(start,picked,dec,chance)=>{
   // "Pays 2x or more" means about that (Nov 8: ranked by value, 42x long
   // shots came first): up to three times the payout asked for.
-  if(sizes.includes(picked.length)&&(!payout||(dec>=payout-1e-9&&dec<=payout*3+1e-9)))found.push({legs:picked.slice(),dec,chance,ev:chance*dec-1});
+  if(sizes.includes(picked.length)&&(!payout||(dec>=payout-1e-9&&dec<=payout*3+1e-9))&&covers(picked))found.push({legs:picked.slice(),dec,chance,ev:chance*dec-1});
   if(picked.length>=deepest)return;
   for(let game=start;game<byGame.length;game++)for(const leg of byGame[game]){
    picked.push(leg);walk(game+1,picked,dec*leg.dec,chance*leg.chance);picked.pop();

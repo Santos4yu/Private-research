@@ -133,6 +133,20 @@ test('both leagues on one board, each leg keeping its league',()=>{
  assert.deepEqual(best.legs.map(leg=>leg.sport),['nba','nfl']);
 });
 
+test('a parlay between the two sports: a leg from each league, never one league alone',()=>{
+ const nba=board.games.map(game=>({...game,id:`n${game.id}`}));
+ const both=mergeBoards([{sport:'nba',games:nba},{sport:'nfl',games:[{...board.games[1],id:'9'}]}]);
+ const found=parlays(both,{legs:2,mixed:true,top:50});
+ assert.ok(found.length>0);
+ for(const combo of found)assert.deepEqual([...new Set(combo.legs.map(leg=>leg.sport))].sort(),['nba','nfl']);
+ // Unmixed, NBA-only pairs are allowed; mixed with one league on the board, none.
+ assert.ok(parlays(both,{legs:2,top:50}).some(combo=>combo.legs.every(leg=>leg.sport==='nba')));
+ assert.deepEqual(parlays(mergeBoards([{sport:'nba',games:nba}]),{legs:2,mixed:true}),[]);
+ // The same game id in two leagues is two games.
+ const twins=mergeBoards([{sport:'nba',games:[board.games[0]]},{sport:'nfl',games:[board.games[0]]}]);
+ assert.equal(parlays(twins,{legs:2,mixed:true}).length>0,true);
+});
+
 test('prices in cents, payouts and money',()=>{
  assert.equal(cents(0.634),'63¢');
  assert.equal(winOf(20,160),32);

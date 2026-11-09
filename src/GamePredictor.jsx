@@ -904,14 +904,20 @@ function VersusBar({chance,market,color}){
 function Leg({leg,mixed,value}){
  return <li className="gp-leg">
   <Logo team={leg.team} size={28}/>
-  <span><b>{leg.team.short||leg.team.abbr}</b><small>{mixed&&leg.sport?`${leg.sport.toUpperCase()} · `:''}{leg.home?'vs':'@'} {leg.opponent.abbr} · {clockText(leg.startsAt)}</small>
+  <span><b>{leg.team.short||leg.team.abbr}</b><small>{mixed&&leg.sport?`${leg.sport.toUpperCase()} · `:''}{leg.home?'vs':'@'} {leg.opponent.abbr} · {mixed?startText(leg.startsAt):clockText(leg.startsAt)}</small>
    {value&&leg.market!=null&&<VersusBar chance={leg.chance} market={leg.market} color={teamColor(leg.team)}/>}</span>
   <span className="gp-leg-num"><b>{pct(leg.chance)}</b><small>{odds(leg.price)}{value&&leg.edge!=null?<> · <em data-tone="up">{edgeText(leg.edge)}</em></>:null}</small></span>
  </li>;
 }
 
-// A parlay's legs as small chips: the team, its price.
-const LegChips=({legs})=><ul className="gp-legchips">{legs.map(leg=><li key={leg.game}><Logo team={leg.team} size={18}/><b>{leg.team.abbr}</b><small>{odds(leg.price)}</small></li>)}</ul>;
+// A parlay's legs as small chips: the team, its price; with both leagues,
+// its league too, and its day when the legs aren't all on one.
+const dayOf=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toLocaleDateString('en-US',{weekday:'short'}):'';};
+const LegChips=({legs,mixed})=>{
+ const days=new Set(legs.map(leg=>dayOf(leg.startsAt)));
+ return <ul className="gp-legchips">{legs.map(leg=><li key={`${leg.sport}:${leg.game}`}><Logo team={leg.team} size={18}/><b>{leg.team.abbr}</b><small>{odds(leg.price)}</small>
+  {mixed&&<em className="gp-legchip-tag">{[leg.sport?.toUpperCase(),days.size>1?dayOf(leg.startsAt):null].filter(Boolean).join(' · ')}</em>}</li>)}</ul>;
+};
 
 // The Generator: moneylines (by day, NBA / NFL) or tonight's NBA props
 // (Nov 8, the owner: "a prop generator that does a full analysis ... like
@@ -937,11 +943,16 @@ function MoneylineGenerator({league,admin}){
   const control=new AbortController();
   const sports=which==='both'?['nba','nfl']:[which];
   setState(old=>({loading:true,data:old.key===`${day}|${which}`?old.data:null,key:old.key}));
-  Promise.allSettled(sports.map(sport=>call({action:'game-board',sport,day},control.signal))).then(found=>{
+  // Both leagues (Nov 9, the owner: "a parlay between the 2 sports"): a
+  // league with no games that day (the NFL most days) brings its next ones.
+  const one=sport=>call({action:'game-board',sport,day},control.signal).then(board=>which==='both'&&!(board.games||[]).some(game=>!game.held)
+   ?call({action:'game-board',sport},control.signal).then(next=>({...next,next:(next.games||[]).length>0})).catch(()=>board):board);
+  Promise.allSettled(sports.map(one)).then(found=>{
    if(control.signal.aborted)return;
    const boards=found.filter(item=>item.status==='fulfilled').map(item=>item.value);
    const failed=found.find(item=>item.status==='rejected');
-   setState(boards.length?{data:mergeBoards(boards),key:`${day}|${which}`,partial:Boolean(failed)}:{error:failed?.reason?.message||'The generator is unavailable right now.'});
+   setState(boards.length?{data:mergeBoards(boards),key:`${day}|${which}`,partial:Boolean(failed),next:boards.filter(board=>board.next).map(board=>board.sport)}
+    :{error:failed?.reason?.message||'The generator is unavailable right now.'});
   });
   return()=>control.abort();
  },[day,which,tries]);
@@ -951,15 +962,17 @@ function MoneylineGenerator({league,admin}){
  const value=useMemo(()=>valuePicks(board,6),[board]);
  const showValue=sort==='value'&&value.length>0;
  const lead=showValue?value:top;
- const combos=useMemo(()=>parlays(board,mode==='payout'?{payout,sort}:{legs,sort}),[board,mode,payout,legs,sort]);
+ const mixed=which==='both';
+ const combos=useMemo(()=>parlays(board,{...(mode==='payout'?{payout}:{legs}),sort,mixed}),[board,mode,payout,legs,sort,mixed]);
+ const leagues=new Set((board?.games||[]).filter(game=>!game.held).map(game=>game.sport));
  const games=board?.games||[],held=games.filter(game=>game.held).length;
  const dayName=(days.find(item=>item.key===day)||days[0]).top;
  const when=dayName==='Today'||dayName==='Tomorrow'?dayName.toLowerCase():`on ${dayName}`;
  return <div className="gp-gen-body">
   <div className="gp-controls">
+   <Segmented options={LEAGUES.map(([key,text])=>[key,key==='both'?'NBA + NFL':text])} value={which} onChange={setWhich} label="League" wide/>
    <DayStrip days={days} value={day} onChange={setDay}/>
    <div className="gp-menus">
-    <ChipMenu label="League" value={which} onChange={setWhich} options={LEAGUES.map(([key,text])=>({key,text:key==='both'?'NBA + NFL':text}))}/>
     <ChipMenu label="Order" value={sort} onChange={setSort} options={[{key:'value',text:'Best value'},{key:'likely',text:'Most likely'}]}/>
     <ChipMenu label="Parlays" value={mode==='payout'?`p${payout}`:`l${legs}`}
      onChange={key=>{const amount=Number(key.slice(1));if(key[0]==='p'){setMode('payout');setPayout(amount);}else{setMode('legs');setLegs(amount);}}}
@@ -993,7 +1006,8 @@ function MoneylineGenerator({league,admin}){
     </dl>}
    </section>
    {lead.length>1&&<Section title={showValue?'More value picks':'Next most likely'}><ul className="gp-legs">{lead.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'} value={showValue}/>)}</ul></Section>}
-   <Section title={mode==='payout'?`Parlays paying ${payout}x or more`:`${legs}-leg parlays`} icon={Layers}>
+   <Section title={`${mixed?'NBA + NFL parlays':'Parlays'}${mode==='payout'?` paying ${payout}x or more`:`, ${legs} legs`}`} icon={Layers}>
+    {mixed&&state.next?.length>0&&<p className="gp-note gp-mixed-note">No {state.next.map(sport=>sport.toUpperCase()).join(' or ')} games {when}: {state.next.length===1?'its':'their'} legs are from {state.next.length===1?'its':'their'} next games.</p>}
     {combos.length?<ol className="gp-parlays">{combos.map((combo,index)=><li key={combo.legs.map(leg=>leg.game+leg.side).join()} style={{'--i':index}}>
      <div className="gp-parlay-head">
       <span className="gp-parlay-pays"><b>{paysText(combo.dec)}</b><small>{odds(americanOf(combo.dec))}</small></span>
@@ -1001,8 +1015,9 @@ function MoneylineGenerator({league,admin}){
       <strong data-tone={combo.ev>0?'up':'down'}>{evText(combo.ev)}<small>value</small></strong>
       <ShareButton legs={combo.legs} label={`Share this ${combo.legs.length}-pick parlay as a picture`}/>
      </div>
-     <LegChips legs={combo.legs}/>
-    </li>)}</ol>:<p className="gp-note">{mode==='payout'?`No mix of these games pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}
+     <LegChips legs={combo.legs} mixed={mixed}/>
+    </li>)}</ol>:<p className="gp-note">{mixed&&leagues.size<2?'Only one league has games with moneylines right now, so there\'s no parlay with both.'
+     :mode==='payout'?`No mix of these games pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}
     {held>0&&<p className="gp-note">{held} {held===1?'game':'games'} left out: no moneyline yet, or data to check.</p>}
     {state.partial&&<p className="gp-note">One league couldn't load; these are the other's games.</p>}
    </Section>

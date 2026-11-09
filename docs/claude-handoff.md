@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-09 (the moneyline Generator's NBA + NFL parlays: a leg from each league, a league with no games that day bringing its next ones. Before that, the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -57,6 +57,20 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   minutes. Scores are worked out on the phone, so without this a phone kept
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
+
+### Nov 9 (d): parlays between the two sports (moneyline Generator)
+
+- The owner: "i want the generator to have an option to give me a parlay
+  between the 2 sports". The League choice (NBA / NFL / NBA + NFL) was a
+  menu pill; it's now a switch at the top of the moneyline Generator.
+- `parlays(board, {mixed: true})` (game-predictor-core.js) keeps only
+  parlays with a leg from every league on the board (none when there's one
+  league); games are keyed by league + id now.
+- With NBA + NFL, a league with no playable games on the picked day (the
+  NFL most days) brings its next games (`game-board` without a day), with a
+  note saying so ("No NFL games today: its legs are from its next games").
+  Leg chips show the league, and the day when the legs aren't all on one;
+  the value picks show the day and time.
 
 ### Nov 9: Game Predictor polish; no small bars
 
