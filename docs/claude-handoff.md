@@ -64,8 +64,8 @@ Last updated 2026-11-09 (the Game Predictor on a laptop: the games list and the 
   only had this like 3 days". game_record.fill replays past games (marked
   `filled`) and summary_of counted them with the live picks. Now the record,
   the day-by-day, splits and the pick list are live picks only; the replay is
-  summed apart (`record.replay`) and shown as "Season replay ... Not live picks"
-  under the list (src/GameRecord.jsx).
+  summed apart (`record.replay`) but not shown on the page at all (the owner:
+  "it still shows 93-46"; src/GameRecord.jsx).
 
 ### Oct 27: phone dock like YouTube's new one
 
