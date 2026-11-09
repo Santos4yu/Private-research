@@ -21,10 +21,6 @@
     --fc-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
   }
   html:root .unified-finder { position: relative; isolation: isolate; background-image: none !important; }
-  /* Solid, so the site's background picture doesn't show through the board
-     (Nov 9, the owner: "can we fix this see through look"). The shadow
-     widens the fill past the edges without moving anything. */
-  html:root .unified-finder { background-color: #0d0d0d !important; border-radius: 18px; box-shadow: 0 0 0 16px #0d0d0d; }
 
   /* ------------------------------------------------------------ the bar */
 

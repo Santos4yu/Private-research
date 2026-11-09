@@ -298,6 +298,8 @@ html, body {
 /* The Props tab is a solid page: the background photo and glow don't show through it. */
 body:has(#panel-v2:not([hidden])) .user-bg-layer,
 body:has(#panel-v2:not([hidden]))::before { display: none !important; }
+/* The Finder too (Nov 9, the owner: "can we fix this see through look"): the photo doesn't show behind its board. */
+body:has(#panel-finder:not([hidden])) .user-bg-layer { display: none !important; }
 
 body::before {
   content: "";
