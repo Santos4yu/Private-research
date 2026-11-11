@@ -87,9 +87,9 @@ const dayName=value=>{const date=new Date(value);return Number.isNaN(date.getTim
 const lastName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
 function DefenseVsPosition({row,stat}){
  const opponent=opponentOf(row),admin=useIsAdmin();
- const [season,setSeason]=useState(null),[position,setPosition]=useState(null),[view,setView]=useState('total'),[team,setTeam]=useState(opponent),[open,setOpen]=useState(null);
+ const [season,setSeason]=useState(null),[position,setPosition]=useState(null),[view,setView]=useState('total'),[team,setTeam]=useState(opponent),[open,setOpen]=useState(null),[all,setAll]=useState(false);
  useEffect(()=>setTeam(opponent),[opponent]);
- useEffect(()=>{setSeason(null);setPosition(null);setOpen(null);},[row.playerId]);
+ useEffect(()=>{setSeason(null);setPosition(null);setOpen(null);setAll(false);},[row.playerId]);
  const state=useWnba('dvp',{league:leagueOf(row),season,position,playerId:row.playerId,view,team});
  // The last table stays up while another season, position or view loads.
  const shown=useRef(null);
@@ -103,6 +103,9 @@ function DefenseVsPosition({row,stat}){
  const windows=data.windows||[['szn',0],['l10',10],['l5',5]];
  // The line's own stat and what feeds it lead (prop-focus.js).
  const order=focus.order([stat,...DVP_ORDER.filter(key=>key!==stat)]).filter(key=>entry?.stats?.[key]);
+ // First only those (Nov 11, the owner with PickFinder's card, which shows the line's stats alone); the rest one tap away.
+ const leading=order.filter(key=>key===stat||focus.of(key));
+ const rows=all||leading.length<2||leading.length>=order.length?order:leading;
  // Rank 1 allows the least. For someone taking the over that is the tough
  // end, so the tone reads from the highest rank down.
  const tone=rank=>rankTone(finite(rank)?n+1-rank:rank,n);
@@ -120,7 +123,7 @@ function DefenseVsPosition({row,stat}){
   </div>
   {entry?<div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Stat</th><th scope="col" className="wnba-bar-col">Allowed</th>
    {windows.map(item=><th scope="col" key={item[0]}>{item[0].toUpperCase()}{short(item)?<small> ({entry.g[item[0]]})</small>:null}</th>)}<th scope="col" className="wnba-dvp-matchup">Matchup</th></tr></thead><tbody>
-   {order.map(key=>{const cell=entry.stats[key],[value,rank]=cell.szn||[],f=focus.of(key)||(key===stat?'key':null),isOpen=open===key;return <React.Fragment key={key}>
+   {rows.map(key=>{const cell=entry.stats[key],[value,rank]=cell.szn||[],f=focus.of(key)||(key===stat?'key':null),isOpen=open===key;return <React.Fragment key={key}>
     <tr data-focus={f||undefined} data-open={isOpen||undefined}><th scope="row"><button type="button" className="wnba-dvp-stat" aria-expanded={isOpen} onClick={()=>setOpen(isOpen?null:key)}><span className="wnba-stat-name"><span className="prop-focus-label">{labels[key]}<PropFocusTag focus={f}/></span><small>{fmt(value)} {VALUE_UNIT[data.view]||VALUE_UNIT.total}</small></span></button></th>
     <td className="wnba-bar-col"><span className="wnba-rank-bar" data-tone={tone(rank)} aria-hidden="true"><i style={{width:finite(rank)?`${rank/n*100}%`:'0%'}}/></span></td>
     {windows.map(item=>{const r=cell[item[0]]?.[1];return <td key={item[0]} data-tone={tone(r)} data-short={short(item)||undefined}>{ordinal(r)}</td>;})}
@@ -128,6 +131,8 @@ function DefenseVsPosition({row,stat}){
     {isOpen&&<tr className="wnba-dvp-log-row"><td colSpan={windows.length+3}><DefenseGames log={data.log} index={statIndex[key]} position={POSITION_NAMES[data.position]||data.position} logos={logos}/></td></tr>}
    </React.Fragment>;})}
   </tbody></table></div>:<Empty>No games recorded for this defense in {seasonName(data.season)}.</Empty>}
+  {entry&&rows.length<order.length&&<button type="button" className="wnba-dvp-more" onClick={()=>setAll(true)}>Show all {order.length} stats</button>}
+  {entry&&all&&leading.length>=2&&leading.length<order.length&&<button type="button" className="wnba-dvp-more" onClick={()=>{setAll(false);setOpen(null);}}>Show the line's stats only</button>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
   {admin&&audit&&<p className="wnba-dvp-audit" data-off={audit.offCount||audit.duplicates||audit.missing?'true':undefined}>Box scores: {audit.verified} of {audit.checked} games match ESPN's final scores{audit.offCount?` · ${audit.offCount} off`:''}{audit.duplicates?` · ${audit.duplicates} doubled`:''}{audit.missing?` · ${audit.missing} finished not stored yet`:''}</p>}
  </Card>;
@@ -153,11 +158,12 @@ function OffenseVsDefense({league,row}){
  const off=data.teamStats[offense],def=data.teamStats[defense],n=data.teamCount;
  if(!off||!def)return <Card title="Offense vs defense" icon={ArrowLeftRight}><Empty>Team data is not available for this matchup yet.</Empty></Card>;
  return <Card title="Offense vs defense" icon={ArrowLeftRight} className="wnba-ovd">
-  <div className="wnba-ovd-head"><span className="wnba-team-cell"><Logo src={data.teams[offense]?.logo}/>{offense} <small>offense</small></span><button type="button" className="wnba-swap" aria-label="Swap offense and defense" onClick={()=>setFlip(v=>!v)}><ArrowLeftRight size={15}/></button><span className="wnba-team-cell"><small>defense</small> {defense}<Logo src={data.teams[defense]?.logo}/></span></div>
+  <div className="wnba-ovd-head"><span className="wnba-team-cell"><Logo src={data.teams[offense]?.logo}/>{offense}</span><button type="button" className="wnba-swap" aria-label="Swap offense and defense" onClick={()=>setFlip(v=>!v)}><ArrowLeftRight size={15}/></button><span className="wnba-team-cell">{defense}<Logo src={data.teams[defense]?.logo}/></span></div>
+  <div className="wnba-ovd-cols" aria-hidden="true"><span>Off rank</span><span>Advantage</span><span>Def rank</span></div>
   <div className="wnba-ovd-rows">{focus.order(OVD,([key])=>key).map(([key,label])=>{const [ov,or]=off.off[key]||[],[dv,dr]=def.def[key]||[],f=focus.of(key);if(!finite(or)||!finite(dr))return null;
    const share=((n-or)/(n-1)+(dr-1)/(n-1))/2*100;
    const strong=rank=>rank<=Math.ceil(n/3);
-   return <div className="wnba-ovd-row" key={key} data-focus={f||undefined}><span data-side="off" data-strong={strong(or)}>{ordinal(or)}<small>{fmt(ov)}{key==='fgPct'?'%':''}</small></span><div><small>{label}<PropFocusTag focus={f}/></small><span className="wnba-ovd-bar" role="img" aria-label={`${label}: ${offense} offense ranks ${ordinal(or)}, ${defense} defense ranks ${ordinal(dr)}`}><i style={{width:`${share}%`}}/></span></div><span data-side="def" data-strong={strong(dr)}>{ordinal(dr)}<small>{fmt(dv)}{key==='fgPct'?'%':''}</small></span></div>;})}</div>
+   return <div className="wnba-ovd-row" key={key} data-focus={f||undefined}><span data-side="off" data-strong={strong(or)}>{ordinal(or)}<small>({fmt(ov)}{key==='fgPct'?'%':''})</small></span><div><small>{label}<PropFocusTag focus={f}/></small><span className="wnba-ovd-bar" role="img" aria-label={`${label}: ${offense} offense ranks ${ordinal(or)}, ${defense} defense ranks ${ordinal(dr)}`}><i style={{width:`${share}%`}}/></span></div><span data-side="def" data-strong={strong(dr)}><small>({fmt(dv)}{key==='fgPct'?'%':''})</small>{ordinal(dr)}</span></div>;})}</div>
   <div className="wnba-ovd-legend"><span><i data-side="off"/>Offensive advantage</span><span>Defensive advantage<i data-side="def"/></span></div>
  </Card>;
 }
@@ -201,7 +207,11 @@ function ShotChart({player,league,row}){
 }
 
 // ---------------------------------------------------------------- Similar
-function SimilarPlayers({player,row,statLabel,playerPosition}){
+// Each stat's short name, for the result column.
+const STAT_SHORT={pts:'PTS',reb:'REB',ast:'AST',tpm:'3PM',blk:'BLK',stl:'STL',bs:'B+S',to:'TO',pr:'P+R',pa:'P+A',ra:'R+A',pra:'PRA',fgm:'FGM',ftm:'FTM',fga:'FGA',fta:'FTA',tpa:'3PA',pf:'PF'};
+// After PickFinder's "other guards vs" list (Nov 11, the owner): who played
+// the spot against tonight's opponent, each against his own average.
+function SimilarPlayers({player,row,statLabel,playerPosition,league,stat}){
  const opponent=opponentOf(row),[position,setPosition]=useState(playerPosition||'G');
  useEffect(()=>setPosition(playerPosition||'G'),[playerPosition]);
  const p=player.data;
@@ -209,15 +219,21 @@ function SimilarPlayers({player,row,statLabel,playerPosition}){
  const entries=p.similar?.[position]||[];
  const over=entries.filter(entry=>entry.diff>0).length,diff=average(entries.map(entry=>entry.diff)),base=average(entries.map(entry=>entry.avg));
  const max=Math.max(1,...entries.flatMap(entry=>[entry.value,entry.avg]));
- const noun=POSITIONS.find(([key])=>key===position)[1];
+ const noun=POSITIONS.find(([key])=>key===position)[1],teams=league?.data?.teams||{},short=STAT_SHORT[stat]||statLabel;
  return <Card title={`Other ${noun.toLowerCase()} vs ${opponent}`} note={statLabel} icon={Users} className="wnba-similar">
-  <div className="wnba-dvp-controls"><div className="mlb-context-switch" aria-label="Position">{POSITIONS.map(([key,label])=><button type="button" key={key} aria-pressed={position===key} onClick={()=>setPosition(key)}>{label}</button>)}</div>
-   {entries.length>0&&<div className="wnba-similar-summary"><span data-tone={over*2>=entries.length?'good':'poor'}>{over}/{entries.length} beat their average</span><span data-tone={diff>0?'good':'poor'}>Avg diff {signed(diff)}{finite(base)&&base?` (${signed(diff/base*100)}%)`:''}</span></div>}</div>
-  {entries.length?<div className="wnba-similar-list">{entries.map(entry=><div className="wnba-similar-row" key={entry.gameId+entry.id}>
-   <Avatar src={entry.headshot}/><span className="wnba-similar-name"><strong>{entry.name}</strong><small>{ago(entry.date)} · {entry.team}</small></span>
-   <span className="wnba-similar-min">{fmt(entry.min,0)} min</span>
-   <span className="wnba-similar-result"><b data-tone={entry.diff>0?'good':'poor'}>{fmt(entry.value)}</b><small>avg {fmt(entry.avg)}</small><span className="wnba-similar-bar" aria-hidden="true"><i data-tone={entry.diff>0?'good':'poor'} style={{width:`${entry.value/max*100}%`}}/><em style={{left:`${entry.avg/max*100}%`}}/></span></span></div>)}</div>
-  :<Empty>No {noun.toLowerCase()} have played {p.similarMinMinutes}+ minutes against {opponent} yet this season.</Empty>}
+  <div className="wnba-similar-top">
+   {entries.length>0?<div className="wnba-similar-summary"><span data-tone={over*2>=entries.length?'good':'poor'}>{over}/{entries.length} beat their average</span><span data-tone={diff>0?'good':'poor'}>Avg diff {signed(diff)}{finite(base)&&base?` (${signed(diff/base*100)}%)`:''}</span></div>:<span/>}
+   <FinderDropdown aria-label="Position" value={position} onChange={e=>setPosition(e.target.value)}>{POSITIONS.map(([key,label])=><option key={key} value={key}>{label}</option>)}</FinderDropdown>
+  </div>
+  {entries.length?<>
+   <div className="wnba-similar-cols" aria-hidden="true"><span>Player</span><span>Minutes</span><span>Result</span></div>
+   <div className="wnba-similar-list">{entries.map(entry=><div className="wnba-similar-row" key={entry.gameId+entry.id}>
+    <span className="wnba-similar-face"><Avatar src={entry.headshot}/>{teams[entry.team]?.logo&&<img className="wnba-similar-team" src={teams[entry.team].logo} alt="" width="16" height="16" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+    <span className="wnba-similar-name"><strong>{entry.name}<em>{entry.team}</em></strong><small>{ago(entry.date)} vs {opponent}</small></span>
+    <span className="wnba-similar-min">{fmt(entry.min,0)} mins</span>
+    <span className="wnba-similar-result"><b data-tone={entry.diff>0?'good':'poor'}>{fmt(entry.value)}<em>{short}</em></b><span className="wnba-similar-bar" aria-hidden="true"><i data-tone={entry.diff>0?'good':'poor'} style={{width:`${entry.value/max*100}%`}}/><em style={{left:`${entry.avg/max*100}%`}}/></span><small>Avg: {fmt(entry.avg)}</small></span></div>)}</div>
+   <div className="wnba-similar-key" aria-hidden="true"><span><i data-tone="good"/>Beat his average</span><span><i data-tone="poor"/>Under his average</span></div>
+  </>:<Empty>No {noun.toLowerCase()} have played {p.similarMinMinutes}+ minutes against {opponent} yet this season.</Empty>}
  </Card>;
 }
 
@@ -379,7 +395,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
   {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
   {tab==='defense'&&<><DefenseVsPosition row={row} stat={stat}/>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
-  {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition}/>}
+  {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition} league={league} stat={stat}/>}
   {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filters={filters} onToggleFilter={onToggleFilter}/>}
   {tab==='rankings'&&<Rankings league={league} row={row}/>}
   <Averages row={row} logs={logs}/>

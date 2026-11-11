@@ -58,6 +58,32 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (j): the player page's sections after PickFinder's
+
+- The owner sent PickFinder's Defense vs Position, Offense vs Defense,
+  Supporting Stats, Depth Charts and Similar players beside ours; asked
+  which to rework: "All of them". Layout only, our colors. JSX in
+  `src/sports/wnba/WNBAFinderContext.jsx`, styles at the end of
+  `src/finder-player-app.css` (scoped `.fp2`):
+  - Defense vs position: only the line's stat and what feeds it at first
+    (`leading`, from prop-focus), "Show all N stats" for the rest (and back);
+    one line a stat with the tag beside the name, a narrower bar.
+  - Offense vs defense: the two teams over a row of column names (Off rank
+    / Advantage / Def rank); each rank with its number in brackets beside
+    it; plain rows (no boxes); glossy bars.
+  - Supporting stats: the stats as words over their averages, the picked
+    one underlined (one row to swipe on a phone); a tall chart (280px, 200
+    on a phone) of glossy grey bars.
+  - Depth charts: small polish only (already PickFinder's layout).
+  - Similar players: the summary chips and a position menu on one line,
+    then Player / Minutes / Result: the avatar with his team's logo, his
+    name and team, "5 days ago vs NY", minutes, the result with the stat's
+    short name (`STAT_SHORT`), a bar with his average marked and "Avg: x"
+    under; a key at the foot. It still measures each player against his
+    own average (we have no lines for those games), not a line as theirs.
+- Checked in a browser at 390 and 1600 wide with made-up data (the check
+  script fakes `dvp` and `player-context`'s similar players).
+
 ### Nov 11 (i): the Finder's player page finished like an app
 
 - The owner, with PickFinder's player page beside ours: "can you make our
