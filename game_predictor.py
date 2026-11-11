@@ -1329,6 +1329,76 @@ def nba_official_ratings(now=None) -> dict | None:
     return value
 
 
+# PBPStats' team totals (free): every possession counted from NBA.com's
+# play-by-play, the way NBA.com's own ratings count them. Asked again after
+# COUNTED_SECONDS; a copy up to OFFICIAL_SECONDS old stands in when it's down.
+PBPSTATS = "https://api.pbpstats.com/get-totals/nba"
+COUNTED_KEY = "krazy_data:predictor:v2:nba-counted:{season}"
+COUNTED_SECONDS = 3 * 3600
+
+
+def _pbpstats_totals(label) -> dict:
+    """{"Team": rows, "Opponent": rows} of a season's totals from PBPStats."""
+    out = {}
+    for kind in ("Team", "Opponent"):
+        response = requests.get(PBPSTATS, params={"Season": label, "SeasonType": "Regular Season", "Type": kind},
+                                headers={"Accept": "application/json", "User-Agent": "Mozilla/5.0"}, timeout=8)
+        response.raise_for_status()
+        out[kind] = (response.json() or {}).get("multi_row_table_data") or []
+    return out
+
+
+def nba_counted_ratings(now=None, fetch=None, store=None) -> dict | None:
+    """{abbr: {off, def, offRank, defRank, games}} per 100 possessions with
+    every possession counted (PBPStats), or None. The automatic stand-in
+    for NBA.com's own table (nba_official_ratings, which needs the phone
+    relay): the Nov 11 check put its ranks within a place or two of
+    PickFinder's, where the box-score estimate was up to four off."""
+    import nba_live
+    import nba_relay
+    now = time.time() if now is None else now
+    hit = _memory.get("nba-counted")
+    if hit and now - hit[0] < 600:
+        return hit[1]
+    season = nba_relay.current_season(datetime.fromtimestamp(now, timezone.utc))
+    key = COUNTED_KEY.format(season=season)
+    store = _store() if store is None else store
+    kept = None
+    try:
+        raw = store.get(key) if store else None
+        kept = json.loads(raw) if raw else None
+    except Exception:  # noqa: BLE001
+        kept = None
+    value = kept["teams"] if kept and now - kept.get("at", 0) < COUNTED_SECONDS else None
+    if value is None:
+        try:
+            totals = (fetch or _pbpstats_totals)(nba_relay.season_label(season))
+            code = lambda row: nba_live.ESPN_ABBR.get(row.get("TeamAbbreviation"), row.get("TeamAbbreviation"))
+            allowed = {code(row): row for row in totals.get("Opponent") or []}
+            teams = {}
+            for row in totals.get("Team") or []:
+                abbr, other = code(row), allowed.get(code(row)) or {}
+                if abbr and (row.get("OffPoss") or 0) > 0 and (other.get("OffPoss") or 0) > 0:
+                    teams[abbr] = {"off": 100 * row["Points"] / row["OffPoss"], "def": 100 * other["Points"] / other["OffPoss"],
+                                   "games": row.get("GamesPlayed")}
+            if len(teams) >= 25:
+                offense, defense = {t: row["off"] for t, row in teams.items()}, {t: row["def"] for t, row in teams.items()}
+                for abbr, row in teams.items():
+                    row["offRank"], row["defRank"] = _rank_of(offense, abbr), _rank_of(defense, abbr, high_first=False)
+                value = teams
+                try:
+                    if store:
+                        store.set(key, json.dumps({"at": now, "teams": teams}, separators=(",", ":")))
+                except Exception:  # noqa: BLE001
+                    pass
+        except Exception:  # noqa: BLE001 -- the last copy, then the box-score ratings, stand in
+            value = None
+        if value is None and kept and now - kept.get("at", 0) < OFFICIAL_SECONDS:
+            value = kept["teams"]
+    _memory["nba-counted"] = (now, value)
+    return value
+
+
 def _nba_v2(now=None) -> dict:
     import predictor_nba
     from backend.sports.wnba import league
@@ -1369,14 +1439,14 @@ def nba_model_v2(game, context) -> dict | None:
     pace = {team: rt["pace_mu"] + rt["pace"].get(team, 0.0) for team in rated}
 
     season = context.get("seasonTable") or {}
-    official = nba_official_ratings() or {}
+    official = nba_official_ratings() or nba_counted_ratings() or {}
 
     def profile(side):
         abbr = game[side]["abbr"]
         results = (context["results"].get(abbr) or [])[-10:]
         offense, defense, speed = rt["mu"] + rt["off"][abbr], rt["mu"] + rt["def"][abbr], rt["pace_mu"] + rt["pace"].get(abbr, 0.0)
         mine = season.get(abbr) or {}
-        if mine.get("games", 0) >= 3 and abbr in official:  # NBA.com's own ratings and ranks
+        if mine.get("games", 0) >= 3 and abbr in official:  # NBA.com's own ratings and ranks (or PBPStats' counted ones)
             mine = {**mine, **{key: official[abbr][key] for key in ("off", "def", "offRank", "defRank")}}
         if mine.get("games", 0) >= 3:  # this season's own numbers and ranks
             return {"ortg": [round(mine["off"], 1), mine["offRank"]], "drtg": [round(mine["def"], 1), mine["defRank"]],

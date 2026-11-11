@@ -14,16 +14,21 @@ NOW = datetime(2026, 11, 5, 18, tzinfo=timezone.utc)
 _no_dk = patch.object(gp, "dk_events", return_value=[])
 import nba_live  # noqa: E402
 _no_nba_live = patch.object(nba_live, "_get", return_value=None)
+# ...nor PBPStats' totals: the box-score ratings stand unless a test gives its own.
+_no_pbpstats = patch.object(gp, "_pbpstats_totals", side_effect=RuntimeError("no network in tests"))
 
 
 def setUpModule():
     _no_dk.start()
     _no_nba_live.start()
+    _no_pbpstats.start()
+    gp._memory.pop("nba-counted", None)
 
 
 def tearDownModule():
     _no_dk.stop()
     _no_nba_live.stop()
+    _no_pbpstats.stop()
 
 
 def line(pid, minutes, pts, reb=5, ast=3):
@@ -548,6 +553,48 @@ class NbaV2Tests(unittest.TestCase):
             else:
                 self.assertIsNone(official)
                 self.assertEqual((home["ortg"], home["drtg"]), (box["ortg"], box["drtg"]))
+        gp._memory.pop("nba-official", None)
+
+    def test_counted_possessions_stand_in_for_nba_com(self):
+        import nba_relay
+        codes = sorted(gp.NBA_TEAM_IDS.values())
+        tricode = {"GS": "GSW", "NY": "NYK", "SA": "SAS", "NO": "NOP", "UTAH": "UTA", "WSH": "WAS"}
+        team = [{"TeamAbbreviation": tricode.get(abbr, abbr), "Points": 1100 + index, "OffPoss": 1000, "GamesPlayed": 10} for index, abbr in enumerate(codes)]
+        other = [{"TeamAbbreviation": tricode.get(abbr, abbr), "Points": 1150 - index, "OffPoss": 1000} for index, abbr in enumerate(codes)]
+        team[codes.index("DEN")].update(Points=1250)
+        other[codes.index("DEN")].update(Points=1000)
+        now, kept, asked = NOW.timestamp(), {}, []
+
+        class Store:
+            def get(self, key):
+                return kept.get(key)
+
+            def set(self, key, value):
+                kept[key] = value
+        fetch = lambda label: asked.append(label) or {"Team": team, "Opponent": other}
+        down = lambda label: (_ for _ in ()).throw(RuntimeError("down"))
+        clear = lambda: gp._memory.pop("nba-counted", None)
+        self.addCleanup(clear)
+        clear()
+        counted = gp.nba_counted_ratings(now, fetch, Store())
+        self.assertEqual(asked, ["2026-27"])
+        self.assertEqual((counted["DEN"]["off"], counted["DEN"]["def"], counted["DEN"]["offRank"], counted["DEN"]["defRank"]), (125.0, 100.0, 1, 1))
+        self.assertIn("NY", counted)
+        self.assertIn("WSH", counted)
+        # Kept for three hours: another instance reads the copy, PBPStats isn't asked.
+        clear()
+        self.assertEqual(gp.nba_counted_ratings(now + 3600, down, Store())["DEN"]["defRank"], 1)
+        # Past that and PBPStats down: the copy still stands in for a day and a half, then nothing.
+        clear()
+        self.assertEqual(gp.nba_counted_ratings(now + gp.COUNTED_SECONDS + 60, down, Store())["DEN"]["offRank"], 1)
+        clear()
+        self.assertIsNone(gp.nba_counted_ratings(now + gp.OFFICIAL_SECONDS + 60, down, Store()))
+        # The card: NBA.com's table first, the counted ratings when the phone hasn't sent it.
+        clear()
+        gp._memory.pop("nba-official", None)
+        with patch.object(nba_relay, "sent_at", return_value=None), patch.object(gp, "nba_counted_ratings", return_value=counted):
+            home = gp.nba_model_v2(game(), self.context)["teams"]["home"]
+        self.assertEqual((home["ortg"], home["drtg"]), ([125.0, 1], [100.0, 1]))
         gp._memory.pop("nba-official", None)
 
     def test_sit_warnings(self):

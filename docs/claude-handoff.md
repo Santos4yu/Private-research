@@ -58,6 +58,38 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (h): the ranks' automatic source (PBPStats), and what PickFinder's numbers are
+
+- The owner, with both cards again (defense still 16 / 15 against 17 / 14,
+  prices different): "We need to figure out how to get their exact data".
+- Rounds three and four of the Team ratings check: opponent-adjusted
+  ratings (ours and Basketball-Reference's), points a game over the latest
+  games, home / road splits and TeamRankings' tables all missed
+  (Basketball-Reference and TeamRankings agree with our box-score ranks).
+  PBPStats' totals (api.pbpstats.com, free, every possession counted from
+  NBA.com's play-by-play) came within a place or two on all eight: CLE
+  12 / 17, NY 9 / 5, WSH 24 / 16, IND 21 / 15 against PickFinder's 12 / 19,
+  10 / 6, 23 / 17, 21 / 14; the teams between sit within half a point. So
+  PickFinder's ranks are counted-possession ratings, almost surely NBA.com's
+  own OFF_RATING / DEF_RATING. Only NBA.com's table can match exactly, and
+  it only answers a home or phone connection (it timed out from GitHub
+  again; cdn.nba.com's schedule file and old games' box scores didn't load
+  from GitHub either, so counting from its plays there wasn't possible).
+- `game_predictor.nba_counted_ratings` (new): PBPStats' Team and Opponent
+  totals, points per 100 counted possessions and ranks, kept in the store
+  three hours (`COUNTED_KEY`, `COUNTED_SECONDS`), the last copy standing in
+  up to 36 hours when PBPStats is down. The card's order now: NBA.com's
+  table from the phone relay (36 hours fresh) -> PBPStats -> the box-score
+  estimate. Tests never ask PBPStats (`_no_pbpstats` in the test module).
+- Prices: PickFinder shows the best price across many sportsbooks; the
+  Game Predictor reads DraftKings' own free feed. The Moneylines tab
+  already reads The Odds API for NFL / MLB / NHL / WNBA (ten books, a
+  credit a refresh); the NBA isn't on it. Left for the owner to decide
+  (credits).
+- A reusable check workflow that runs a script given as its input was
+  turned down by the safety check (it would run anything handed to it):
+  each new test stays a fixed script in a workflow, a push each.
+
 ### Nov 11 (g): the glossy finish site-wide, in our own black and white
 
 - The owner, after the navy sample: "I didn't want their colors I just
