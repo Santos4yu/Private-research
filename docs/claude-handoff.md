@@ -80,6 +80,16 @@ Last updated 2026-11-11 (a Matchup tab on every game, after PickFinder's moneyli
   a `recent` list (last 10 margins), injury entries `ppg`, `missed`,
   `since`, `headshot`; `nba_context` keeps this season's `meetings` per
   pair; `prediction()` passes `recent` and `meetings`. Styles `gp-mu-*`.
+- Then the owner, with a screenshot of it live: "make it nicer more 4k".
+  Panels with a soft lift (a fine light top edge, a deep soft shadow),
+  the win chance as big team-colored numbers by each logo with a glossy
+  two-color bar, price cards tinted in the team's color, every
+  side-by-side row with a meter from the middle (`share` from
+  `matchupRows`: rank, record or rest as 0-1; the better side in its team
+  color), margin bars with a light tip on a center line, L5 / L10 as
+  pills, who's out with 46px photos ringed in team colors, a soft status
+  chip and the points out split by team. On a phone the out lists stack
+  and the price cards drop the logo.
 
 ### Nov 11: live games disappeared from the list after midnight Eastern
 

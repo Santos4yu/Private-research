@@ -477,21 +477,32 @@ function MatchupTab({prediction,chart}){
  const rows=matchupRows(prediction);
  const book=prediction.market?.provider||'Moneyline';
  const impliedOf=price=>price==null?null:price<0?-price/(-price+100):100/(price+100);
+ const lead=now.home>=now.away?'home':'away';
  return <div className="gp-mu" style={{'--away':color('away'),'--home':color('home')}}>
-  <section className="gp-mu-split">
-   <div className="gp-mu-split-top"><b>{away.abbr} <CountUp value={Math.round(now.away*100)} ms={800}/>%</b><small>Our win chance</small><b><CountUp value={Math.round(now.home*100)} ms={800}/>% {home.abbr}</b></div>
+  <section className="gp-mu-split" data-lead={lead}>
+   <div className="gp-mu-split-top">
+    {['away','home'].map(side=><span key={side} className="gp-mu-side" data-side={side} data-lead={lead===side||undefined}>
+     <Logo team={prediction[side]} size={34}/>
+     <span><small>{prediction[side].abbr}</small><b><CountUp value={Math.round(now[side]*100)} ms={900}/><em>%</em></b></span>
+    </span>)}
+    <small className="gp-mu-split-label">Our win chance</small>
+   </div>
    <div className="gp-mu-bar"><i className="is-away" style={{'--w':now.away}}/><i className="is-home" style={{'--w':now.home}}/></div>
   </section>
-  {(prices.away!=null||prices.home!=null)&&<section className="gp-mu-prices">{['away','home'].map((side,index)=><div key={side} className="gp-mu-price" data-side={side} style={{'--i':index}}>
-   <span><small>{book}</small><small>{impliedOf(prices[side])!=null?`${Math.round(impliedOf(prices[side])*100)}% implied`:''}</small></span>
-   <b>{odds(prices[side])}</b>
+  {(prices.away!=null||prices.home!=null)&&<section className="gp-mu-prices">{['away','home'].map((side,index)=><div key={side} className="gp-mu-price" data-side={side} style={{'--i':index,'--team':color(side)}}>
+   <Logo team={prediction[side]} size={28}/>
+   <span className="gp-mu-price-who" title={book}><b>{prediction[side].abbr}</b><small>{impliedOf(prices[side])!=null?`${Math.round(impliedOf(prices[side])*100)}% implied`:book}</small></span>
+   <strong>{odds(prices[side])}</strong>
   </div>)}</section>}
   {rows.length>0&&<section className="gp-mu-table">
-   <div className="gp-mu-head"><span><Logo team={away} size={18}/>{away.abbr}</span><span/><span>{home.abbr}<Logo team={home} size={18}/></span></div>
+   <div className="gp-mu-head"><span><Logo team={away} size={24}/>{away.abbr}</span><span>Side by side</span><span>{home.abbr}<Logo team={home} size={24}/></span></div>
    {rows.map((row,index)=><div key={row.key} className="gp-mu-row" style={{'--i':index}}>
     <span className="gp-mu-cell" data-better={row.away.better||undefined} data-move={row.away.move}>{row.away.text}{row.away.small&&<small>{row.away.small}</small>}</span>
     <span className="gp-mu-label">{row.label}</span>
     <span className="gp-mu-cell" data-better={row.home.better||undefined} data-move={row.home.move}>{row.home.text}{row.home.small&&<small>{row.home.small}</small>}</span>
+    {(row.away.share!=null||row.home.share!=null)&&<span className="gp-mu-meter" aria-hidden="true">
+     <i className="is-away" data-better={row.away.better||undefined} style={{'--w':row.away.share??0}}/><i className="is-home" data-better={row.home.better||undefined} style={{'--w':row.home.share??0}}/>
+    </span>}
    </div>)}
   </section>}
   <MarginCharts prediction={prediction}/>
@@ -509,14 +520,15 @@ function MarginCharts({prediction}){
  return <section className="gp-mu-block"><h4>Last {Math.max(...sides.map(item=>item.games.length))} games<small>Margin each game, oldest first</small></h4>
   <div className="gp-mu-charts">{sides.map(({side,team,games})=>{
    const won=games.filter(game=>game.margin>0).length;
-   return <div key={side} className="gp-mu-chart">
-    <p className="gp-mu-chart-top"><b>{won}-{games.length-won}</b><span>{team.abbr}</span></p>
+   const l5=games.length>=5?avg(games.slice(-5)):null,l10=games.length>=10?avg(games):null;
+   return <div key={side} className="gp-mu-chart" data-side={side}>
+    <div className="gp-mu-chart-top"><Logo team={team} size={22}/><b>{won}-{games.length-won}</b><span>{team.abbr}</span></div>
     <div className="gp-mu-bars">{games.map((game,index)=><span key={index} className="gp-mu-col" data-won={game.margin>0||undefined} style={{'--i':index,'--h':Math.abs(game.margin)/reach}}>
      <span className="gp-mu-up">{game.margin>0&&<><small>{game.margin}</small><i/></>}</span>
      <span className="gp-mu-down">{game.margin<=0&&<><i/><small>{Math.abs(game.margin)}</small></>}</span>
     </span>)}</div>
-    <div className="gp-mu-opps">{games.map((game,index)=><span key={index} title={`${game.home?'vs':'@'} ${game.opponent.abbr}`}><Logo team={game.opponent} size={18}/></span>)}</div>
-    <p className="gp-mu-avg">Avg {games.length>=5?<>L5 <b data-tone={avg(games.slice(-5))>0?'up':'down'}>{signed(avg(games.slice(-5)))}</b></>:null}{games.length>=10?<> · L10 <b data-tone={avg(games)>0?'up':'down'}>{signed(avg(games))}</b></>:null}</p>
+    <div className="gp-mu-opps">{games.map((game,index)=><span key={index} title={`${game.home?'vs':'@'} ${game.opponent.abbr}`}><Logo team={game.opponent} size={22}/></span>)}</div>
+    <div className="gp-mu-avg">{l5!=null&&<span>L5 <b data-tone={l5>0?'up':'down'}>{signed(l5)}</b></span>}{l10!=null&&<span>L10 <b data-tone={l10>0?'up':'down'}>{signed(l10)}</b></span>}</div>
    </div>;
   })}</div>
  </section>;
@@ -527,13 +539,19 @@ function OutCard({prediction}){
  const list=side=>(prediction.out?.[side]||[]).filter(entry=>entry.kind==='out'||entry.kind==='questionable').slice(0,4);
  const sides=['away','home'];
  if(!sides.some(side=>list(side).length))return null;
- const total=sides.reduce((sum,side)=>sum+outPoints(list(side)),0);
+ const lost=side=>outPoints(list(side));
+ const total=Math.round((lost('away')+lost('home'))*10)/10;
  return <section className="gp-mu-block"><h4>Who's out<small>Biggest first</small></h4>
-  {total>0&&<p className="gp-mu-out-total"><b>{Math.round(total*10)/10}</b> points a game likely out</p>}
-  <div className="gp-mu-outs">{sides.map(side=><ul key={side} data-side={side}>{list(side).map((entry,index)=><li key={entry.name} style={{'--i':index}}>
-   {entry.headshot?<img src={entry.headshot} alt="" width={34} height={34} loading="lazy" onError={event=>{event.currentTarget.style.visibility='hidden';}}/>:<span className="gp-mu-face"/>}
-   <span><b>{entry.name}</b><small><em data-kind={entry.kind}>{entry.kind==='out'?'Out':entry.status||'Questionable'}</em>{Number.isFinite(entry.ppg)?` · ${entry.ppg} ppg`:''}</small>
-    {entry.missed>0&&<small>Missed {entry.missed} {entry.missed===1?'game':'games'}</small>}</span>
+  {total>0&&<div className="gp-mu-out-total">
+   <p><b><CountUp value={total} digits={1} ms={800}/></b> points a game likely out</p>
+   <span className="gp-mu-out-split" aria-hidden="true"><i className="is-away" style={{'--w':lost('away')/total}}/><i className="is-home" style={{'--w':lost('home')/total}}/></span>
+   <p className="gp-mu-out-sides"><span>{prediction.away.abbr} {lost('away')}</span><span>{prediction.home.abbr} {lost('home')}</span></p>
+  </div>}
+  <div className="gp-mu-outs">{sides.map(side=><ul key={side} data-side={side}><li className="gp-mu-outs-team"><Logo team={prediction[side]} size={18}/>{prediction[side].abbr}</li>{list(side).map((entry,index)=><li key={entry.name} style={{'--i':index}}>
+   <span className="gp-mu-face">{entry.headshot?<img src={entry.headshot} alt="" width={46} height={46} loading="lazy" onError={event=>{event.currentTarget.style.visibility='hidden';}}/>:null}</span>
+   <span className="gp-mu-who"><b>{entry.name}</b>
+    <small><em data-kind={entry.kind}>{entry.kind==='out'?'Out':entry.status||'Questionable'}</em>{Number.isFinite(entry.ppg)?<span><strong>{entry.ppg}</strong> ppg</span>:null}</small>
+    {entry.missed>0&&<small className="gp-mu-missed">Missed {entry.missed} {entry.missed===1?'game':'games'}</small>}</span>
   </li>)}{!list(side).length&&<li className="gp-mu-none">Nobody listed</li>}</ul>)}</div>
  </section>;
 }
