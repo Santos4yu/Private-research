@@ -124,6 +124,105 @@ jobs:
           except Exception:  # noqa: BLE001
               traceback.print_exc()
 
+          # Round two (Nov 11): none above matched PickFinder's defense. Older
+          # data (a cutoff before the latest nights), preseason counted,
+          # shooting allowed, last season blended in.
+          try:
+              from datetime import datetime, timedelta
+              us_day = lambda game: (datetime.fromisoformat(game["date"].replace("Z", "+00:00")) - timedelta(hours=5)).date().isoformat()
+              all_games = list(games)
+              for until in ("2026-11-09", "2026-11-08", "2026-11-07", "2026-11-06", "2026-11-05"):
+                  games[:] = [row for row in all_games if us_day(row[0]) <= until]
+                  show(f"through {until}: game poss, players' TO", *rate(avg("to"))[:2])
+                  show(f"through {until}: game poss, team TO", *rate(avg("tto"))[:2])
+                  show(f"through {until}: own poss, team TO", *rate(own("tto"))[:2])
+                  show(f"through {until}: points a game", *rate(avg("to"))[2:])
+              games[:] = all_games
+              # Shooting allowed.
+              fg, efg, ofg, oefg = defaultdict(lambda: [0.0, 0.0]), defaultdict(lambda: [0.0, 0.0]), defaultdict(lambda: [0.0, 0.0]), defaultdict(lambda: [0.0, 0.0])
+              for game, sides in games:
+                  for team, other in ((game["home"], game["away"]), (game["away"], game["home"])):
+                      a, b = sides[team], sides[other]
+                      fg[team][0] += a["fgm"]; fg[team][1] += a["fga"]; efg[team][0] += a["fgm"] + 0.5 * a["tpm"]; efg[team][1] += a["fga"]
+                      ofg[team][0] += b["fgm"]; ofg[team][1] += b["fga"]; oefg[team][0] += b["fgm"] + 0.5 * b["tpm"]; oefg[team][1] += b["fga"]
+              ratio = lambda table: {t: v[0] / v[1] for t, v in table.items()}
+              show("FG% / FG% allowed", ratio(fg), ratio(ofg))
+              show("eFG% / eFG% allowed", ratio(efg), ratio(oefg))
+              # Preseason counted too.
+              def pre(team):
+                  try:
+                      events = league.espn(f"/teams/{team['id']}/schedule", {"season": season, "seasontype": 1}, 20, league="nba").get("events", [])
+                  except Exception:  # noqa: BLE001
+                      return []
+                  return events
+              with ThreadPoolExecutor(max_workers=12) as pool:
+                  seen = {}
+                  for events in pool.map(pre, teams.values()):
+                      for event in events:
+                          seen[str(event["id"])] = event
+              pre_list = []
+              for event in seen.values():
+                  comp = (event.get("competitions") or [{}])[0]
+                  sides_ = {c.get("homeAway"): c["team"]["abbreviation"] for c in comp.get("competitors", []) if c.get("team")}
+                  done = ((comp.get("status") or {}).get("type") or {}).get("completed")
+                  if done and sides_.get("home") in teams and sides_.get("away") in teams:
+                      pre_list.append({"id": str(event["id"]), "date": event.get("date"), "home": sides_["home"], "away": sides_["away"]})
+              with ThreadPoolExecutor(max_workers=12) as pool:
+                  pre_found = list(pool.map(summary, pre_list))
+              added = 0
+              for game, data in pre_found:
+                  sides = {}
+                  for side in ((data or {}).get("boxscore") or {}).get("teams") or []:
+                      stats = {item.get("name"): item.get("displayValue") for item in side.get("statistics") or []}
+                      pair = lambda key: [float(x) for x in str(stats.get(key) or "0-0").split("-")[:2]]
+                      fgm, fga = pair("fieldGoalsMade-fieldGoalsAttempted"); ftm, fta = pair("freeThrowsMade-freeThrowsAttempted")
+                      tpm, tpa = pair("threePointFieldGoalsMade-threePointFieldGoalsAttempted"); num = lambda key: float(stats.get(key) or 0)
+                      sides[(side.get("team") or {}).get("abbreviation")] = {"fgm": fgm, "fga": fga, "ftm": ftm, "fta": fta, "tpm": tpm,
+                          "oreb": num("offensiveRebounds"), "dreb": num("defensiveRebounds"), "to": num("turnovers"),
+                          "tto": num("totalTurnovers") or num("turnovers"), "pts": 2 * fgm + tpm + ftm}
+                  if game["home"] in sides and game["away"] in sides and sides[game["home"]]["fga"]:
+                      games.append((game, sides)); added += 1
+              print("preseason games added:", added)
+              show("with preseason: game poss, players' TO", *rate(avg("to"))[:2])
+              show("with preseason: game poss, team TO", *rate(avg("tto"))[:2])
+              show("with preseason: points a game", *rate(avg("to"))[2:])
+              games[:] = all_games
+              # Last season (Basketball-Reference's 2025-26 ratings) blended in, as a lean toward it.
+              alias = {"Los Angeles Clippers": "LAC", "LA Clippers": "LAC"}
+              page = requests.get("https://www.basketball-reference.com/leagues/NBA_2026.html", headers=UA, timeout=20)
+              html = page.text.replace("<!--", "").replace("-->", "")
+              start = html.find('id="advanced-team"')
+              block = html[start:html.find("</table>", start)] if start >= 0 else ""
+              last_off, last_def = {}, {}
+              for row in re.findall(r"<tr[^>]*>(.*?)</tr>", block, re.S):
+                  cells = dict(re.findall(r'data-stat="([a-z_]+)"[^>]*>(.*?)</t[dh]>', row, re.S))
+                  name = re.sub(r"<[^>]+>", "", cells.get("team", "")).replace("*", "").strip()
+                  abbr = by_name.get(name) or alias.get(name)
+                  if abbr and cells.get("off_rtg") and cells.get("def_rtg"):
+                      last_off[abbr], last_def[abbr] = float(cells["off_rtg"]), float(cells["def_rtg"])
+              print("last season teams:", len(last_off))
+              if len(last_off) >= 29:
+                  show("last season only (B-Ref 2025-26)", last_off, last_def)
+                  o_now, d_now, *_ = rate(avg("to"))
+                  count = defaultdict(int)
+                  for game, sides in games:
+                      count[game["home"]] += 1; count[game["away"]] += 1
+                  mean = lambda table: sum(table.values()) / len(table)
+                  for k in (3, 5, 8, 12, 20, 30):
+                      blend = lambda now, last: {t: (count[t] * (now[t] - mean(now)) + k * (last.get(t, mean(last)) - mean(last))) / (count[t] + k) for t in now}
+                      show(f"this season + last, last worth {k} games", blend(o_now, last_off), blend(d_now, last_def))
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
+
+          # ESPN's own ranked team stats (offense and defense), for NY.
+          try:
+              core = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/types/2/teams/{}/statistics"
+              data = requests.get(core.format(teams["NY"]["id"]), headers=UA, timeout=20).json()
+              for category in ((data.get("splits") or {}).get("categories") or []):
+                  print("ESPN core", category.get("name"), [(s.get("name"), round(s.get("value") or 0, 2), s.get("rank")) for s in category.get("stats") or [] if s.get("rank")][:40])
+          except Exception as error:  # noqa: BLE001
+              print("ESPN core ranks:", type(error).__name__, str(error)[:200])
+
           # NBA.com's own team ratings.
           try:
               params = {"MeasureType": "Advanced", "PerMode": "PerGame", "Season": "2026-27", "SeasonType": "Regular Season",
