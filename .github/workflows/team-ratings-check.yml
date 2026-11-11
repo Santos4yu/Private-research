@@ -1,10 +1,15 @@
 # Which way of ranking NBA offenses and defenses matches PickFinder's?
 # Its cards on Nov 11, 2026 (offense, defense): CLE 12 / 19, NY 10 / 6,
-# WSH 23 / 17, IND 21 / 14. This works this season's ranks out several
-# ways from ESPN's box scores (team turnovers in or out, each team's own
-# possessions or the game's), asks NBA.com and Basketball-Reference for
-# their own ratings, and prints how many of the eight each one matches.
-# Run by hand.
+# WSH 23 / 17, IND 21 / 14. Round one and two (Nov 11) ranked this season
+# every way ESPN's box scores allow (team turnovers in or out, each team's
+# own possessions, Basketball-Reference's formula and its own ratings, the
+# last 10 or 5, the season through earlier nights, preseason counted,
+# shooting allowed, last season blended in): the game's possessions with
+# players' turnovers matched 3 of 8, the best; none matched its defense.
+# Round three, here: possessions counted from NBA.com's own play-by-play
+# (what its ratings use), ratings adjusted for opponents (ours and
+# Basketball-Reference's), points a game over the latest games, home and
+# road splits, and what TeamRankings and ESPN publish. Run by hand.
 name: Team ratings check
 
 on:
@@ -16,19 +21,21 @@ permissions:
 jobs:
   ratings:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - run: python -m pip install --quiet requests
+      - run: python -m pip install --quiet requests numpy
       - name: Rank the teams every way
         shell: python
         run: |
           import json, re, sys, traceback
           from collections import defaultdict
           from concurrent.futures import ThreadPoolExecutor
+          import numpy as np
           import requests
           sys.path.insert(0, ".")
           from backend.sports.wnba import league
+          import nba_live
 
           PF = {"CLE": (12, 19), "NY": (10, 6), "WSH": (23, 17), "IND": (21, 14)}
           UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
@@ -39,19 +46,20 @@ jobs:
 
           def show(name, off, deff, top=False):
               ro, rd = ranks(off), ranks(deff, high_first=False)
-              hits = sum((ro.get(t), rd.get(t)) == want for t, want in PF.items())
               each = sum((ro.get(t) == want[0]) + (rd.get(t) == want[1]) for t, want in PF.items())
+              defense = sum(rd.get(t) == want[1] for t, want in PF.items())
               cells = " ".join(f"{t} {ro.get(t)}/{rd.get(t)}" for t in PF)
-              print(f"{name:44} {each}/8 match | {cells}")
+              print(f"{name:46} {each}/8 (defense {defense}/4) | {cells}")
               if top:
-                  print("    off:", [(t, round(off[t], 1)) for t in sorted(off, key=ro.get)])
-                  print("    def:", [(t, round(deff[t], 1)) for t in sorted(deff, key=rd.get)])
+                  print("    off:", [(t, round(float(off[t]), 1 if abs(off[t]) > 20 else 3)) for t in sorted(off, key=ro.get)])
+                  print("    def:", [(t, round(float(deff[t]), 1 if abs(deff[t]) > 20 else 3)) for t in sorted(deff, key=rd.get)])
 
           teams = league.team_directory("nba")
           by_name = {row["name"]: abbr for abbr, row in teams.items()}
           print("PickFinder (off/def):", " ".join(f"{t} {o}/{d}" for t, (o, d) in PF.items()))
 
-          # ESPN's box scores, team totals (team turnovers and rebounds included).
+          # ESPN's box scores, team totals.
+          games = []
           try:
               season = league.current_season(league="nba")
               listing = [g for g in league.schedule(season, teams, "nba") if g["completed"] and g["type"] == 2]
@@ -62,168 +70,183 @@ jobs:
                       return game, None
               with ThreadPoolExecutor(max_workers=12) as pool:
                   found = list(pool.map(summary, listing))
-              games, named = [], False
               for game, data in found:
-                  if not data:
-                      continue
                   sides = {}
-                  for side in (data.get("boxscore") or {}).get("teams") or []:
-                      abbr = (side.get("team") or {}).get("abbreviation")
+                  for side in ((data or {}).get("boxscore") or {}).get("teams") or []:
                       stats = {item.get("name"): item.get("displayValue") for item in side.get("statistics") or []}
-                      if not named:
-                          print("ESPN team stat names:", sorted(stats))
-                          named = True
                       pair = lambda key: [float(x) for x in str(stats.get(key) or "0-0").split("-")[:2]]
                       fgm, fga = pair("fieldGoalsMade-fieldGoalsAttempted")
                       ftm, fta = pair("freeThrowsMade-freeThrowsAttempted")
                       tpm, tpa = pair("threePointFieldGoalsMade-threePointFieldGoalsAttempted")
                       num = lambda key: float(stats.get(key) or 0)
-                      sides[abbr] = {"fgm": fgm, "fga": fga, "ftm": ftm, "fta": fta, "tpm": tpm,
-                                     "oreb": num("offensiveRebounds"), "dreb": num("defensiveRebounds"),
-                                     "to": num("turnovers"), "tto": num("totalTurnovers") or num("turnovers"),
-                                     "pts": 2 * fgm + tpm + ftm}
-                  if len(sides) == 2 and game["home"] in sides and game["away"] in sides:
+                      sides[(side.get("team") or {}).get("abbreviation")] = {
+                          "fgm": fgm, "fga": fga, "ftm": ftm, "fta": fta, "tpm": tpm, "oreb": num("offensiveRebounds"),
+                          "to": num("turnovers"), "tto": num("totalTurnovers") or num("turnovers"), "pts": 2 * fgm + tpm + ftm}
+                  if game["home"] in sides and game["away"] in sides:
                       games.append((game, sides))
               print("ESPN games read:", len(games), "of", len(listing))
+              trips = lambda box, key="to": box["fga"] - box["oreb"] + box[key] + 0.44 * box["fta"]
+              poss_of = lambda a, b: (trips(a) + trips(b)) / 2
 
-              def trips(box, to_key, ft=0.44):
-                  return box["fga"] - box["oreb"] + box[to_key] + ft * box["fta"]
-
-              def bref(own, opp):
-                  one = lambda a, b: a["fga"] + 0.4 * a["fta"] - 1.07 * (a["oreb"] / max(1, a["oreb"] + b["dreb"])) * (a["fga"] - a["fgm"]) + a["tto"]
-                  return 0.5 * (one(own, opp) + one(opp, own))
-
-              def rate(poss_of, last=None):
-                  pts, opp, op, dp, n = defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(int)
+              def rate(rows_of=None, per_game=False):
+                  pts, opp, poss, n = defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(int)
                   per_team = defaultdict(list)
                   for game, sides in games:
-                      for team in (game["home"], game["away"]):
-                          per_team[team].append((game, sides))
+                      per_team[game["home"]].append((game, sides, True))
+                      per_team[game["away"]].append((game, sides, False))
                   for team, rows in per_team.items():
-                      rows = sorted(rows, key=lambda row: row[0]["date"])[-last:] if last else rows
-                      for game, sides in rows:
-                          other = game["away"] if team == game["home"] else game["home"]
-                          own_poss, opp_poss = poss_of(sides[team], sides[other])
+                      rows = sorted(rows, key=lambda row: row[0]["date"])
+                      for game, sides, at_home in (rows_of(rows) if rows_of else rows):
+                          other = game["away"] if at_home else game["home"]
                           pts[team] += sides[team]["pts"]; opp[team] += sides[other]["pts"]
-                          op[team] += own_poss; dp[team] += opp_poss; n[team] += 1
-                  return ({t: 100 * pts[t] / op[t] for t in pts}, {t: 100 * opp[t] / dp[t] for t in pts},
-                          {t: pts[t] / n[t] for t in pts}, {t: opp[t] / n[t] for t in pts})
+                          poss[team] += poss_of(sides[team], sides[other]); n[team] += 1
+                  if per_game:
+                      return {t: pts[t] / n[t] for t in pts if n[t]}, {t: opp[t] / n[t] for t in pts if n[t]}
+                  return {t: 100 * pts[t] / poss[t] for t in pts if poss[t]}, {t: 100 * opp[t] / poss[t] for t in pts if poss[t]}
 
-              avg = lambda key, ft=0.44: (lambda a, b: ((trips(a, key, ft) + trips(b, key, ft)) / 2,) * 2)
-              own = lambda key: (lambda a, b: (trips(a, key), trips(b, key)))
-              o, d, ppg, oppg = rate(avg("to"))
-              show("game poss, players' turnovers (ours now)", o, d)
-              show("points a game", ppg, oppg)
-              show("game poss, team turnovers in", *rate(avg("tto"))[:2], top=True)
-              show("own poss, team turnovers in (NBA.com-like)", *rate(own("tto"))[:2], top=True)
-              show("own poss, players' turnovers", *rate(own("to"))[:2])
-              show("Basketball-Reference poss formula", *rate(lambda a, b: (bref(a, b),) * 2)[:2])
-              show("game poss, team turnovers, 0.475 free throws", *rate(avg("tto", 0.475))[:2])
-              show("last 10 games, team turnovers in", *rate(avg("tto"), last=10)[:2])
-              show("last 5 games, team turnovers in", *rate(avg("tto"), last=5)[:2])
-          except Exception:  # noqa: BLE001
-              traceback.print_exc()
-
-          # Round two (Nov 11): none above matched PickFinder's defense. Older
-          # data (a cutoff before the latest nights), preseason counted,
-          # shooting allowed, last season blended in.
-          try:
-              from datetime import datetime, timedelta
-              us_day = lambda game: (datetime.fromisoformat(game["date"].replace("Z", "+00:00")) - timedelta(hours=5)).date().isoformat()
-              all_games = list(games)
-              for until in ("2026-11-09", "2026-11-08", "2026-11-07", "2026-11-06", "2026-11-05"):
-                  games[:] = [row for row in all_games if us_day(row[0]) <= until]
-                  show(f"through {until}: game poss, players' TO", *rate(avg("to"))[:2])
-                  show(f"through {until}: game poss, team TO", *rate(avg("tto"))[:2])
-                  show(f"through {until}: own poss, team TO", *rate(own("tto"))[:2])
-                  show(f"through {until}: points a game", *rate(avg("to"))[2:])
-              games[:] = all_games
-              # Shooting allowed.
-              fg, efg, ofg, oefg = defaultdict(lambda: [0.0, 0.0]), defaultdict(lambda: [0.0, 0.0]), defaultdict(lambda: [0.0, 0.0]), defaultdict(lambda: [0.0, 0.0])
-              for game, sides in games:
-                  for team, other in ((game["home"], game["away"]), (game["away"], game["home"])):
-                      a, b = sides[team], sides[other]
-                      fg[team][0] += a["fgm"]; fg[team][1] += a["fga"]; efg[team][0] += a["fgm"] + 0.5 * a["tpm"]; efg[team][1] += a["fga"]
-                      ofg[team][0] += b["fgm"]; ofg[team][1] += b["fga"]; oefg[team][0] += b["fgm"] + 0.5 * b["tpm"]; oefg[team][1] += b["fga"]
-              ratio = lambda table: {t: v[0] / v[1] for t, v in table.items()}
-              show("FG% / FG% allowed", ratio(fg), ratio(ofg))
-              show("eFG% / eFG% allowed", ratio(efg), ratio(oefg))
-              # Preseason counted too.
-              def pre(team):
-                  try:
-                      events = league.espn(f"/teams/{team['id']}/schedule", {"season": season, "seasontype": 1}, 20, league="nba").get("events", [])
-                  except Exception:  # noqa: BLE001
-                      return []
-                  return events
-              with ThreadPoolExecutor(max_workers=12) as pool:
-                  seen = {}
-                  for events in pool.map(pre, teams.values()):
-                      for event in events:
-                          seen[str(event["id"])] = event
-              pre_list = []
-              for event in seen.values():
-                  comp = (event.get("competitions") or [{}])[0]
-                  sides_ = {c.get("homeAway"): c["team"]["abbreviation"] for c in comp.get("competitors", []) if c.get("team")}
-                  done = ((comp.get("status") or {}).get("type") or {}).get("completed")
-                  if done and sides_.get("home") in teams and sides_.get("away") in teams:
-                      pre_list.append({"id": str(event["id"]), "date": event.get("date"), "home": sides_["home"], "away": sides_["away"]})
-              with ThreadPoolExecutor(max_workers=12) as pool:
-                  pre_found = list(pool.map(summary, pre_list))
-              added = 0
-              for game, data in pre_found:
-                  sides = {}
-                  for side in ((data or {}).get("boxscore") or {}).get("teams") or []:
-                      stats = {item.get("name"): item.get("displayValue") for item in side.get("statistics") or []}
-                      pair = lambda key: [float(x) for x in str(stats.get(key) or "0-0").split("-")[:2]]
-                      fgm, fga = pair("fieldGoalsMade-fieldGoalsAttempted"); ftm, fta = pair("freeThrowsMade-freeThrowsAttempted")
-                      tpm, tpa = pair("threePointFieldGoalsMade-threePointFieldGoalsAttempted"); num = lambda key: float(stats.get(key) or 0)
-                      sides[(side.get("team") or {}).get("abbreviation")] = {"fgm": fgm, "fga": fga, "ftm": ftm, "fta": fta, "tpm": tpm,
-                          "oreb": num("offensiveRebounds"), "dreb": num("defensiveRebounds"), "to": num("turnovers"),
-                          "tto": num("totalTurnovers") or num("turnovers"), "pts": 2 * fgm + tpm + ftm}
-                  if game["home"] in sides and game["away"] in sides and sides[game["home"]]["fga"]:
-                      games.append((game, sides)); added += 1
-              print("preseason games added:", added)
-              show("with preseason: game poss, players' TO", *rate(avg("to"))[:2])
-              show("with preseason: game poss, team TO", *rate(avg("tto"))[:2])
-              show("with preseason: points a game", *rate(avg("to"))[2:])
-              games[:] = all_games
-              # Last season (Basketball-Reference's 2025-26 ratings) blended in, as a lean toward it.
-              alias = {"Los Angeles Clippers": "LAC", "LA Clippers": "LAC"}
-              page = requests.get("https://www.basketball-reference.com/leagues/NBA_2026.html", headers=UA, timeout=20)
-              html = page.text.replace("<!--", "").replace("-->", "")
-              start = html.find('id="advanced-team"')
-              block = html[start:html.find("</table>", start)] if start >= 0 else ""
-              last_off, last_def = {}, {}
-              for row in re.findall(r"<tr[^>]*>(.*?)</tr>", block, re.S):
-                  cells = dict(re.findall(r'data-stat="([a-z_]+)"[^>]*>(.*?)</t[dh]>', row, re.S))
-                  name = re.sub(r"<[^>]+>", "", cells.get("team", "")).replace("*", "").strip()
-                  abbr = by_name.get(name) or alias.get(name)
-                  if abbr and cells.get("off_rtg") and cells.get("def_rtg"):
-                      last_off[abbr], last_def[abbr] = float(cells["off_rtg"]), float(cells["def_rtg"])
-              print("last season teams:", len(last_off))
-              if len(last_off) >= 29:
-                  show("last season only (B-Ref 2025-26)", last_off, last_def)
-                  o_now, d_now, *_ = rate(avg("to"))
-                  count = defaultdict(int)
+              show("ours now (game poss, players' turnovers)", *rate(), top=True)
+              for last in (5, 10, 15):
+                  show(f"points a game, last {last}", *rate(lambda rows, k=last: rows[-k:], per_game=True))
+              # Each team where it plays tonight: the home team's home games, the road team's road games.
+              home_o, home_d = rate(lambda rows: [row for row in rows if row[2]])
+              road_o, road_d = rate(lambda rows: [row for row in rows if not row[2]])
+              print("home games only:", {t: (ranks(home_o).get(t), ranks(home_d, False).get(t)) for t in PF})
+              print("road games only:", {t: (ranks(road_o).get(t), ranks(road_d, False).get(t)) for t in PF})
+              # Adjusted for opponents: every game's points per 100 = average + offense + the other's defense (+ home).
+              index = {team: i for i, team in enumerate(sorted({g["home"] for g, _ in games} | {g["away"] for g, _ in games}))}
+              count = len(index)
+              for home_term in (False, True):
+                  rows, target = [], []
                   for game, sides in games:
-                      count[game["home"]] += 1; count[game["away"]] += 1
-                  mean = lambda table: sum(table.values()) / len(table)
-                  for k in (3, 5, 8, 12, 20, 30):
-                      blend = lambda now, last: {t: (count[t] * (now[t] - mean(now)) + k * (last.get(t, mean(last)) - mean(last))) / (count[t] + k) for t in now}
-                      show(f"this season + last, last worth {k} games", blend(o_now, last_off), blend(d_now, last_def))
+                      poss = poss_of(sides[game["home"]], sides[game["away"]])
+                      for team, other, at_home in ((game["home"], game["away"], 1.0), (game["away"], game["home"], 0.0)):
+                          row = np.zeros(2 * count + 2)
+                          row[index[team]] = 1.0; row[count + index[other]] = 1.0; row[2 * count] = 1.0
+                          row[2 * count + 1] = at_home if home_term else 0.0
+                          rows.append(row); target.append(100 * sides[team]["pts"] / poss)
+                  for ridge in (0.0, 1.0, 4.0):
+                      a, b = np.array(rows), np.array(target)
+                      if ridge:
+                          extra = np.sqrt(ridge) * np.eye(2 * count + 2)[: 2 * count]
+                          a, b = np.vstack([a, extra]), np.concatenate([b, np.zeros(2 * count)])
+                      solved = np.linalg.lstsq(a, b, rcond=None)[0]
+                      show(f"opponent-adjusted{' + home' if home_term else ''}, ridge {ridge}",
+                           {t: solved[i] for t, i in index.items()}, {t: solved[count + i] for t, i in index.items()}, top=not ridge and not home_term)
           except Exception:  # noqa: BLE001
               traceback.print_exc()
 
-          # ESPN's own ranked team stats (offense and defense), for NY.
+          # NBA.com's own feeds (cdn.nba.com): its box scores and play-by-play, possessions counted from the plays.
           try:
-              core = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/types/2/teams/{}/statistics"
-              data = requests.get(core.format(teams["NY"]["id"]), headers=UA, timeout=20).json()
-              for category in ((data.get("splits") or {}).get("categories") or []):
-                  print("ESPN core", category.get("name"), [(s.get("name"), round(s.get("value") or 0, 2), s.get("rank")) for s in category.get("stats") or [] if s.get("rank")][:40])
-          except Exception as error:  # noqa: BLE001
-              print("ESPN core ranks:", type(error).__name__, str(error)[:200])
+              CDN = "https://cdn.nba.com/static/json"
+              board = requests.get(CDN + "/staticData/scheduleLeagueV2.json", headers=UA, timeout=30).json()
+              finals = [g for day in board["leagueSchedule"]["gameDates"] for g in day["games"]
+                        if str(g.get("gameId", "")).startswith("002") and g.get("gameStatus") == 3]
+              print("NBA.com finals:", len(finals))
+              def load(game):
+                  out = {}
+                  for kind in ("boxscore", "playbyplay"):
+                      try:
+                          reply = requests.get(f"{CDN}/liveData/{kind}/{kind}_{game['gameId']}.json", headers=UA, timeout=20)
+                          out[kind] = reply.json()["game"] if reply.status_code == 200 else None
+                      except Exception:  # noqa: BLE001
+                          out[kind] = None
+                  return game, out
+              with ThreadPoolExecutor(max_workers=10) as pool:
+                  loaded = list(pool.map(load, finals))
+              have = [(g, d) for g, d in loaded if d.get("boxscore") and d.get("playbyplay")]
+              print("NBA.com games with a box score and plays:", len(have), "of", len(finals))
+              abbr = lambda code: nba_live.ESPN_ABBR.get(code, code)
+              named = False
+              tally = {key: (defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(float)) for key in ("plays-own", "plays-game", "box-own", "box-game", "box-given")}
+              samples = []
+              for game, data in have:
+                  box, plays = data["boxscore"], data["playbyplay"].get("actions") or []
+                  sides = {"home": box["homeTeam"], "away": box["awayTeam"]}
+                  if not named:
+                      print("NBA.com team stat names:", sorted((sides["home"].get("statistics") or {})))
+                      print("NBA.com play fields:", sorted(plays[len(plays) // 2]) if plays else None)
+                      named = True
+                  ids = {side: team.get("teamId") for side, team in sides.items()}
+                  # A possession starts when the ball changes hands, or a period starts.
+                  counted, current, period = {ids["home"]: 0, ids["away"]: 0}, None, None
+                  for action in plays:
+                      if action.get("period") != period:
+                          period, current = action.get("period"), None
+                      holder = action.get("possession")
+                      if holder in counted and holder != current:
+                          counted[holder] += 1
+                          current = holder
+                  stats = {side: team.get("statistics") or {} for side, team in sides.items()}
+                  formula = {side: (s.get("fieldGoalsAttempted") or 0) - (s.get("reboundsOffensive") or 0) + (s.get("turnoversTotal") or s.get("turnovers") or 0)
+                             + 0.44 * (s.get("freeThrowsAttempted") or 0) for side, s in stats.items()}
+                  given = {side: s.get("possessions") or s.get("estimatedPossessions") for side, s in stats.items()}
+                  if len(samples) < 6:
+                      samples.append((game["gameId"], {side: (counted[ids[side]], round(formula[side], 1), given[side]) for side in sides}))
+                  for side, other in (("home", "away"), ("away", "home")):
+                      team = abbr(sides[side].get("teamTricode"))
+                      pts, allowed = stats[side].get("points") or 0, stats[other].get("points") or 0
+                      ways = {"plays-own": (counted[ids[side]], counted[ids[other]]),
+                              "plays-game": ((counted[ids[side]] + counted[ids[other]]) / 2,) * 2,
+                              "box-own": (formula[side], formula[other]), "box-game": ((formula[side] + formula[other]) / 2,) * 2}
+                      if given[side] and given[other]:
+                          ways["box-given"] = (given[side], given[other])
+                      for key, (mine, theirs) in ways.items():
+                          scored, against, own, opp = tally[key]
+                          scored[team] += pts; against[team] += allowed; own[team] += mine; opp[team] += theirs
+              print("a few games (counted from plays, box formula, NBA.com's own):", samples)
+              for key, (scored, against, own, opp) in tally.items():
+                  if own:
+                      show(f"NBA.com {key}", {t: 100 * scored[t] / own[t] for t in own if own[t]}, {t: 100 * against[t] / opp[t] for t in own if opp[t]},
+                           top=key in ("plays-own", "box-given"))
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
 
-          # NBA.com's own team ratings.
+          # Basketball-Reference's ratings page (adjusted for opponents too).
+          try:
+              page = requests.get("https://www.basketball-reference.com/leagues/NBA_2027_ratings.html", headers=UA, timeout=20)
+              print("Basketball-Reference ratings:", page.status_code, len(page.text))
+              html = page.text.replace("<!--", "").replace("-->", "")
+              found = {}
+              for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+                  cells = dict(re.findall(r'data-stat="([a-z_0-9]+)"[^>]*>(.*?)</t[dh]>', row, re.S))
+                  name = re.sub(r"<[^>]+>", "", cells.get("team_name", cells.get("team", ""))).replace("*", "").strip()
+                  if name in by_name and cells.get("off_rtg"):
+                      found[by_name[name]] = {key: float(re.sub(r"<[^>]+>", "", value)) for key, value in cells.items()
+                                              if re.fullmatch(r"-?[\d.]+", re.sub(r"<[^>]+>", "", value).strip() or "x")}
+              print("columns:", sorted(next(iter(found.values()))) if found else None, "teams:", len(found))
+              for off_key, def_key in (("off_rtg", "def_rtg"), ("off_rtg_adj", "def_rtg_adj")):
+                  if found and off_key in next(iter(found.values())):
+                      show(f"Basketball-Reference {off_key} / {def_key}", {t: row[off_key] for t, row in found.items()}, {t: row[def_key] for t, row in found.items()}, top=True)
+          except Exception as error:  # noqa: BLE001
+              print("Basketball-Reference ratings:", type(error).__name__, str(error)[:200])
+
+          # TeamRankings' efficiency tables.
+          try:
+              short = {"Cleveland": "CLE", "New York": "NY", "Washington": "WSH", "Indiana": "IND"}
+              tables = {}
+              for name in ("offensive-efficiency", "defensive-efficiency"):
+                  page = requests.get(f"https://www.teamrankings.com/nba/stat/{name}", headers=UA, timeout=20)
+                  rows = re.findall(r"<tr[^>]*>\s*<td[^>]*>(\d+)</td>\s*<td[^>]*>(?:<a[^>]*>)?([^<]+)(?:</a>)?</td>\s*<td[^>]*>([\d.]+)</td>", page.text)
+                  tables[name] = {short.get(team.strip(), team.strip()): float(value) for _, team, value in rows}
+                  print("TeamRankings", name, page.status_code, len(rows), "rows", rows[:3])
+              if tables["offensive-efficiency"] and tables["defensive-efficiency"]:
+                  show("TeamRankings efficiency", tables["offensive-efficiency"], tables["defensive-efficiency"], top=True)
+          except Exception as error:  # noqa: BLE001
+              print("TeamRankings:", type(error).__name__, str(error)[:200])
+
+          # ESPN's Hollinger team stats.
+          try:
+              page = requests.get("https://www.espn.com/nba/hollinger/teamstats", headers=UA, timeout=20)
+              print("ESPN Hollinger:", page.status_code, len(page.text))
+              rows = re.findall(r"<tr[^>]*class=\"(?:odd|even)row[^>]*>(.*?)</tr>", page.text, re.S)
+              for row in rows:
+                  cells = [re.sub(r"<[^>]+>", "", cell).strip() for cell in re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)]
+                  if any(name in " ".join(cells) for name in ("Cleveland", "New York", "Washington", "Indiana")):
+                      print("   ", cells)
+          except Exception as error:  # noqa: BLE001
+              print("ESPN Hollinger:", type(error).__name__, str(error)[:200])
+
+          # NBA.com's stats table itself, once more (it turned GitHub away before).
           try:
               params = {"MeasureType": "Advanced", "PerMode": "PerGame", "Season": "2026-27", "SeasonType": "Regular Season",
                         "LeagueID": "00", "LastNGames": "0", "Month": "0", "OpponentTeamID": "0", "PaceAdjust": "N", "Period": "0",
@@ -232,49 +255,10 @@ jobs:
                         "GameScope": "", "PlayerExperience": "", "PlayerPosition": "", "StarterBench": "", "TwoWay": "0", "ShotClockRange": ""}
               headers = {**UA, "Referer": "https://www.nba.com/", "Origin": "https://www.nba.com", "Accept": "application/json, text/plain, */*",
                          "x-nba-stats-origin": "stats", "x-nba-stats-token": "true"}
-              answer = requests.get("https://stats.nba.com/stats/leaguedashteamstats", params=params, headers=headers, timeout=20).json()
-              table = answer["resultSets"][0]
+              table = requests.get("https://stats.nba.com/stats/leaguedashteamstats", params=params, headers=headers, timeout=12).json()["resultSets"][0]
               rows = [dict(zip(table["headers"], row)) for row in table["rowSet"]]
-              to_abbr = {row["name"]: abbr for abbr, row in teams.items()}
-              off = {to_abbr.get(r["TEAM_NAME"], r["TEAM_NAME"]): r["OFF_RATING"] for r in rows}
-              deff = {to_abbr.get(r["TEAM_NAME"], r["TEAM_NAME"]): r["DEF_RATING"] for r in rows}
-              show("NBA.com OFF_RATING / DEF_RATING", off, deff, top=True)
-              off = {to_abbr.get(r["TEAM_NAME"], r["TEAM_NAME"]): r["E_OFF_RATING"] for r in rows if "E_OFF_RATING" in r}
-              deff = {to_abbr.get(r["TEAM_NAME"], r["TEAM_NAME"]): r["E_DEF_RATING"] for r in rows if "E_DEF_RATING" in r}
-              if off:
-                  show("NBA.com estimated ratings", off, deff)
+              show("NBA.com OFF_RATING / DEF_RATING", {by_name.get(r["TEAM_NAME"], r["TEAM_NAME"]): r["OFF_RATING"] for r in rows},
+                   {by_name.get(r["TEAM_NAME"], r["TEAM_NAME"]): r["DEF_RATING"] for r in rows}, top=True)
           except Exception as error:  # noqa: BLE001
-              print("NBA.com:", type(error).__name__, str(error)[:200])
+              print("NBA.com stats:", type(error).__name__, str(error)[:120])
 
-          # Basketball-Reference's advanced team table (inside an HTML comment).
-          try:
-              page = requests.get("https://www.basketball-reference.com/leagues/NBA_2027.html", headers=UA, timeout=20)
-              print("Basketball-Reference:", page.status_code, len(page.text))
-              html = page.text.replace("<!--", "").replace("-->", "")
-              start = html.find('id="advanced-team"')
-              block = html[start:html.find("</table>", start)] if start >= 0 else ""
-              off, deff = {}, {}
-              for row in re.findall(r"<tr[^>]*>(.*?)</tr>", block, re.S):
-                  cells = dict(re.findall(r'data-stat="([a-z_]+)"[^>]*>(.*?)</t[dh]>', row, re.S))
-                  name = re.sub(r"<[^>]+>", "", cells.get("team", "")).replace("*", "").strip()
-                  if name in by_name and cells.get("off_rtg") and cells.get("def_rtg"):
-                      off[by_name[name]], deff[by_name[name]] = float(cells["off_rtg"]), float(cells["def_rtg"])
-              if off:
-                  show("Basketball-Reference ORtg / DRtg", off, deff, top=True)
-              else:
-                  print("Basketball-Reference: no advanced table found")
-          except Exception as error:  # noqa: BLE001
-              print("Basketball-Reference:", type(error).__name__, str(error)[:200])
-
-          # ESPN's own team stats: anything that reads like a rating or possessions.
-          try:
-              core = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2027/types/2/teams/{}/statistics"
-              data = requests.get(core.format(teams["NY"]["id"]), headers=UA, timeout=20).json()
-              wanted = []
-              for category in ((data.get("splits") or {}).get("categories") or []):
-                  for stat in category.get("stats") or []:
-                      if re.search(r"rating|possess|pace|efficien", stat.get("name", ""), re.I):
-                          wanted.append((category.get("name"), stat.get("name"), stat.get("value"), stat.get("rank")))
-              print("ESPN core NY rating-like stats:", wanted)
-          except Exception as error:  # noqa: BLE001
-              print("ESPN core:", type(error).__name__, str(error)[:200])
