@@ -58,6 +58,31 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (l): the Finder board finished like an app
+
+- The owner, with PickFinder's props table and ours: "now the finder lets
+  make ours look better and cleaner like pickfinder". Their layout, our
+  black and white (not their colors).
+- `src/finder-board-app.css`, imported last in UnifiedFinder.jsx, computer
+  widths only (761px+); the phone board is unchanged. Selectors carry
+  `html:root body .unified-finder.unified-finder` to win over
+  finder-board.css.
+- The board is one glass panel (hairline border, 16px corners, lit top
+  edge): the titles in a strip, the rows, the pages in its foot as one pill.
+- Rows are two lines and about 56px: name and position, then the pick
+  (More/Less, line, stat) with the game after a dot. On laptops (≤1180px)
+  the game takes a third line and Apps shows only the logos.
+- Moneyline and Defense are outlined pills; the defense reads as a rank
+  with a shield ("15th"). The ending comes from `ordinal()` in the row
+  (`.finder-ord`, hidden on phones, which still say "15 of 30").
+- Hit rates and the streak are flush cells with no gaps, filled in their
+  color with a light along the top. A good rate fills deeper the higher it
+  is (`--rate` × .34) and a bad one the lower it is; the rate is in white
+  over its record.
+- Filters, search and the app picker are dark glass with a hairline.
+- Columns: wide screens use their own `--fb-cols` (more room for the
+  player, less for Apps); laptops too.
+
 ### Nov 11 (k): his sections stacked, research kept on the device, no chart fades, "2026"
 
 - The owner: "i dont want game log stats and depth together i want them

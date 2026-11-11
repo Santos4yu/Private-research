@@ -1,0 +1,305 @@
+/* The Finder's board on a computer, finished like an app (Nov 11, the owner
+   with PickFinder's props table: "now the finder lets make ours look better
+   and cleaner like pickfinder"). Their layout, our black and white:
+
+     - the board is one glass panel: a header strip of titles, the rows, and
+       the pages along its foot;
+     - each row is two lines (his name, then the pick and the game), on a
+       full-width rule;
+     - Moneyline and Defense are outlined pills (the defense as a rank,
+       "15th", with a shield), IP the over and under stacked;
+     - the hit rates and the streak are flush cells filled in their color,
+       deeper the stronger the rate, a light along their top.
+
+   It loads after the other board sheets (finder-board.css and the phone's)
+   and only touches a computer's width; the phone board is unchanged. Rules
+   carry `body` and a doubled class to win over finder-board.css, and
+   !important where its rules use it. */
+
+html:root .unified-finder .finder-ord { display: none; }
+
+@media (min-width: 761px) {
+  html:root body .unified-finder.unified-finder {
+    --fba-panel: #0D0D0E;
+    --fba-head: #131315;
+    --fba-foot: #111112;
+    --fba-line: rgba(255, 255, 255, .06);
+    --fba-line-2: rgba(255, 255, 255, .1);
+    --fba-text: #F4F5F7;
+    --fba-muted: #9DA1A8;
+    --fba-faint: #6B6F76;
+    --fba-good: 24, 222, 150;
+    --fba-mid: 240, 186, 74;
+    --fba-low: 244, 96, 110;
+    --fba-ease: var(--ace-ease, cubic-bezier(.2, .8, .2, 1));
+  }
+
+  /* ------------------------------------------------------------ the panel */
+
+  html:root body .unified-finder.unified-finder .finder-board {
+    position: relative;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, .075) !important;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #111113 0%, var(--fba-panel) 140px) !important;
+    box-shadow: inset 0 1px rgba(255, 255, 255, .07), 0 24px 48px -30px rgba(0, 0, 0, .9);
+  }
+  html:root body .unified-finder.unified-finder .finder-scroll { max-height: calc(100dvh - 252px); min-height: 300px; }
+
+  /* The titles: a strip of their own along the top. */
+  html:root body .unified-finder.unified-finder .finder-table thead {
+    background: linear-gradient(180deg, #17171A, var(--fba-head)) !important;
+    box-shadow: inset 0 -1px var(--fba-line-2);
+  }
+  html:root body .unified-finder.unified-finder .finder-table thead tr { min-height: 42px; padding: 0 0 0 14px; }
+  html:root body .unified-finder.unified-finder .finder-table th { color: var(--fba-muted); font: 600 11.5px/1 var(--font-sans); letter-spacing: .01em; }
+  html:root body .unified-finder.unified-finder .finder-table th:first-child { padding-left: 40px; }
+  html:root body .unified-finder.unified-finder .finder-table th > button { height: 26px; border-radius: 7px; }
+  html:root body .unified-finder.unified-finder .finder-table th > button:hover { background: rgba(255, 255, 255, .05); color: var(--fba-text); }
+  html:root body .unified-finder.unified-finder .finder-table th > button.is-sorted { color: #fff; }
+  html:root body .unified-finder.unified-finder .finder-table th.finder-pf { color: var(--fba-muted); font: 600 11.5px/1 var(--font-sans); letter-spacing: .01em; }
+
+  /* ------------------------------------------------------------ a row */
+
+  html:root body .unified-finder.unified-finder .finder-table tbody tr {
+    min-height: 56px;
+    padding: 0 0 0 14px;
+    border-radius: 0;
+    box-shadow: inset 0 -1px var(--fba-line);
+    transition: background-color .15s ease;
+  }
+  html:root body .unified-finder.unified-finder .finder-table tbody tr + tr::before { content: none; }
+  html:root body .unified-finder.unified-finder .finder-table tbody tr:last-child { box-shadow: none; }
+  html:root body .unified-finder.unified-finder .finder-table tbody tr:hover { background: rgba(255, 255, 255, .028); }
+  html:root body .unified-finder.unified-finder .finder-table tbody tr:active { background: rgba(255, 255, 255, .045); }
+
+  /* Who: a smaller photo, then two lines: his name and position, then the
+     pick (More or Less, the line, the stat) with the game after it. */
+  html:root body .unified-finder.unified-finder .finder-table .finder-player-cell { padding: 0 12px 0 38px; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-player { gap: 11px; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-portrait-wrap { flex: 0 0 36px; width: 36px; height: 36px; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-portrait { width: 36px; height: 36px; background: #1A1B1E; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-team { right: -4px; bottom: -3px; width: 17px; height: 17px; padding: 2px; background: var(--fba-panel); box-shadow: 0 0 0 1.5px var(--fba-panel); }
+  html:root body .unified-finder.unified-finder .finder-table tbody tr:hover .finder-team { background: #151517; box-shadow: 0 0 0 1.5px #151517; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-star { left: -34px; width: 26px; height: 26px; margin-top: -13px; border-radius: 8px; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-star svg { width: 15px; height: 15px; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-star:hover { background: rgba(255, 255, 255, .06); color: var(--fba-text); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-open {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 0;
+    row-gap: 4px;
+    padding: 8px 0;
+  }
+  html:root body .unified-finder.unified-finder .finder-table .finder-name {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--fba-text);
+    font: 600 14px/1.2 var(--font-sans);
+    letter-spacing: -.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  html:root body .unified-finder.unified-finder .finder-table .finder-name em { margin-left: 6px; color: var(--fba-faint); font: 500 11px/1 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-pf-line { grid-column: 1; grid-row: 2; margin: 0; color: var(--fba-muted); font: 500 12px/1.2 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-pf-line b { font-weight: 700; }
+  html:root body .unified-finder.unified-finder .finder-pf-line b[data-side=more] { color: rgb(var(--fba-good)); }
+  html:root body .unified-finder.unified-finder .finder-pf-line b[data-side=less] { color: rgb(var(--fba-low)); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-game {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--fba-faint);
+    font: 500 12px/1.2 var(--font-sans);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  html:root body .unified-finder.unified-finder .finder-table .finder-game::before { content: "·"; margin: 0 6px; color: var(--fba-faint); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-game .finder-league { width: 12px; height: 12px; margin: -2px 5px 0 0; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-game .finder-comeback { padding: 1px 5px; font-size: 10px; }
+
+  /* ------------------------------------------------------------ the middle columns */
+
+  html:root body .unified-finder.unified-finder .finder-table td:is(.finder-num, .finder-pf) { padding: 0 6px; }
+
+  /* Apps: each app's logo with its over and under. */
+  html:root body .unified-finder.unified-finder .finder-pf-app img { width: 20px; height: 20px; border-radius: 6px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .06); }
+  html:root body .unified-finder.unified-finder .finder-pf-app i { color: var(--fba-muted); font: 600 10.5px/1 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-pf-apps em { background: rgba(255, 255, 255, .06); color: var(--fba-muted); }
+
+  /* The pills: Moneyline (his team's chance to win) and Defense (the
+     opponent's rank against this stat), outlined in what they say for the
+     pick, grey when it says neither. */
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-pf-ml b, td.finder-num:nth-child(3) b) {
+    --pill: 255, 255, 255;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    height: 24px;
+    padding: 0 10px;
+    border: 1px solid rgba(var(--pill), .32);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(var(--pill), .13), rgba(var(--pill), .05));
+    box-shadow: inset 0 1px rgba(255, 255, 255, .06);
+    color: rgba(var(--pill), 1);
+    font: 700 12px/1 var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+    white-space: nowrap;
+  }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-pf-ml b, td.finder-num:nth-child(3) b):not([data-tone]) { --pill: 200, 203, 208; border-color: rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .04); color: #D4D7DC; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-pf-ml b, td.finder-num:nth-child(3) b)[data-tone=good] { --pill: var(--fba-good); }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-pf-ml b, td.finder-num:nth-child(3) b)[data-tone=low] { --pill: var(--fba-low); }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(3) b { padding: 0 9px 0 7px; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(3) b::before {
+    content: "";
+    flex: none;
+    width: 11px;
+    height: 12px;
+    background: currentColor;
+    opacity: .85;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 24'%3E%3Cpath d='M11 1 2 4.5v6.3C2 16.6 5.8 21.4 11 23c5.2-1.6 9-6.4 9-12.2V4.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 24'%3E%3Cpath d='M11 1 2 4.5v6.3C2 16.6 5.8 21.4 11 23c5.2-1.6 9-6.4 9-12.2V4.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(3) .finder-ord { display: inline; margin-left: -4px; font: inherit; font-style: normal; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(3) small { display: none; }
+
+  /* IP: the books' over and under, stacked. */
+  html:root body .unified-finder.unified-finder .finder-pf-ip > span { gap: 4px; }
+  html:root body .unified-finder.unified-finder .finder-pf-ip i { color: var(--fba-muted); font: 600 11px/1 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-pf-ip i[data-tone=good] { color: rgb(var(--fba-good)); }
+  html:root body .unified-finder.unified-finder .finder-pf-ip i[data-tone=low] { color: rgb(var(--fba-low)); }
+
+  /* L10 avg and Diff. */
+  html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(4) b { color: var(--fba-text); font: 700 14px/1 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-pf-diff b { font: 700 13px/1 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-pf-diff b[data-tone=good] { color: rgb(var(--fba-good)); }
+  html:root body .unified-finder.unified-finder .finder-pf-diff b[data-tone=low] { color: rgb(var(--fba-low)); }
+  html:root body .unified-finder.unified-finder .finder-pf-diff small { color: var(--fba-faint); font: 500 10.5px/1 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-no-data { color: #44474C; font-size: 13px; }
+
+  /* ------------------------------------------------------------ the hit rates */
+
+  /* Flush cells, no gaps, each filled in its color: a strong rate (or a weak
+     one, in red) fills deeper. A dark hairline between cells, a light along
+     their top; the rate in white over its record. */
+  html:root body .unified-finder.unified-finder .finder-table tbody td:is(.finder-stat, :nth-child(5)) { padding: 0 !important; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)) { --fill: 255, 255, 255; --depth: 0%; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=good] { --fill: var(--fba-good); --depth: calc(var(--rate, 90%) * .34); }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=mid] { --fill: var(--fba-mid); --depth: 21%; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=low] { --fill: var(--fba-low); --depth: calc((100% - var(--rate, 10%)) * .32); }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)) {
+    border-radius: 0 !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, 0) 58%),
+      rgba(var(--fill), var(--depth)) !important;
+    box-shadow: inset 1px 0 rgba(0, 0, 0, .5), inset 0 1px rgba(255, 255, 255, .08) !important;
+    transition: filter .15s ease;
+  }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)):not([data-tone]),
+  html:root body .unified-finder.unified-finder .finder-table .finder-heat[data-tone=none] {
+    background: rgba(255, 255, 255, .02) !important;
+    box-shadow: inset 1px 0 rgba(0, 0, 0, .5) !important;
+  }
+  html:root body .unified-finder.unified-finder .finder-table tbody tr:hover :is(.finder-heat, td.finder-num:nth-child(5)) { filter: brightness(1.12); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-heat { min-height: 55px; gap: 4px; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat strong, td.finder-num:nth-child(5) b) {
+    color: #fff !important;
+    font: 700 14px/1 var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.01em;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, .35);
+  }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat small, td.finder-num:nth-child(5) small) {
+    color: color-mix(in srgb, rgb(var(--fill)) 55%, #fff) !important;
+    opacity: .78;
+    font: 600 10px/1 var(--font-sans);
+    font-variant-numeric: tabular-nums;
+  }
+  html:root body .unified-finder.unified-finder .finder-table .finder-heat:is(:not([data-tone]), [data-tone=none]) :is(strong, small) { color: var(--fba-faint) !important; text-shadow: none; }
+
+  /* ------------------------------------------------------------ the foot */
+
+  /* How many on the left, the pages in one pill in the middle. */
+  html:root body .unified-finder.unified-finder .finder-pagination {
+    padding: 10px 16px;
+    border: 0;
+    border-top: 1px solid var(--fba-line-2);
+    border-radius: 0;
+    background: var(--fba-foot);
+    color: var(--fba-faint);
+    font: 500 12px/1 var(--font-sans);
+  }
+  html:root body .unified-finder.unified-finder .finder-pagination > div {
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #19191C, #141416);
+    box-shadow: inset 0 1px rgba(255, 255, 255, .06);
+  }
+  html:root body .unified-finder.unified-finder .finder-pagination > div > :is(button, span, label) { height: 30px; border-radius: 9px; background: none; color: var(--fba-muted); }
+  html:root body .unified-finder.unified-finder .finder-pagination > div > button { width: 30px; }
+  html:root body .unified-finder.unified-finder .finder-pagination > div > :is(button:not(:disabled), label):hover { background: rgba(255, 255, 255, .07); color: var(--fba-text); }
+  html:root body .unified-finder.unified-finder .finder-pagination > div > button:disabled { opacity: .35; }
+  html:root body .unified-finder.unified-finder .finder-pagination > div > label { position: relative; margin-left: 4px; }
+  html:root body .unified-finder.unified-finder .finder-pagination > div > label::before { content: ""; position: absolute; top: 7px; bottom: 7px; left: -4px; width: 1px; background: rgba(255, 255, 255, .08); }
+  html:root body .unified-finder.unified-finder .finder-pagination label .finder-select-trigger { height: 30px; }
+
+  /* ------------------------------------------------------------ the filters */
+
+  /* The search, the app picker and each filter: dark glass with a hairline. */
+  html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-app-filter, .finder-search-row > .finder-icon),
+  html:root body .unified-finder.unified-finder .finder-filters .finder-multi-select,
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-saved,
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-reset {
+    border: 1px solid rgba(255, 255, 255, .075) !important;
+    background-color: #131315 !important;
+    box-shadow: inset 0 1px rgba(255, 255, 255, .05) !important;
+  }
+  html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-app-filter, .finder-search-row > .finder-icon):hover,
+  html:root body .unified-finder.unified-finder .finder-filters .finder-multi-select:hover,
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-saved:hover,
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-reset:hover { border-color: rgba(255, 255, 255, .12) !important; background-color: #18181A !important; }
+  html:root body .unified-finder.unified-finder label.finder-search:focus-within { border-color: rgba(255, 255, 255, .18) !important; }
+  html:root body .unified-finder.unified-finder .finder-filters .finder-multi-select,
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-saved,
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-reset { height: 36px; min-height: 36px; }
+  html:root body .unified-finder.unified-finder .finder-filters .finder-multi-trigger { height: 34px; color: #C3C6CC; font: 500 13px/1 var(--font-sans); }
+  html:root body .unified-finder.unified-finder .finder-filters .finder-multi-select.is-active { border-color: rgba(255, 255, 255, .22) !important; background-color: #1D1D20 !important; }
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-reset { flex-basis: 36px; width: 36px; }
+  html:root body .unified-finder.unified-finder .finder-filters > .finder-reset:hover { border-color: rgba(239, 113, 104, .35) !important; background-color: rgba(239, 113, 104, .1) !important; }
+}
+
+/* Wide screens: more room for who and the game, less for Apps. */
+@media (min-width: 1181px) {
+  html:root body .unified-finder.unified-finder {
+    --fb-cols: minmax(250px, 2.7fr) minmax(92px, .9fr) 78px 80px 84px 64px 70px repeat(4, minmax(62px, 1fr)) 60px minmax(62px, 1fr);
+  }
+}
+
+/* Laptops: H2H and Streak step out (finder-board.css); Apps shows only
+   the logos, and the game takes a third line under the pick. */
+@media (min-width: 761px) and (max-width: 1180px) {
+  html:root body .unified-finder.unified-finder {
+    --fb-cols: minmax(190px, 2.6fr) 58px 68px 66px 74px 54px 60px repeat(3, minmax(54px, 1fr)) minmax(54px, 1fr);
+  }
+  html:root body .unified-finder.unified-finder .finder-pf-app > span { display: none; }
+  /* The game moves under the pick, on a line of its own. */
+  html:root body .unified-finder.unified-finder .finder-table .finder-game { grid-column: 1 / -1; grid-row: 3; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-game::before { content: none; }
+  html:root body .unified-finder.unified-finder .finder-table .finder-open { row-gap: 3px; padding: 7px 0; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-apps { gap: 4px; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-pf-ml b, td.finder-num:nth-child(3) b) { padding: 0 7px; font-size: 11.5px; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(3) b::before { display: none; }
+}
+
+@media (min-width: 761px) and (prefers-reduced-motion: reduce) {
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)) { transition: none; }
+}

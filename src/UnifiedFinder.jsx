@@ -14,6 +14,7 @@ import './finder-cards.css';
 import './finder-desk.css';
 import './finder-board.css';
 import './finder-phone.css';
+import './finder-board-app.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
 import {FinderHitRateFilter,FinderMultiSelect,FinderSportMenu} from './FinderMultiSelect';
 import {PickSideMenu} from './PickSideMenu';
@@ -75,6 +76,8 @@ function Heat({value,kind,detail,loading,label}){return <td className="finder-st
 // More and a tough one for a Less, his average past the line in the
 // pick's direction, a run of hits.
 const dash=<span className="finder-no-data">—</span>;
+// A rank's ending (1st, 2nd, 3rd, 11th): the computer board shows the defense as "15th".
+const ordinal=n=>{const t=n%100,o=n%10;return t>10&&t<14?'th':o===1?'st':o===2?'nd':o===3?'rd':'th';};
 // The computer board's extra columns, PickFinder's order in our colors (Nov 9, the owner: "i want this layout"):
 // each app's price, the team's win chance, the books' implied odds for the side, his L10 against the line.
 const APP_LOGO=key=>key==='prizepicks'?'/prizepicks/logo.png':'/sportsbooks/'+key+'.png';
@@ -104,7 +107,7 @@ const Row=React.memo(function Row({row,index,onOpen,pick,onPick}){
   <td className="finder-player-cell"><div className="finder-player"><div className="finder-portrait-wrap"><Photo src={row.headshot} className="finder-portrait" width="38" height="38" loading="lazy" fallback={<span className="finder-portrait finder-initials">{row.player.split(' ').map(p=>p[0]).slice(0,2).join('')}</span>}/>{row.teamLogo&&<img className="finder-team" src={row.teamLogo} alt="" width="16" height="16" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}<button className="finder-star" type="button" data-requires-tab="saved" aria-label={pick?row.player+' '+row.line+' '+row.market+' is in your picks ('+pick+'). Change or remove':'Add '+row.player+' '+row.line+' '+row.market+' to your picks'} aria-haspopup="dialog" aria-pressed={Boolean(pick)} data-side={pick?pick.toLowerCase():undefined} onClick={e=>{e.stopPropagation();onPick(row,e.currentTarget);}}><Star size={10} fill={pick?'currentColor':'none'}/></button></div>
    <button type="button" className="finder-open" onClick={e=>{e.stopPropagation();onOpen(row);}} aria-label={'Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends'}><span className="finder-name">{row.player}{row.position&&<em>{row.position}</em>}</span><span className="finder-game">{back&&<b className="finder-comeback" title={back.title}>{back.text}</b>}<League sport={row.sport}/>{row.teamAbbr||row.sport.toUpperCase()}{row.opponent?' vs '+row.opponent:''}{row.startsAt?' · '+when(row.startsAt):''}</span><span className="finder-pf-line"><b data-side={under?'less':'more'}>{under?'Less':'More'} {row.line}</b> {row.market}</span></button></div></td>
   <td className="finder-line-cell"><span className="finder-market"><b data-side={row.direction==='UNDER'?'less':'more'}><i>{row.direction==='UNDER'?'Less':'More'}</i>{row.line}</b>{['goblin','demon'].includes(row.modifier)&&<img src={'/prizepicks/'+row.modifier+'.png'} alt={row.modifier} width="15" height="15"/>}</span><span className="finder-stat-name">{row.market}</span></td>
-  <td className="finder-num" data-label="DEF" title={finite(row.defense)?row.opponent+' ranks '+row.defense+(teams?' of '+teams:'')+' in what it allows to this position in this stat (1 allows the least).':undefined}>{finite(row.defense)?<><b data-tone={defTone}>{row.defense}</b>{teams>0&&<small>of {teams}</small>}</>:dash}</td>
+  <td className="finder-num" data-label="DEF" title={finite(row.defense)?row.opponent+' ranks '+row.defense+(teams?' of '+teams:'')+' in what it allows to this position in this stat (1 allows the least).':undefined}>{finite(row.defense)?<><b data-tone={defTone}>{row.defense}<i className="finder-ord">{ordinal(row.defense)}</i></b>{teams>0&&<small>of {teams}</small>}</>:dash}</td>
   <td className="finder-num" data-label="AVG L10" title="His average over his last 10, against the line">{finite(row.average)?<><b>{num(row.average)}</b>{delta!=null&&<small data-tone={avgTone}>{(delta>0?'+':delta<0?'−':'')+num(Math.abs(delta))} vs line</small>}</>:loading?<span className="finder-no-data">…</span>:dash}</td>
   <td className="finder-num" data-label="Streak" data-tone={finite(run)&&run!==0?(run>0?'good':'low'):undefined} title="His current run against the line">{finite(run)&&run!==0?<><b>{Math.abs(run)}</b><small data-tone={run>0?'good':'low'}>{run>0?'hit':'missed'}</small></>:dash}</td>
   {WINDOWS.map(([key,label])=><Heat key={key} label={label} value={rate(row.windows?.[key])} detail={record(row.windows?.[key])} loading={loading}/>)}
