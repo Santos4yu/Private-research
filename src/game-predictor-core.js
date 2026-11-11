@@ -608,35 +608,44 @@ export function matchupRows(prediction){
    {text:`${americanText(open.home)} → ${americanText(prices.home)}`,move:moveOf(open.home,prices.home),share:share('home')});
   else pair('price','Moneyline',{text:americanText(prices.away),share:share('away')},{text:americanText(prices.home),share:share('home')});
  }
- const off=nfl?'pf':'ortg',def=nfl?'pa':'drtg',count=nfl?32:30;
+ // Points a game scored and allowed (Nov 11, the owner: "the defense and
+ // offense ... rankings dont seem correct": per 100 possessions ranked a
+ // slow team's defense lower than the points-a-game ranks most sites show).
+ const perGame=!nfl&&(teams.home?.pts||teams.away?.pts);
+ const off=nfl?'pf':perGame?'pts':'ortg',def=nfl?'pa':perGame?'ptsAllowed':'drtg',count=nfl?32:30;
  const fromRank=cell=>Array.isArray(cell)&&Number.isFinite(cell[1])?Math.max(0,Math.min(1,(count+1-cell[1])/count)):null;
  const ranked=(key,label,field,unit)=>{
   const a=teams.away?.[field],h=teams.home?.[field];
   if(!a&&!h)return;
   const better=Number.isFinite(a?.[1])&&Number.isFinite(h?.[1])&&a[1]!==h[1]?(a[1]<h[1]?'away':'home'):null;
-  pair(key,label,{text:rankText(a),small:Number.isFinite(a?.[0])?`${a[0]} ${unit}`:null,share:fromRank(a)},
-   {text:rankText(h),small:Number.isFinite(h?.[0])?`${h[0]} ${unit}`:null,share:fromRank(h)},better);
+  pair(key,label,{text:rankText(a),small:Number.isFinite(a?.[0])?`${a[0]} ${unit}`:null,share:fromRank(a),tone:rankTone(a,count)},
+   {text:rankText(h),small:Number.isFinite(h?.[0])?`${h[0]} ${unit}`:null,share:fromRank(h),tone:rankTone(h,count)},better);
  };
- ranked('offense','Offense',off,nfl?'pts':'per 100');
- ranked('defense','Defense',def,nfl?'allowed':'per 100');
+ ranked('offense','Offense',off,nfl||perGame?'a game':'per 100');
+ ranked('defense','Defense',def,nfl||perGame?'allowed':'per 100');
  const l10=side=>teams[side]?.last10;
  if(l10('away')||l10('home')){
   const won=side=>l10(side)?l10(side)[0]/Math.max(1,l10(side)[0]+l10(side)[1]):null;
-  pair('last10','Last 10',{text:l10('away')?l10('away').join('-'):'—',share:won('away')},{text:l10('home')?l10('home').join('-'):'—',share:won('home')},
+  pair('last10','Last 10',{text:l10('away')?l10('away').join('-'):'—',share:won('away'),tone:shareTone(won('away'))},{text:l10('home')?l10('home').join('-'):'—',share:won('home'),tone:shareTone(won('home'))},
    won('away')!=null&&won('home')!=null&&won('away')!==won('home')?(won('away')>won('home')?'away':'home'):null);
  }
  const info=prediction.homeInfo||{};
  const road=recordOf(info.away?.away),home=recordOf(info.home?.home);
  const shareOf=spot=>spot&&spot.w+spot.l>0?spot.w/(spot.w+spot.l):null;
- if(road||home)pair('venue','Home / road',{text:road?`${road} road`:'—',share:shareOf(info.away?.away)},{text:home?`${home} home`:'—',share:shareOf(info.home?.home)});
+ if(road||home)pair('venue','Home / road',{text:road?`${road} road`:'—',share:shareOf(info.away?.away),tone:shareTone(shareOf(info.away?.away))},
+  {text:home?`${home} home`:'—',share:shareOf(info.home?.home),tone:shareTone(shareOf(info.home?.home))});
  const rest=prediction.rest||{};
  const rested=days=>Number.isFinite(days)?Math.min(days,4)/4:null;
- if(Number.isFinite(rest.home)||Number.isFinite(rest.away))pair('rest','Rest',{text:daysText(rest.away),share:rested(rest.away)},{text:daysText(rest.home),share:rested(rest.home)},
+ const restTone=days=>Number.isFinite(days)&&days<=0?'bad':null;
+ if(Number.isFinite(rest.home)||Number.isFinite(rest.away))pair('rest','Rest',{text:daysText(rest.away),share:rested(rest.away),tone:restTone(rest.away)},{text:daysText(rest.home),share:rested(rest.home),tone:restTone(rest.home)},
   Number.isFinite(rest.home)&&Number.isFinite(rest.away)&&rest.home!==rest.away?(rest.away>rest.home?'away':'home'):null);
  const meet=headToHead(prediction);
- if(meet)pair('h2h','Head to head',{text:`${meet.away}-${meet.home}`,share:meet.away/meet.games},{text:`${meet.home}-${meet.away}`,share:meet.home/meet.games},meet.away!==meet.home?(meet.away>meet.home?'away':'home'):null);
+ if(meet)pair('h2h','Head to head',{text:`${meet.away}-${meet.home}`,share:meet.away/meet.games,tone:shareTone(meet.away/meet.games)},{text:`${meet.home}-${meet.away}`,share:meet.home/meet.games,tone:shareTone(meet.home/meet.games)},meet.away!==meet.home?(meet.away>meet.home?'away':'home'):null);
  return rows;
 }
+// A rank's tone: the top third good, the bottom third bad; a record's: 60%+ good, 40% or less bad.
+const rankTone=(cell,count)=>!Array.isArray(cell)||!Number.isFinite(cell[1])?null:cell[1]<=Math.round(count/3)?'good':cell[1]>count-Math.round(count/3)?'bad':'mid';
+const shareTone=share=>share==null?null:share>=0.6?'good':share<=0.4?'bad':null;
 const americanText=price=>price==null||!Number.isFinite(price)?'—':price>0?`+${Math.round(price)}`:`${Math.round(price)}`;
 // Which way a moneyline moved for its team: 'up' when it got likelier (shorter), 'down' when longer.
 const implied=price=>price<0?-price/(-price+100):100/(price+100);

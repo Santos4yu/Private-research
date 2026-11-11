@@ -495,14 +495,11 @@ function MatchupTab({prediction,chart}){
    <strong>{odds(prices[side])}</strong>
   </div>)}</section>}
   {rows.length>0&&<section className="gp-mu-table">
-   <div className="gp-mu-head"><span><Logo team={away} size={24}/>{away.abbr}</span><span>Side by side</span><span>{home.abbr}<Logo team={home} size={24}/></span></div>
+   <div className="gp-mu-head"><span><Logo team={away} size={22}/>{away.abbr}</span><span/><span>{home.abbr}<Logo team={home} size={22}/></span></div>
    {rows.map((row,index)=><div key={row.key} className="gp-mu-row" style={{'--i':index}}>
-    <span className="gp-mu-cell" data-better={row.away.better||undefined} data-move={row.away.move}>{row.away.text}{row.away.small&&<small>{row.away.small}</small>}</span>
+    <span className="gp-mu-cell" data-better={row.away.better||undefined} data-move={row.away.move} data-tone={row.away.tone||undefined}><b>{row.away.text}</b>{row.away.small&&<small>{row.away.small}</small>}</span>
     <span className="gp-mu-label">{row.label}</span>
-    <span className="gp-mu-cell" data-better={row.home.better||undefined} data-move={row.home.move}>{row.home.text}{row.home.small&&<small>{row.home.small}</small>}</span>
-    {(row.away.share!=null||row.home.share!=null)&&<span className="gp-mu-meter" aria-hidden="true">
-     <i className="is-away" data-better={row.away.better||undefined} style={{'--w':row.away.share??0}}/><i className="is-home" data-better={row.home.better||undefined} style={{'--w':row.home.share??0}}/>
-    </span>}
+    <span className="gp-mu-cell" data-better={row.home.better||undefined} data-move={row.home.move} data-tone={row.home.tone||undefined}><b>{row.home.text}</b>{row.home.small&&<small>{row.home.small}</small>}</span>
    </div>)}
   </section>}
   <MarginCharts prediction={prediction}/>
@@ -534,9 +531,12 @@ function MarginCharts({prediction}){
  </section>;
 }
 
+// "Tyrese Haliburton" as "T. Haliburton", so two lists fit side by side on a phone.
+const shortName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
 // Who's out on each side, the biggest first: what he scores, his status, how long he's been out.
 function OutCard({prediction}){
- const list=side=>(prediction.out?.[side]||[]).filter(entry=>entry.kind==='out'||entry.kind==='questionable').slice(0,4);
+ // The ones who matter (Nov 11, the owner: "why is it so long now"): a scorer or a rotation player, three a side at most.
+ const list=side=>(prediction.out?.[side]||[]).filter(entry=>(entry.kind==='out'||entry.kind==='questionable')&&((entry.ppg??0)>=2||(entry.impact??0)>=0.3)).slice(0,3);
  const sides=['away','home'];
  if(!sides.some(side=>list(side).length))return null;
  const lost=side=>outPoints(list(side));
@@ -548,10 +548,10 @@ function OutCard({prediction}){
    <p className="gp-mu-out-sides"><span>{prediction.away.abbr} {lost('away')}</span><span>{prediction.home.abbr} {lost('home')}</span></p>
   </div>}
   <div className="gp-mu-outs">{sides.map(side=><ul key={side} data-side={side}><li className="gp-mu-outs-team"><Logo team={prediction[side]} size={18}/>{prediction[side].abbr}</li>{list(side).map((entry,index)=><li key={entry.name} style={{'--i':index}}>
-   <span className="gp-mu-face">{entry.headshot?<img src={entry.headshot} alt="" width={46} height={46} loading="lazy" onError={event=>{event.currentTarget.style.visibility='hidden';}}/>:null}</span>
-   <span className="gp-mu-who"><b>{entry.name}</b>
-    <small><em data-kind={entry.kind}>{entry.kind==='out'?'Out':entry.status||'Questionable'}</em>{Number.isFinite(entry.ppg)?<span><strong>{entry.ppg}</strong> ppg</span>:null}</small>
-    {entry.missed>0&&<small className="gp-mu-missed">Missed {entry.missed} {entry.missed===1?'game':'games'}</small>}</span>
+   <span className="gp-mu-face">{entry.headshot?<img src={entry.headshot} alt="" width={38} height={38} loading="lazy" onError={event=>{event.currentTarget.style.visibility='hidden';}}/>:null}</span>
+   <span className="gp-mu-who"><b title={entry.name}>{shortName(entry.name)}</b>
+    <small><em data-kind={entry.kind}>{entry.kind==='out'?'Out':entry.status||'Questionable'}</em>{Number.isFinite(entry.ppg)?<span><strong>{entry.ppg}</strong> ppg</span>:null}
+     {entry.missed>0&&<span>· missed {entry.missed}</span>}</small></span>
   </li>)}{!list(side).length&&<li className="gp-mu-none">Nobody listed</li>}</ul>)}</div>
  </section>;
 }

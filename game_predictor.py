@@ -1051,11 +1051,15 @@ def season_numbers(games, per_100) -> dict:
     for team, row in rows.items():
         base = row["poss"] / 100 if per_100 and row["poss"] else row["games"]
         out[team] = {"off": row["pts"] / base, "def": row["opp"] / base, "games": row["games"],
+                     # Points a game scored and allowed, as most sites rank teams (the matchup card, Nov 11).
+                     "ppg": row["pts"] / row["games"], "oppg": row["opp"] / row["games"],
                      **{venue: {"w": row[venue][0], "l": row[venue][1], "games": row[venue][2],
                                 "margin": row[venue][3] / row[venue][2] if row[venue][2] else None} for venue in ("home", "away")}}
     offense, defense = {team: row["off"] for team, row in out.items()}, {team: row["def"] for team, row in out.items()}
+    scored, allowed = {team: row["ppg"] for team, row in out.items()}, {team: row["oppg"] for team, row in out.items()}
     for team, row in out.items():
         row["offRank"], row["defRank"] = _rank_of(offense, team), _rank_of(defense, team, high_first=False)
+        row["ppgRank"], row["oppgRank"] = _rank_of(scored, team), _rank_of(allowed, team, high_first=False)
     return out
 
 
@@ -1256,6 +1260,7 @@ def nba_model_v2(game, context) -> dict | None:
         mine = season.get(abbr) or {}
         if mine.get("games", 0) >= 3:  # this season's own numbers and ranks
             return {"ortg": [round(mine["off"], 1), mine["offRank"]], "drtg": [round(mine["def"], 1), mine["defRank"]],
+                    "pts": [round(mine["ppg"], 1), mine["ppgRank"]], "ptsAllowed": [round(mine["oppg"], 1), mine["oppgRank"]],
                     "pace": [round(speed, 1), _rank_of(pace, abbr)], "net": round(mine["off"] - mine["def"], 1), "basis": "season",
                     "last10": [sum(results), len(results) - sum(results)] if len(results) >= 5 else None, "games": played[side]}
         return {"ortg": [round(offense, 1), _rank_of(ortg, abbr)], "drtg": [round(defense, 1), _rank_of(drtg, abbr, high_first=False)],

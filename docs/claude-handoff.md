@@ -90,6 +90,18 @@ Last updated 2026-11-11 (a Matchup tab on every game, after PickFinder's moneyli
   pills, who's out with 46px photos ringed in team colors, a soft status
   chip and the points out split by team. On a phone the out lists stack
   and the price cards drop the logo.
+- Then: "add some color on the numbers also why is it so long now and the
+  defesne and offesen all the rankings dont seem correct". The ranks were
+  per 100 possessions (a slow team's defense ranked lower than the
+  points-a-game ranks PickFinder and most sites show): `season_numbers`
+  now also keeps `ppg` / `oppg` and their ranks, the NBA profile carries
+  `pts` / `ptsAllowed`, and the card ranks Offense / Defense by those
+  ("112.4 a game", "114 allowed"); the Why tab's per-100 numbers stay.
+  Colors: a rank's top third green, middle gold, bottom red; a record's
+  60%+ green, 40% or less red; a back-to-back red; the line's move green
+  or red. Shorter: no meters, compact striped rows, smaller panels and
+  chart, who's out only players scoring 2+ a game or in the rotation,
+  three a side, names as "T. Haliburton", two columns on a phone too.
 
 ### Nov 11: live games disappeared from the list after midnight Eastern
 
