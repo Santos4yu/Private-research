@@ -20,7 +20,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Flame,Info,Layers,RefreshCw,Share,Trophy,UserX,X,Zap} from 'lucide-react';
-import {useIsAdmin} from './admin-notice.js';
+import {useFullAccess,useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
 import {ChipMenu,Empty,Section,Segmented,Shimmer} from './gp-parts.jsx';
 import {GameRecord} from './GameRecord.jsx';
@@ -1166,8 +1166,8 @@ function MoneylineGenerator({league,admin}){
 // what it paid). Each row leads with the picked team's logo.
 // History: the member's saved picks; for the admin, the site's own record on
 // top (GameRecord.jsx: every moneyline the model picked, and the props).
-function HistoryView({sport,admin,...rest}){
- if(!admin)return <MyPicks admin={admin} {...rest}/>;
+function HistoryView({sport,admin,record,...rest}){
+ if(!record)return <MyPicks admin={admin} {...rest}/>;
  return <><GameRecord sport={sport}/><h2 className="gp-mine-head">Your saved picks</h2><MyPicks admin={admin} {...rest}/></>;
 }
 
@@ -1228,7 +1228,7 @@ function PickRow({item,kind,index,onRemove}){
 // ------------------------------------------------------------------ the page
 
 export function GamePredictor(){
- const admin=useIsAdmin();
+ const admin=useIsAdmin(),full=useFullAccess();
  const [sport,setSport]=useState(()=>read('game-predictor-sport',value=>SPORTS.some(([key])=>key===value),'nba'));
  const [view,setView]=useState(()=>read('game-predictor-view',value=>VIEWS.some(([key])=>key===value),'predict'));
  const [slate,setSlate]=useState({loading:true,games:[]});
@@ -1310,7 +1310,7 @@ export function GamePredictor(){
      onPick={(side,now)=>results[open]?.data&&setSheet({prediction:results[open].data,side,now})}/>:null}</div>
    </div>:<PredictView slate={slate} live={liveList} onOpen={openGame} admin={admin} onRetry={()=>setTries(n=>n+1)}/>)}
    {view==='generate'&&<Generator league={sport} admin={admin}/>}
-   {view==='history'&&<HistoryView sport={sport} state={history} live={liveList} admin={admin} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
+   {view==='history'&&<HistoryView sport={sport} state={history} live={liveList} admin={admin} record={full} onRetry={()=>{setHistory({loading:true});loadHistory();}} onRemove={removePick}/>}
   </div>
   {sheet&&sideBySide&&<PickScreen pick={sheet} onClose={()=>setSheet(null)} onSaved={()=>loadHistory()}/>}
 

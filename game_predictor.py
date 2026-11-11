@@ -450,6 +450,36 @@ def slate(sport, now=None) -> dict:
     return {"sport": sport, "games": games, "fetchedAt": now.isoformat()}
 
 
+def team_chances(games) -> dict:
+    """{abbr: [{chance, opponent, startsAt, moneyline}]}: each team's chance
+    to win its next games, from the market's moneylines with the margin taken
+    out (DraftKings where it has the game, else ESPN's book). The Finder's
+    Moneyline column (Nov 11, the owner: "why doesnt it show the moneyline").
+    A team on the slate twice (today and tomorrow) has both, soonest first."""
+    teams = {}
+    for game in games or []:
+        line = game.get("line") or {}
+        chance = line.get("chance") or {}
+        prices = line.get("moneyline") or {}
+        for side, other in (("home", "away"), ("away", "home")):
+            abbr = ((game.get(side) or {}).get("abbr") or "").upper()
+            if not abbr or chance.get(side) is None:
+                continue
+            teams.setdefault(abbr, []).append({"chance": round(float(chance[side]), 4),
+                                               "opponent": ((game.get(other) or {}).get("abbr") or "").upper() or None,
+                                               "startsAt": game.get("startsAt"), "moneyline": prices.get(side)})
+    for entries in teams.values():
+        entries.sort(key=lambda entry: entry["startsAt"] or "")
+    return teams
+
+
+def finder_moneylines(sport, now=None) -> dict:
+    """{sport, teams}: the slate's team chances (team_chances), for the Finder."""
+    if sport not in SPORTS:
+        return {"sport": sport, "teams": {}}
+    return {"sport": sport, "teams": team_chances(slate(sport, now=now)["games"])}
+
+
 def summary_game(sport, event_id, summary) -> dict:
     """One game from ESPN's summary payload: teams, status, line, its
     projection, both injury reports and each team's last five."""

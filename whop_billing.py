@@ -332,9 +332,9 @@ def has_paid_access(account):
     """Whether a signed-in member gets in while the site requires a paid
     subscription: an active Whop membership, or comped by the admin."""
     if not account:return False
-    from site_members import read_rules, rule_for
+    from site_members import full_access, read_rules, rule_for
     rule = rule_for(read_rules(), account)
-    if rule and rule.get('comped'):return True
+    if rule and (rule.get('comped') or full_access(rule)):return True
     record = subscription(account)
     return bool(record and record.get('active'))
 

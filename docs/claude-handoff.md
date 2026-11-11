@@ -58,6 +58,58 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (n): Moneyline filled, gradient cells, tidy top, phone cards, Pick Builder, Admin badge
+
+- The owner, with PickFinder's phone list, its computer board, its Pick
+  Builder and ours: "now for mobile", "why doesnt it show the moneyline",
+  "the trend colors should be gradient like pickfinder", remove the props
+  count / history time and the color key, "fix that top area in the finder
+  because it looks super messsy and empty gaps", "make our builder better",
+  and an Admin role (below).
+- Moneyline: only soccer rows had `winChance`. Now `/api/board?view=
+  finder-moneylines&sport=nba|nfl` (Finder tab switch) returns
+  `game_predictor.finder_moneylines` → `team_chances(slate)`: each team's
+  no-vig chance from DraftKings' moneyline (ESPN's book as the fallback),
+  the same lines the Game Predictor uses, no paid odds. The Finder asks
+  whenever a board comes in fresh (`loadFinderMoneylines`) and
+  `withMoneylines` matches each row by team (aliases GSW→GS etc.) and the
+  game starting within 6 hours of the row's. Tests: test_game_predictor
+  `test_team_chances_for_the_finder`, tests/finder-moneylines.test.mjs.
+- The meta line under the filters shows only while a league loads.
+- Cells (finder-board-app.css, computer and phone): gradients dark at the
+  top into the color at the bottom; the hue follows the rate itself
+  (`--r` on the Heat cell: red under 30%, orange, yellow, green, teal at
+  100%), the streak by its tone; L10 avg and Diff are green/red cells too.
+- Top (computer): search row and filters in one panel (#0D0D0E, hairline,
+  16px corners) 12px above the table; every control 40px; the filters
+  stretch to fill the row, Saved and reset close it; ≤1100px they wrap.
+- Phone: each prop a card — photo, name (position), the pick, the game; the
+  books' over/under as a ring (`--over` on the IP span; no prices, no
+  ring); Defense chip (rank "15th" with a shield) on the left, Moneyline
+  chip on the right (none without a chance); a flush strip L5 L10 L15 H2H
+  STRK AVG Diff SZN; the apps with prices. Sort buttons are outlined pills.
+  The legacy `td:nth-child(11)::before{content:'SZN'}` in
+  unified-finder.css is cancelled for the apps cell.
+- Pick Builder (PickBuilder.jsx, pick-builder.css): each pick a card —
+  photo + team logo, name with a team chip, line + stat, the x; prices and
+  a start chip (`startChip`: "in 36 min", "in 2h 10m", amber within 3h,
+  "Live"; re-read every 30s); Under | Over as full buttons (Over green,
+  Under red when picked; goblin/demon still More only). Export is the white
+  button with PrizePicks' logo. Unders stay allowed here (the no-Unders
+  rule is the Parlay Builder's and the bot's).
+- Admin badge (site_members.py `BADGES['admin']`, picked in the admin
+  panel's Members tab like the others, with a hint under the badges):
+  `full_access(rule)` opens every access item (sections added later too),
+  `viewer_policy` clears disabledTabs/Sports/FinderSports/Sheets/
+  PropsLeagues/Research and sets `comped` and `fullAccess`; the server's
+  `site_controls.member_full_access` opens ADMIN_TABS (Moneylines) and
+  switched-off sheets; whop billing counts it as free access; the Game
+  Predictor's full record (game-record, game-prop-record) opens to them
+  (`useFullAccess`). Not an admin session: `siteIsAdmin()`/`useIsAdmin()`
+  stay false, so admin notes, error messages and the admin panel stay the
+  admin's. Maintenance and suspension still apply; guests (temporary
+  public access) never load member rules.
+
 ### Nov 11 (m): no white edges or highlight lines on the Finder
 
 - The owner, with our Defense vs position card beside PickFinder's:

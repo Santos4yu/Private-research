@@ -126,6 +126,20 @@ class MemberRuleTests(unittest.TestCase):
         self.assertEqual(badges, {'p1': {'key': 'staff', 'label': 'Staff'}, 'p2': {'key': 'admin', 'label': 'Admin'}})
 
 
+    def test_viewer_policy_for_the_admin_badge(self):
+        policy = {**controls.DEFAULT, 'disabledTabs': ['finder', 'predictor'], 'disabledFinderSports': ['nfl'],
+                  'disabledSheets': ['nfl:dvp'], 'disabledPropsLeagues': ['nba'], 'disabledResearch': ['news']}
+        viewer = members.viewer_policy(policy, {'badge': 'admin', 'note': 'secret'})
+        self.assertEqual((viewer['disabledTabs'], viewer['disabledFinderSports'], viewer['disabledSheets']), ([], [], []))
+        self.assertEqual((viewer['disabledPropsLeagues'], viewer['disabledResearch']), ([], []))
+        self.assertTrue(viewer['fullAccess'] and viewer['comped'])
+        self.assertEqual(viewer['badge'], {'key': 'admin', 'label': 'Admin'})
+        self.assertNotIn('note', viewer)
+        self.assertNotIn('isAdmin', viewer)
+        # A tab added later is on for them too.
+        self.assertTrue(members.item_open({'disabledTabs': ['brand-new']}, {'badge': 'admin'}, 'tab:brand-new'))
+        self.assertFalse(members.viewer_policy(policy, {'badge': 'vip'})['fullAccess'])
+
 class EnforcementTests(unittest.TestCase):
     """The server, not just the page, decides what each member can load."""
 
@@ -161,6 +175,18 @@ class EnforcementTests(unittest.TestCase):
         self.assertIsNone(self.check({'requireLogin': True}, rules, MEMBER, lambda: auth_core.session_from_request_headers({}))[0])
         self.assertIsNone(self.check({'requireLogin': True}, rules, MEMBER, lambda: auth_core.session_with_live_access({}))[0])
         self.assertEqual(self.check({'requireLogin': True}, rules, OTHER, lambda: auth_core.session_from_request_headers({}))[0], OTHER)
+
+    def test_the_admin_badge_opens_everything_but_maintenance(self):
+        rules = {'tester@example.com': {'badge': 'admin'}}
+        policy = {'disabledTabs': ['v2', 'finder', 'predictor'], 'disabledFinderSports': ['nfl', 'soccer'], 'disabledSheets': ['nfl:dvp']}
+        for call in (lambda: controls.allowed({}, 'v2'), lambda: controls.allowed({}, 'predictor'), lambda: controls.allowed({}, 'moneyline'),
+                     lambda: controls.finder_sport_allowed({}, 'soccer'), lambda: controls.sheet_allowed({}, 'nfl:dvp')):
+            self.assertTrue(self.check(policy, rules, MEMBER, call)[0])
+            self.assertFalse(self.check(policy, rules, OTHER, call)[0])
+        self.assertFalse(self.check({**policy, 'maintenance': True}, rules, MEMBER, lambda: controls.allowed({}, 'moneyline'))[0])
+        # Suspension still wins.
+        locked = {'tester@example.com': {'badge': 'admin', 'suspended': True}}
+        self.assertFalse(self.check(policy, locked, MEMBER, lambda: controls.allowed({}, 'v2'))[0])
 
     def test_early_access_never_opens_maintenance(self):
         rules = {'tester@example.com': {'access': {'tab:research': True}}}

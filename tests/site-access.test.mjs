@@ -61,3 +61,13 @@ test('paid access: a member without a subscription waits at the pricing page',as
  // Signed out is still the sign-in page, never the pricing page.
  assert.equal(needsSubscription({...member,account:null}),false);
 });
+
+test('the Admin badge opens admin-only and switched-off sections, without making the viewer an admin', async () => {
+  const {canUseTab, canUseFinderSport} = await import('../src/site-access-core.js');
+  const policy = {account: {id: '1'}, requireLogin: true, disabledTabs: ['predictor'], disabledFinderSports: [], fullAccess: true, isAdmin: false};
+  assert.equal(canUseTab(policy, 'moneyline'), true);
+  assert.equal(canUseTab(policy, 'predictor'), true);
+  assert.equal(canUseFinderSport(policy, 'nfl'), true);
+  assert.equal(canUseTab({...policy, fullAccess: false}, 'moneyline'), false);
+  assert.equal(canUseTab({...policy, fullAccess: false}, 'predictor'), false);
+});

@@ -4,7 +4,7 @@
 // admin sees what went wrong and can retry. useIsAdmin() follows the site
 // policy as it arrives or changes (site-access.js).
 import {useEffect,useState} from 'react';
-import {siteIsAdmin} from './site-access.js';
+import {siteFullAccess,siteIsAdmin} from './site-access.js';
 
 export function useIsAdmin(){
  const [admin,setAdmin]=useState(()=>siteIsAdmin());
@@ -15,6 +15,19 @@ export function useIsAdmin(){
   return()=>window.removeEventListener('vortex:site-policy',update);
  },[]);
  return admin;
+}
+
+/** The admin or an Admin-badge member (site-access.js siteFullAccess), for
+ * the sections and records only they see -- never for notes or errors. */
+export function useFullAccess(){
+ const [full,setFull]=useState(()=>siteFullAccess());
+ useEffect(()=>{
+  const update=()=>setFull(siteFullAccess());
+  update();
+  window.addEventListener('vortex:site-policy',update);
+  return()=>window.removeEventListener('vortex:site-policy',update);
+ },[]);
+ return full;
 }
 
 /** What a member sees where a panel couldn't load. */

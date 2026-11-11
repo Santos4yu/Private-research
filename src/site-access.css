@@ -248,6 +248,7 @@ html[data-hidden-tabs~="slate"][data-hidden-tabs~="slip"] :is(.lab-tools,.lab-se
 .site-member-editor{display:flex;flex-direction:column;gap:18px;padding:6px 14px 16px;border-top:1px solid #333333}
 .site-member-section{display:grid;gap:10px;padding-top:10px}
 .site-member-label{font:700 11px var(--font-mono,monospace);letter-spacing:.08em;text-transform:uppercase;color:#adadad}
+.site-member-hint{color:#8d8d8d;font-size:12px;line-height:1.4}
 .site-member-choices{display:flex;flex-wrap:wrap;gap:6px}
 .site-member-choices button,.site-member-seg button{min-height:34px;padding:0 12px;border:1px solid #333333;border-radius:9px;background:#161616;color:#adadad;font:600 12px 'Sora',sans-serif;cursor:pointer}
 .site-member-choices button[aria-pressed=true]{border-color:var(--theme-accent,#cccccc);background:color-mix(in srgb,var(--theme-accent,#828282) 18%,#161616);color:#f3f5f8}

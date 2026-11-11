@@ -114,7 +114,7 @@ export function mountMembersPanel(host,{request,names}){
    saveStatus.textContent='Cleared here. Save to put them back on the website defaults.';
   }},'Clear rules');
   return h('div',{className:'site-member-editor'},
-   h('div',{className:'site-member-section'},h('span',{className:'site-member-label',text:'Badge'}),badges),
+   h('div',{className:'site-member-section'},h('span',{className:'site-member-label',text:'Badge'}),badges,h('small',{className:'site-member-hint',text:'Admin: everything on for them, sections you add later too, and free access. They never see admin notes, error messages or this panel.'})),
    h('div',{className:'site-member-section'},h('span',{className:'site-member-label',text:'Access'}),groups),
    h('div',{className:'site-control-switches'},h('label',{},comp,h('span',{},'Free Pro access',h('small',{text:'Gets in without a subscription while the website requires one.'}))),h('label',{},suspend,h('span',{},'Suspend this account',h('small',{text:'They stay signed in but can’t use any part of the site until you lift it.'})))),
    h('label',{className:'site-member-note'},'Private note',note),

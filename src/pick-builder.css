@@ -123,3 +123,50 @@
    the links step aside while it's open and its Menu button brings them back. */
 .vortex-sidebar-body.has-builder .vortex-sidebar-links{display:none!important}
 .vortex-sidebar-builder .pick-builder{--pb-panel:#111317;min-height:100%;border:0;border-radius:20px;background:var(--pb-panel)}
+
+/* ---- Nov 11: each pick a card (the owner, with PickFinder's builder:
+   "make our builder better our current is so ugly"). Its layout, our black
+   and white: the panel near black, each pick a card a shade lighter (photo
+   and team logo, name with a team chip, line and stat, the x), the books'
+   prices with a chip for when the game starts (amber within 3 hours), then
+   Under and Over as two full buttons, the one picked filled: green for
+   Over, red for Under. Export is the white button with PrizePicks' logo. */
+.pick-builder{--pb-panel:#0F0F11;--pb-card:#17181B;--pb-rule:rgba(255,255,255,.06);--pb-text:#F2F3F5;--pb-muted:#9DA1A8;--pb-faint:#6B6F76;--pb-over:#18DE96;--pb-under:#F4606E;--pb-accent:#F2F2F2}
+.side-panel .pick-builder,.vortex-sidebar-builder .pick-builder{--pb-panel:#0F0F11}
+.pick-builder-slots i[data-on]{background:#F2F2F2}
+.pick-builder-mark{background:rgba(255,255,255,.08);color:#fff}
+.pick-builder-list{display:grid;gap:10px;padding:4px 12px 12px}
+.pick-builder-leg,.pick-builder-leg+.pick-builder-leg{
+ grid-template-columns:42px minmax(0,1fr) 28px;grid-template-areas:'photo copy remove' 'info info info' 'side side side';
+ gap:11px 10px;margin:0;padding:12px;border:1px solid var(--pb-rule);border-radius:16px;background:var(--pb-card);box-shadow:none}
+.pick-builder-photo{width:42px;height:42px}
+.pick-builder-team{width:18px;height:18px;background:var(--pb-card);box-shadow:0 0 0 1.5px var(--pb-card)}
+.pick-builder-copy{gap:4px}
+.pick-builder-copy strong{display:flex;align-items:center;gap:7px;min-width:0;overflow:visible;font-size:14.5px;font-weight:700;white-space:nowrap}
+.pick-builder-copy strong>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pick-builder-chip{display:inline-flex;align-items:center;gap:4px;flex:none;height:19px;padding:0 6px;border-radius:6px;background:rgba(255,255,255,.08);color:#DADDE2;font:700 10.5px/1 var(--font-sans,'Inter'),sans-serif;font-style:normal;letter-spacing:.02em}
+.pick-builder-chip img{width:11px;height:12px;object-fit:contain}
+.pick-builder-copy .pick-builder-stat{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;white-space:nowrap}
+.pick-builder-copy .pick-builder-stat b{color:var(--pb-text);font-size:15px;font-weight:800;letter-spacing:-.01em}
+.pick-builder-copy .pick-builder-stat span{color:var(--pb-muted);font-size:13px;font-weight:500}
+.pick-builder-remove{width:28px;height:28px;border-radius:9px;background:transparent;color:var(--pb-faint)}
+.pick-builder-remove:not(:disabled):hover{background:rgba(255,255,255,.07);color:#fff}
+.pick-builder-info{grid-area:info;display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.pick-builder-info .pick-builder-odds{margin:0;gap:4px 10px;min-width:0}
+.pick-builder-book{gap:5px;color:#C9CCD1;font-size:12px;font-weight:700}
+.pick-builder-book>img{width:18px;height:18px;border-radius:5px}
+.pick-builder-when{display:inline-flex;align-items:center;gap:5px;flex:none;height:24px;margin-left:auto;padding:0 8px;border:1px solid rgba(255,255,255,.08);border-radius:8px;
+ background:rgba(255,255,255,.04);color:var(--pb-muted);font:600 11.5px/1 var(--font-sans,'Inter'),sans-serif;white-space:nowrap}
+.pick-builder-when[data-soon]{border-color:rgba(240,186,74,.35);background:rgba(240,186,74,.08);color:#F2BE52}
+.pick-builder-leg .pick-builder-side{grid-area:side;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0;border-radius:0;background:none}
+.pick-builder-leg .pick-builder-side button{justify-content:center;gap:6px;height:38px;padding:0 12px;border-radius:11px;background:#222327;color:var(--pb-muted);
+ font:700 13px/1 var(--font-sans,'Inter'),sans-serif!important;transition:background-color .15s,color .15s,filter .15s}
+.pick-builder-leg .pick-builder-side button:not(:disabled):not([aria-pressed=true]):hover{background:#2A2B30;color:#fff}
+.pick-builder-leg .pick-builder-side button[data-side=over][aria-pressed=true]{background:linear-gradient(180deg,#2BE9A6,#13C985);color:#04170F}
+.pick-builder-leg .pick-builder-side button[data-side=under][aria-pressed=true]{background:linear-gradient(180deg,#FF7E8A,#E5505F);color:#fff}
+.pick-builder-leg .pick-builder-side button[aria-pressed=true]:not(:disabled):hover{filter:brightness(1.06)}
+.pick-builder-leg .pick-builder-side button:disabled:not([aria-pressed=true]){opacity:.35}
+.pick-builder-footer{background:var(--pb-panel);box-shadow:0 -1px 0 var(--pb-rule)}
+.pick-builder-export{gap:10px;min-height:48px;border-radius:14px;background:linear-gradient(180deg,#FFFFFF,#E6E6E6);color:#0B0B0B}
+.pick-builder-export img{width:20px;height:20px;border-radius:5px;object-fit:contain}
+.pick-builder-export:disabled img{opacity:.4}

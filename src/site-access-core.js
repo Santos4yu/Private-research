@@ -10,11 +10,12 @@ export function needsSubscription(policy){
 export function accountControlsVisible(policy){
   return accessGranted(policy)&&Boolean(policy.account||policy.isAdmin);
 }
-// Sections only an admin session ever sees. They have no switch in the
-// admin panel and no per-member rule: nobody else can be let in.
+// Sections only an admin session ever sees, and members with the Admin
+// badge (site_members.py full_access: policy.fullAccess). They have no switch
+// in the admin panel.
 export const ADMIN_TABS=['moneyline'];
 export function canUseTab(policy,tab) {
-  return accessGranted(policy) && (policy.isAdmin || (!ADMIN_TABS.includes(tab) && !policy.disabledTabs.includes(tab)));
+  return accessGranted(policy) && (policy.isAdmin || policy.fullAccess || (!ADMIN_TABS.includes(tab) && !policy.disabledTabs.includes(tab)));
 }
 
 // The sections this viewer should not see at all: the ones switched off in

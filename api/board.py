@@ -166,7 +166,7 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
-        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','cfb':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','mlb-sheet':'sheets','nfl-sheet':'sheets','nba-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
+        tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','cfb':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','finder-moneylines':'finder','mlb-sheet':'sheets','nfl-sheet':'sheets','nba-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if (parse_qs(urlparse(self.path).query).get('view') or [''])[0] == 'cs2':
             tab = 'finder'
         # Krazy Bot reads the MLB sheets and slate matchups too, so either tab opens them.
@@ -392,6 +392,15 @@ class handler(BaseHTTPRequestHandler):
                 return self._send(200, {**line_moves.recent(sports), "sports": sports})
             except Exception:
                 return self._send(502, {"error": "Line moves are temporarily unavailable."})
+        if view == "finder-moneylines":
+            # Each team's chance to win, from its moneyline (game_predictor.py),
+            # for the Finder's Moneyline column. NBA and NFL; no paid odds.
+            import game_predictor
+            sport = ((parse_qs(urlparse(self.path).query).get("sport") or [""])[0]).lower()
+            try:
+                return self._send(200, game_predictor.finder_moneylines(sport))
+            except Exception:
+                return self._send(200, {"sport": sport, "teams": {}})
         if view == "moneylines":
             # The moneyline board (moneyline_model.py): one league's games
             # priced, or the record of every play.

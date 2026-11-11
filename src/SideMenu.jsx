@@ -38,7 +38,8 @@ export function SideMenu(){
  </button>;
  const primary=PRIMARY.filter(item=>siteTabAllowed(item.value));
  const more=moreTabs.filter(item=>siteTabAllowed(item.value));
- const admin=siteIsAdmin()?adminTabs:[];
+ // The admin-only sections: for the admin, and members with the Admin badge (canUseTab).
+ const admin=adminTabs.filter(item=>siteIsAdmin()||siteTabAllowed(item.value));
  return <nav className="side-menu" aria-label="Main menu">
   {primary.length>0&&<div className="side-menu-group">{primary.map(row)}</div>}
   {more.length>0&&<><p className="side-menu-label">More</p><div className="side-menu-group">{more.map(row)}</div></>}

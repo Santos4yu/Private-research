@@ -16,6 +16,8 @@ const names={research:'Research',finder:'Finder',moves:'Line Moves',v2:'Props',s
 let status=null,initPromise=null,activeDialog=null,lockedDialog=null;
 export function siteTabAllowed(tab){return canUseTab(status,tab);}
 export function siteIsAdmin(){return Boolean(status?.isAdmin);}
+/** The admin, or a member with the Admin badge (site_members.py): every section and record, never admin notes or errors. */
+export function siteFullAccess(){return Boolean(status?.isAdmin||status?.fullAccess);}
 /** The phone dock the admin chose (site_controls.py dockTabs), or null before the policy arrives. */
 export function siteDockTabs(){return Array.isArray(status?.dockTabs)?status.dockTabs:null;}
 export function siteSportAllowed(sport){return canUseSport(status,sport);}

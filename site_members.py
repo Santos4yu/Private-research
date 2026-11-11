@@ -10,6 +10,13 @@ ever signed in:
   An item that isn't listed follows the site switch.
 - suspended: locked out of the whole site until the admin lifts it.
 - badge: a role shown next to their name (account menu, community posts).
+  The Admin badge (Nov 11, the owner: "a role/badge that i can give to
+  members that gives them access to everything and anything i add it goes
+  to them automatically ... the only thing they shouldnt see is admin
+  notes or error messages") also opens every access item, the ones added
+  later included, the admin-only sections and every cheat sheet, and counts
+  as free access. It isn't an admin session: admin notes, error messages
+  and the admin panel stay with the admin.
 - comped: free access while the site requires a paid subscription
   (whop_billing.py) -- staff, testers, giveaways.
 - note: a private admin note. Never sent to the member.
@@ -28,7 +35,7 @@ RULES_KEY = 'krazy_data:member_rules:v1'
 # Who has signed in: email -> {"id", "lastSeen"}, and email -> first seen.
 SEEN_KEY = 'krazy_data:members_seen:v1'
 FIRST_SEEN_KEY = 'krazy_data:members_first_seen:v1'
-BADGES = {'vip': 'VIP', 'pro': 'Pro', 'tester': 'Tester', 'staff': 'Staff'}
+BADGES = {'admin': 'Admin', 'vip': 'VIP', 'pro': 'Pro', 'tester': 'Tester', 'staff': 'Staff'}
 # The site policy list each kind of access item overrides.
 LISTS = {'tab': 'disabledTabs', 'sport': 'disabledSports', 'finderSport': 'disabledFinderSports'}
 RESEARCH_SPORTS = ('nfl',)
@@ -132,9 +139,17 @@ def save_rule(email, rule):
     return rules.get(email)
 
 
+def full_access(rule):
+    """Whether this member's rule carries the Admin badge (and isn't suspended)."""
+    return bool(rule) and rule.get('badge') == 'admin' and not rule.get('suspended')
+
+
 def item_open(policy, rule, item):
     """Whether an access item ('tab:finder', 'sport:nfl', 'finderSport:wnba')
-    is on for a viewer with this rule (None: no rule)."""
+    is on for a viewer with this rule (None: no rule). Everything is on for
+    the Admin badge."""
+    if full_access(rule):
+        return True
     override = ((rule or {}).get('access') or {}).get(item)
     if override is not None:
         return override
@@ -152,20 +167,24 @@ def viewer_policy(policy, rule):
     that hides switched-off sections reads these same lists, so it needs no
     idea that per-member rules exist."""
     from site_controls import FINDER_SPORTS, TABS
-    return {
+    out = {
         'disabledTabs': [tab for tab in TABS if not item_open(policy, rule, f'tab:{tab}')],
         'disabledSports': [sport for sport in RESEARCH_SPORTS if not item_open(policy, rule, f'sport:{sport}')],
         'disabledFinderSports': [sport for sport in FINDER_SPORTS if not item_open(policy, rule, f'finderSport:{sport}')],
         'suspended': bool(rule and rule.get('suspended')),
         'badge': badge_of(rule),
-        'comped': bool(rule and rule.get('comped')),
+        'comped': bool(rule and (rule.get('comped') or full_access(rule))),
+        'fullAccess': full_access(rule),
     }
+    if out['fullAccess']:  # every sheet, Props league and research section too
+        out.update({'disabledSheets': [], 'disabledPropsLeagues': [], 'disabledResearch': []})
+    return out
 
 
 def decides(rules, items):
     """Whether any rule could change the answer for these items. When none
     can, a request is answered without looking up who is asking."""
-    return any(rule.get('suspended') or any(item in (rule.get('access') or {}) for item in items)
+    return any(rule.get('suspended') or rule.get('badge') == 'admin' or any(item in (rule.get('access') or {}) for item in items)
                for rule in rules.values())
 
 

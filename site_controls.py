@@ -189,9 +189,19 @@ def _items_open(headers,policy,items):
   rule=site_members.rule_for(rules,identity(headers))
  if rule and rule.get('suspended'):return False
  return all(site_members.item_open(policy,rule,item) for item in items)
+def member_full_access(headers):
+ """Whether whoever sent these headers is a member with the Admin badge
+ (site_members.full_access). Looked up only when some member has it."""
+ import site_members
+ rules=site_members.read_rules()
+ if not rules or not any(site_members.full_access(rule) for rule in rules.values()):return False
+ from account_auth import identity
+ return site_members.full_access(site_members.rule_for(rules,identity(headers)))
 def allowed(headers,tab=None,sport=None):
  if admin_auth.is_admin_request(headers):return True
- if tab in ADMIN_TABS:return False
+ if tab in ADMIN_TABS:
+  policy=read()
+  return not policy['maintenance'] and not policy.get('temporaryPublicAccess') and member_full_access(headers)
  policy=read()
  if policy['maintenance']:return False
  return _items_open(headers,policy,[item for item in (tab and f'tab:{tab}',sport and f'sport:{sport}') if item])
@@ -209,7 +219,8 @@ def sheet_allowed(headers,key):
  switched on."""
  if admin_auth.is_admin_request(headers):return True
  policy=read()
- if policy['maintenance'] or key in (policy.get('disabledSheets') or []):return False
+ if policy['maintenance']:return False
+ if key in (policy.get('disabledSheets') or []) and (policy.get('temporaryPublicAccess') or not member_full_access(headers)):return False
  return _items_open(headers,policy,['tab:sheets'])
 def finder_sports_allowed(headers):
  """The Finder leagues this viewer may see, all at once (the league

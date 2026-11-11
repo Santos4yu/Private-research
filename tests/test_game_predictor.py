@@ -755,6 +755,21 @@ class DraftKingsTests(unittest.TestCase):
         found["line"]["moneyline"], found["line"]["chance"] = {"home": -150, "away": 130}, {"home": 0.58, "away": 0.42}
         return found
 
+    def test_team_chances_for_the_finder(self):
+        later = self.espn_game()
+        later["startsAt"], later["home"], later["away"] = "2099-01-02T00:00Z", {"abbr": "LAL"}, {"abbr": "den"}
+        later["line"]["chance"], later["line"]["moneyline"] = {"home": 0.4, "away": 0.6}, {"home": 140, "away": -160}
+        bare = self.espn_game()
+        bare["home"], bare["away"], bare["line"] = {"abbr": "MIA"}, {"abbr": "ORL"}, None
+        teams = gp.team_chances([later, self.espn_game(), bare])
+        # Both of Denver's games, soonest first; each side with its opponent and price; no line, no entry.
+        self.assertEqual([entry["opponent"] for entry in teams["DEN"]], ["BOS", "LAL"])
+        self.assertEqual(teams["DEN"][0]["chance"], 0.58)
+        self.assertEqual((teams["BOS"][0]["chance"], teams["BOS"][0]["moneyline"]), (0.42, 130))
+        self.assertEqual(teams["DEN"][1]["chance"], 0.6)
+        self.assertNotIn("MIA", teams)
+        self.assertEqual(gp.finder_moneylines("mlb"), {"sport": "mlb", "teams": {}})
+
     def test_the_feed(self):
         events = gp.parse_dk(dk_feed())
         # Only a game with both sides priced; DraftKings' minus sign read; the spread market left alone.

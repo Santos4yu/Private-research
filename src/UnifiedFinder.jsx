@@ -2,7 +2,7 @@ import React,{lazy,startTransition,Suspense,useCallback,useEffect,useMemo,useRef
 import {matchesSearch,searchKey} from './finder-search.js';
 import {flushSync} from 'react-dom';
 import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
-import {finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,keepOpenPlayer,takeOpenPlayer,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
+import {loadFinderMoneylines,withMoneylines,finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,keepOpenPlayer,takeOpenPlayer,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
 import {comebackTag} from './workload';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
 import {matchupParams,prefetchResearch,wnbaGet} from './sports/wnba/wnba-research';
@@ -68,7 +68,7 @@ function League({sport}){return <img src={LEAGUE_LOGOS[sport]} alt="" className=
 function Heading({label,name,sort,onSort,title}){const active=sort.key===name;return <th scope="col" title={title} aria-sort={active?(sort.direction==='desc'?'descending':'ascending'):'none'}><button type="button" className={active?'is-sorted':''} onClick={()=>onSort(name)}>{label}{active?(sort.direction==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>):<ArrowUpDown size={11}/>}</button></th>;}
 // A window's hit rate, whole, in its color with the record (finder-board.css
 // draws a bar under them).
-function Heat({value,kind,detail,loading,label}){return <td className="finder-stat"><div className="finder-heat" data-label={label} data-tone={kind||tone(value)} style={!kind&&finite(value)?{'--rate':Math.max(0,Math.min(100,value))+'%'}:undefined}>{finite(value)?<><strong>{!kind?Math.round(value)+'%':num(value)}</strong>{detail&&<small>{detail}</small>}</>:<span className="finder-no-data" title={loading?'Loading history':'No verified sample'}>{loading?'…':'—'}</span>}</div></td>;}
+function Heat({value,kind,detail,loading,label}){return <td className="finder-stat"><div className="finder-heat" data-label={label} data-tone={kind||tone(value)} style={!kind&&finite(value)?{'--rate':Math.max(0,Math.min(100,value))+'%','--r':Math.round(Math.max(0,Math.min(100,value)))}:undefined}>{finite(value)?<><strong>{!kind?Math.round(value)+'%':num(value)}</strong>{detail&&<small>{detail}</small>}</>:<span className="finder-no-data" title={loading?'Loading history':'No verified sample'}>{loading?'…':'—'}</span>}</div></td>;}
 // One prop, one row of the board (finder-board.css): who and the game, the
 // line, the opposing defense's rank, his L10 average and his run, then the
 // hit rates for each window. The defense, his average and his run carry a
@@ -114,7 +114,7 @@ const Row=React.memo(function Row({row,index,onOpen,pick,onPick}){
   <AppsCell apps={row.apps}/>
   <td className="finder-pf finder-pf-ml">{finite(row.winChance)?<b data-tone={row.winChance>=50?'good':'low'}>{Math.round(row.winChance)}%</b>:dash}</td>
   <td className="finder-pf finder-pf-ip">{(()=>{const odds=bookOdds(row.apps);if(!odds)return dash;
-   return <span title={'Implied by '+odds.book+''}><i data-tone={odds.over>=.5?'good':'low'}>O {(odds.over*100).toFixed(1)}%</i><i data-tone={odds.under>=.5?'good':'low'}>U {(odds.under*100).toFixed(1)}%</i></span>;})()}</td>
+   return <span title={'Implied by '+odds.book+''} style={{'--over':Math.round(odds.over*1000)/10}}><i data-tone={odds.over>=.5?'good':'low'}>O {(odds.over*100).toFixed(1)}%</i><i data-tone={odds.under>=.5?'good':'low'}>U {(odds.under*100).toFixed(1)}%</i></span>;})()}</td>
   <td className="finder-pf finder-pf-diff">{delta!=null?<><b data-tone={avgTone}>{(delta>0?'+':delta<0?'−':'')+num(Math.abs(delta))}</b>{row.line?<small>{(delta>0?'+':delta<0?'−':'')+Math.abs(delta/row.line*100).toFixed(1)}%</small>:null}</>:dash}</td>
  </tr>;
 });
@@ -315,14 +315,24 @@ export function UnifiedFinder(){
  // Defense-vs-position ranks come from each league's own table (the one the
  // player pages show), fetched once when that league's board is ready.
  const [leagues,setLeagues]=useState({}),leagueRequests=useRef(new Set());
+ // Each team's chance to win (its moneyline), for the Moneyline column: asked
+ // again whenever a league's board comes in fresh (the server keeps it 5 minutes).
+ const [moneylines,setMoneylines]=useState({}),moneylineAsked=useRef(new WeakSet());
+ useEffect(()=>{['nba','nfl'].forEach(key=>{const list=boards[key]?.rows;if(boards[key]?.state!=='ready'||!list?.length||moneylineAsked.current.has(list))return;moneylineAsked.current.add(list);
+  loadFinderMoneylines(key).then(data=>{if(data?.teams&&Object.keys(data.teams).length)setMoneylines(old=>({...old,[key]:data.teams}));}).catch(()=>{});});},[boards]);
  useEffect(()=>{['wnba','nba','nfl'].forEach(key=>{if(boards[key].state!=='ready'||leagueRequests.current.has(key))return;leagueRequests.current.add(key);loadFinderDefense(key).then(data=>{if(data?.dvp)setLeagues(old=>({...old,[key]:data}));}).catch(()=>leagueRequests.current.delete(key));});},[boards.wnba.state,boards.nba.state,boards.nfl.state]);
  const defended=useRef(new WeakMap());
+ const priced=useRef(new WeakMap());
  const allRows=useMemo(()=>allowedKeys.flatMap(k=>{
   // Each league's defense ranks are worked out once per board, not again for every league whenever one changes.
-  const list=boards[k].rows||[],league=leagues[k];if(!league)return list;
-  const hit=defended.current.get(list);if(hit?.league===league)return hit.rows;
-  const rows=withDefense(list,league);defended.current.set(list,{league,rows});return rows;
- }),[boards,allowedKeys,leagues]);
+  const list=boards[k].rows||[],league=leagues[k];
+  let rows=list;
+  if(league){const hit=defended.current.get(list);if(hit?.league===league)rows=hit.rows;else{rows=withDefense(list,league);defended.current.set(list,{league,rows});}}
+  // Then each row's team chance to win, once per board and moneyline read.
+  const teams=moneylines[k];if(!teams)return rows;
+  const done=priced.current.get(rows);if(done?.teams===teams)return done.rows;
+  const out=withMoneylines(rows,teams);priced.current.set(rows,{teams,rows:out});return out;
+ }),[boards,allowedKeys,leagues,moneylines]);
  // A detail page opened from a saved board must receive fresh fixture IDs
  // when the live board arrives, rather than retaining its stale snapshot.
  // Only a soccer page asks: any other sport's page doesn't set its player
@@ -398,7 +408,7 @@ export function UnifiedFinder(){
   return()=>{window.cancelIdleCallback?window.cancelIdleCallback(idle):window.clearTimeout(idle);};
  },[warmKey]);
  priority.current=new Set([...visible,...rows.slice(0,60)].map(row=>row.id));
- const loading=scope.some(k=>['loading','idle'].includes(boards[k].state)),errors=scope.filter(k=>boards[k].error).map(k=>k.toUpperCase()+': '+boards[k].error),histories=sportRows.filter(r=>r.historyStatus==='pending').length;
+ const loading=scope.some(k=>['loading','idle'].includes(boards[k].state)),errors=scope.filter(k=>boards[k].error).map(k=>k.toUpperCase()+': '+boards[k].error);
  // A league whose board didn't load tries again on its own, a little later
  // each time (30s, 1, 2, 4 minutes): members never see that it failed --
  // only admins get the notice -- so the Finder has to mend itself.
@@ -414,8 +424,6 @@ export function UnifiedFinder(){
   });
   return()=>timers.forEach(timer=>timer&&clearTimeout(timer));
  },[failedKey,load]);
- const timestamp=scope.map(k=>boards[k].fetchedAt).filter(Boolean).sort().at(-1);
- const historyTimestamp=sportRows.reduce((latest,row)=>Math.max(latest,Number(row.historyAsOf||row.enrichedAt)||0),0);
  useEffect(()=>{saveFinderView(storage(),{picked,marketFilter,bookFilter,teamFilter,modifierFilter,hitFilter,sorts,pageSize});},[picked,marketFilter,bookFilter,teamFilter,modifierFilter,hitFilter,sorts,pageSize]);
  // A filter brought back from last time that today's board doesn't have
  // (a team not playing) is dropped once the board is in, so it never
@@ -499,7 +507,8 @@ export function UnifiedFinder(){
    <div className="finder-controls"><div className="finder-search-row"><label className="finder-search"><Search size={16}/><input ref={searchInput} type="search" enterKeyHint="search" aria-label="Search players or teams" placeholder="Search players or teams…" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}} onBlur={()=>{if(mobileSearch){foldedAt.current=Date.now();setMobileSearch(false);}}}/></label><div className="finder-app-filter"><FinderMultiSelect label="Apps" icon={Grid2X2} values={bookFilter} onChange={setBookFilter} options={bookOptions} placeholder="All apps"/><span className="finder-app-icons" aria-hidden="true">{books.slice(0,6).map(k=><Photo key={k} src={LOGOS[k]||'/sportsbooks/'+k+'.png'} width="23" height="23"/>)}</span></div><button type="button" className="finder-mobile-search-toggle finder-icon" aria-label="Search players or teams" aria-expanded={mobileSearch} data-active={query.trim()?'':undefined} onMouseDown={e=>e.preventDefault()} onClick={toggleSearch}><Search size={18}/></button><button type="button" className="finder-icon" aria-label="Refresh Finder" onClick={()=>scope.forEach(k=>load(k,true))} disabled={loading}><RefreshCw size={16} className={loading?'finder-spin':''}/></button></div>{query.trim()&&<div className="finder-search-chip"><button type="button" onClick={toggleSearch}><Search size={13} aria-hidden="true"/><span>{query.trim()}</span></button><button type="button" aria-label="Clear search" onClick={()=>setQuery('')}><X size={14} aria-hidden="true"/></button></div>}
    <div className="finder-filters"><FinderMultiSelect label="Line type" icon={SlidersHorizontal} values={modifierFilter} onChange={setModifierFilter} options={lineOptions} placeholder="All lines" searchable={false}/><FinderMultiSelect label="Stats" icon={ChartNoAxesColumnIncreasing} values={marketFilter} onChange={setMarketFilter} options={marketOptions} placeholder="All stats"/>{gameOptions.length>0&&<FinderMultiSelect label="Games" icon={Swords} values={gameFilter} onChange={setGameFilter} options={gameOptions} placeholder="All games" only wide/>}<FinderMultiSelect label="Teams" icon={Users} values={teamFilter} onChange={setTeamFilter} options={teamOptions} placeholder="All teams" only/><FinderMultiSelect label="Date" icon={CalendarDays} values={dayFilter} onChange={setDayFilter} options={dayOptions} placeholder="All dates" searchable={false}/><FinderHitRateFilter value={hitFilter} onChange={setHitFilter}/><button type="button" className={'finder-saved '+(savedOnly?'is-active':'')} data-requires-tab="saved" aria-pressed={savedOnly} onClick={()=>setSavedOnly(v=>!v)}><Bookmark size={15}/>Saved{picks.size>0&&<b>{picks.size}</b>}</button><button type="button" className="finder-icon finder-reset" aria-label="Reset all Finder filters" onClick={clear}><Trash2 size={16}/></button></div></div>
    {/* The counts, history times and colour key are for the admin; members only see that lines are loading. */}
-   {(siteIsAdmin()||loading)&&<div className="finder-meta"><span role="status">{loading?<><LoaderCircle size={12} className="finder-spin"/>Loading {scope.filter(k=>boards[k].state!=='ready').map(k=>k.toUpperCase()).join(', ')}…</>:<><i/>{rows.length.toLocaleString()} props</>}{histories>0&&<small> · Filling new history for {histories} lines</small>}{historyTimestamp>0&&<small> · History updated {new Date(historyTimestamp).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</small>}</span>{siteIsAdmin()&&<span className="finder-legend"><i data-tone="good"/>70%+<i data-tone="mid"/>45–69%<i data-tone="low"/>&lt;45% <span>·</span>{timestamp?'Updated '+new Date(timestamp).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'Pushes count as misses'}</span>}</div>}
+   {/* Only while a league loads (Nov 11, the owner: remove the props count, the history time and the color key). */}
+   {loading&&<div className="finder-meta"><span role="status"><LoaderCircle size={12} className="finder-spin"/>Loading {scope.filter(k=>boards[k].state!=='ready').map(k=>k.toUpperCase()).join(', ')}…</span></div>}
    {errors.length>0&&sportRows.length>0&&siteIsAdmin()&&<div className="finder-availability" role="status"><span>{scope.some(k=>boards[k].error&&boards[k].persisted)?'The latest props couldn’t load. Showing the last saved lines.':'Some props are temporarily unavailable.'}</span><button type="button" onClick={()=>scope.filter(k=>boards[k].error).forEach(k=>load(k,true))}>Retry</button></div>}
    <section className="finder-board" aria-label="Player props"><div className="finder-scroll" ref={tableRef}><table className="finder-table"><caption className="finder-sr-only">Historical hit rates for the displayed line and side. Green 70 percent or more, yellow 45 to 69 percent, red below 45 percent. Missing data is shown as a dash.</caption><thead><tr><Heading name="player" label="Player" sort={sort} onSort={onSort}/><Heading name="line" label="Line" sort={sort} onSort={onSort}/><Heading name="defense" label="Defense" title="The defense’s rank against this stat (1 allows the least)" sort={sort} onSort={onSort}/><Heading name="average" label="L10 avg" title="Average over his last 10" sort={sort} onSort={onSort}/><Heading name="streak" label="Streak" title="His current run" sort={sort} onSort={onSort}/>{WINDOWS.map(([key,label])=><Heading key={key} name={key} label={key==='season'?'Season':label} sort={sort} onSort={onSort}/>)}<th scope="col" className="finder-pf finder-pf-apps">Apps</th><th scope="col" className="finder-pf finder-pf-ml" title="His team's chance to win, from the moneyline">Moneyline</th><th scope="col" className="finder-pf finder-pf-ip" title="The books' odds for the over and under">IP</th><th scope="col" className="finder-pf finder-pf-diff" title="His L10 average against the line">Diff</th></tr></thead><tbody>{/* Keyed by place on the page: turning the page updates the rows already there rather than building new ones. */}{visible.map((row,index)=><Row key={index} row={row} index={index} onOpen={open} pick={picks.get(row.id)} onPick={onPick}/>)}</tbody></table>{!visible.length&&<div className="finder-message finder-empty-board" role="status">{loading?<><LoaderCircle className="finder-spin"/><strong>Loading the prop board</strong><span>Lines appear here as each sport loads.</span></>:<><ChartNoAxesColumnIncreasing size={26} aria-hidden="true"/><strong>{errors.length&&!sportRows.length?(siteIsAdmin()?'Props temporarily unavailable':'Lines are on their way'):savedOnly?'No saved props found':'No props found'}</strong><span>{errors.length&&!sportRows.length?(siteIsAdmin()?'We couldn’t load the latest props. Please try again.':'Today’s props show here in a moment.'):sportRows.length?'No props match these filters. Loosen or reset them to see more.':'No upcoming props are available right now. Check back soon.'}</span><button type="button" onClick={errors.length&&!sportRows.length?()=>scope.filter(k=>boards[k].error).forEach(k=>load(k,true)):clear}>{errors.length&&!sportRows.length?(siteIsAdmin()?'Retry':'Refresh'):'Clear all filters'}</button></>}</div>}</div><footer className="finder-pagination"><span>{rows.length?(currentPage*pageSize+1)+'–'+Math.min((currentPage+1)*pageSize,rows.length)+' of '+rows.length.toLocaleString():'0 props'}</span><div><button type="button" aria-label="Previous page" disabled={currentPage===0} onClick={()=>changePage(currentPage-1)}><ChevronLeft size={17}/></button><span>Page <b>{currentPage+1}</b> / {pages}</span><button type="button" aria-label="Next page" disabled={currentPage>=pages-1} onClick={()=>changePage(currentPage+1)}><ChevronRight size={17}/></button><label><ListFilter size={14}/><FinderDropdown aria-label="Rows per page" value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[20,50,100].map(n=><option value={n} key={n}>{n} rows</option>)}</FinderDropdown><ChevronDown size={12}/></label></div><span className="finder-page-hint">Select a player to open Trends</span></footer></section>
   </>}

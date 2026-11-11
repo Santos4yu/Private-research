@@ -278,11 +278,13 @@ class handler(BaseHTTPRequestHandler):
                     return self._send(401, {"error": "Sign in to see your picks.", "authRequired": True})
                 return self._send(200, game_predictor.history(sport, member))
             if action in ("game-record", "game-prop-record"):
-                # The site's own record, the admin's only: every game the
-                # model picked (game_record.py), or the props (the generator's
-                # plays, the Props tab's top picks, the posted record).
+                # The site's own record, the admin's and Admin-badge members'
+                # (site_members.py): every game the model picked
+                # (game_record.py), or the props (the generator's plays, the
+                # Props tab's top picks, the posted record).
                 from v2.board import admin_auth
-                if not admin_auth.is_admin_request(self.headers):
+                from site_controls import member_full_access
+                if not (admin_auth.is_admin_request(self.headers) or member_full_access(self.headers)):
                     return self._send(403, {"error": "Admins only."})
                 if action == "game-record":
                     import game_record

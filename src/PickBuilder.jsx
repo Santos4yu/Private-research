@@ -1,5 +1,5 @@
-import React from 'react';
-import {ArrowDown,ArrowLeft,ArrowUp,ExternalLink,Link2,Ticket,Trash2,X} from 'lucide-react';
+import React,{useEffect,useState} from 'react';
+import {ArrowDown,ArrowLeft,ArrowUp,Clock,ExternalLink,Link2,Ticket,Trash2,X} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 import {pickBuilder,usePickBuilder} from './pick-builder-client';
 import './pick-builder.css';
@@ -44,10 +44,28 @@ function Odds({leg}){
  </span>;
 }
 
-function Leg({leg,busy,index}){
+// When the game starts, as a chip: "in 36 min" or "in 2h 10m" today, the
+// day and time further out, "Live" once it's on.
+export function startChip(value,now=Date.now()){
+ const at=Date.parse(value||'');
+ if(!Number.isFinite(at))return null;
+ const minutes=Math.round((at-now)/60000);
+ if(minutes<=0)return {text:'Live',soon:true};
+ if(minutes<60)return {text:`in ${minutes} min`,soon:true};
+ if(minutes<24*60){const hours=Math.floor(minutes/60),rest=minutes%60;return {text:`in ${hours}h${rest?` ${rest}m`:''}`,soon:minutes<180};}
+ return {text:startLabel(value),soon:false};
+}
+
+// Nov 11, the owner, with PickFinder's Pick Builder beside ours: "make our
+// builder better our current is so ugly". Its layout, our colors: each pick
+// a card (photo with the team's logo, the name with a team chip, the line
+// and stat under it, the x), the books' prices with a chip for when the game
+// starts, then Under and Over as two full buttons, the one picked filled
+// (green for Over, red for Under).
+function Leg({leg,busy,index,now}){
  const moreOnly=['goblin','demon'].includes(leg.modifier);
  const league=LEAGUE_LOGOS[String(leg.sport||'').toLowerCase()];
- const when=startLabel(leg.startsAt);
+ const chip=startChip(leg.startsAt,now);
  return <li className="pick-builder-leg" data-side={leg.side.toLowerCase()} style={{'--n':index}}>
   <span className="pick-builder-photo">
    <span aria-hidden="true">{initials(leg.player)}</span>
@@ -55,25 +73,27 @@ function Leg({leg,busy,index}){
    {leg.teamLogo&&<img className="pick-builder-team" src={leg.teamLogo} alt={leg.team||''} onError={event=>{event.currentTarget.hidden=true;}}/>}
   </span>
   <span className="pick-builder-copy">
-   <strong>{leg.player}</strong>
-   <span className="pick-builder-meta">{league&&<img src={league} alt="" width="12" height="13" onError={event=>{event.currentTarget.hidden=true;}}/>}
-    {leg.team&&<span>{leg.team}</span>}{when&&leg.team&&<i aria-hidden="true">·</i>}{when&&<time dateTime={leg.startsAt}>{when}</time>}</span>
+   <strong><span>{leg.player}</span>{(leg.team||league)&&<em className="pick-builder-chip">{league&&<img src={league} alt="" width="11" height="12" onError={event=>{event.currentTarget.hidden=true;}}/>}{leg.team}</em>}</strong>
+   <span className="pick-builder-stat"><b>{leg.line}</b><span>{leg.stat}</span></span>
   </span>
   <button type="button" className="pick-builder-remove" aria-label={`Remove ${leg.player} ${leg.line} ${leg.stat}`} disabled={busy} onClick={()=>pickBuilder.remove(leg.id)}><X size={15} aria-hidden="true"/></button>
-  <span className="pick-builder-bet">
-   <span className="pick-builder-stat"><b>{leg.line}</b><span>{leg.stat}</span></span>
-   <span className="pick-builder-side" role="group" aria-label={`${leg.player}: Over or Under`}>
-    <button type="button" data-side="over" aria-pressed={leg.side==='Over'} disabled={busy} onClick={()=>pickBuilder.side(leg.id,'Over')}><ArrowUp size={13} strokeWidth={2.6} aria-hidden="true"/>Over</button>
-    <button type="button" data-side="under" aria-pressed={leg.side==='Under'} disabled={busy||moreOnly} title={moreOnly?'Goblin and Demon lines are More only on PrizePicks':undefined} onClick={()=>pickBuilder.side(leg.id,'Under')}><ArrowDown size={13} strokeWidth={2.6} aria-hidden="true"/>Under</button>
-   </span>
+  <span className="pick-builder-info">
+   <Odds leg={leg}/>
+   {chip&&<time className="pick-builder-when" data-soon={chip.soon||undefined} dateTime={leg.startsAt}><Clock size={12} strokeWidth={2.4} aria-hidden="true"/>{chip.text}</time>}
   </span>
-  <Odds leg={leg}/>
+  <span className="pick-builder-side" role="group" aria-label={`${leg.player}: Over or Under`}>
+   <button type="button" data-side="under" aria-pressed={leg.side==='Under'} disabled={busy||moreOnly} title={moreOnly?'Goblin and Demon lines are More only on PrizePicks':undefined} onClick={()=>pickBuilder.side(leg.id,'Under')}><ArrowDown size={14} strokeWidth={2.6} aria-hidden="true"/>Under</button>
+   <button type="button" data-side="over" aria-pressed={leg.side==='Over'} disabled={busy} onClick={()=>pickBuilder.side(leg.id,'Over')}><ArrowUp size={14} strokeWidth={2.6} aria-hidden="true"/>Over</button>
+  </span>
  </li>;
 }
 
 export function PickBuilder({onClose,titleId='pick-builder-title'}){
  const builder=usePickBuilder();
  const count=builder.legs.length;
+ // The start chips count down: the time read again every half minute while picks are in.
+ const [now,setNow]=useState(()=>Date.now());
+ useEffect(()=>{if(!count)return undefined;const timer=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(timer);},[count]);
  return <section className="pick-builder" data-count={count} aria-labelledby={titleId}>
   <header className="pick-builder-head">
    {onClose&&<button type="button" className="pick-builder-back" aria-label="Close Pick Builder, back to the menu" onClick={onClose}><ArrowLeft size={16} aria-hidden="true"/><span>Menu</span></button>}
@@ -83,12 +103,12 @@ export function PickBuilder({onClose,titleId='pick-builder-title'}){
   {/* The six places on a PrizePicks entry, the taken ones lit. */}
   <div className="pick-builder-slots" role="img" aria-label={`${count} of ${MAX} picks`}>{Array.from({length:MAX},(_,index)=><i key={index} data-on={index<count||undefined}/>)}</div>
   {count===0?<div className="pick-builder-empty"><span className="pick-builder-mark" aria-hidden="true"><Ticket size={17}/></span><span><strong>Your slip is empty</strong>Tap + on a Props line or the star on a Finder prop.</span></div>
-   :<ol className="pick-builder-list" aria-live="polite">{builder.legs.map((leg,index)=><Leg key={leg.id} leg={leg} busy={builder.busy} index={index}/>)}</ol>}
+   :<ol className="pick-builder-list" aria-live="polite">{builder.legs.map((leg,index)=><Leg key={leg.id} leg={leg} busy={builder.busy} index={index} now={now}/>)}</ol>}
   <footer className="pick-builder-footer">
    <p role="status">{builder.status}</p>
    {/* PrizePicks opens in a new tab: a link once one is made for these picks, else Export makes it. */}
-   {builder.link&&!builder.busy?<a className="pick-builder-export" href={builder.link} target="_blank" rel="noopener noreferrer"><span>Open in PrizePicks</span><ExternalLink size={15} aria-hidden="true"/></a>
-    :<button type="button" className="pick-builder-export" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.export}><span>{builder.busy?'Checking lines…':'Export to PrizePicks'}</span><ExternalLink size={15} aria-hidden="true"/></button>}
+   {builder.link&&!builder.busy?<a className="pick-builder-export" href={builder.link} target="_blank" rel="noopener noreferrer"><img src="/prizepicks/logo.png" alt="" width="20" height="20"/><span>Open in PrizePicks</span><ExternalLink size={15} aria-hidden="true"/></a>
+    :<button type="button" className="pick-builder-export" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.export}><img src="/prizepicks/logo.png" alt="" width="20" height="20"/><span>{builder.busy?'Checking lines…':'Export to PrizePicks'}</span><ExternalLink size={15} aria-hidden="true"/></button>}
    <div className="pick-builder-more">
     <button type="button" className="pick-builder-link" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.copy}><Link2 size={15} aria-hidden="true"/>Copy link</button>
     <button type="button" className="pick-builder-clear" disabled={!count||builder.busy} onClick={pickBuilder.clear}><Trash2 size={15} aria-hidden="true"/>Clear</button>

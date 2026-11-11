@@ -413,6 +413,45 @@ export function loadFinderDefense(sport, options = {}) {
   return Promise.resolve(null);
 }
 
+// Each team's chance to win its next games, from the moneylines (NBA and
+// NFL; game_predictor.team_chances through /api/board), for the Moneyline
+// column (Nov 11, the owner: "why doesnt it show the moneyline").
+export function loadFinderMoneylines(sport, options = {}) {
+  if (sport !== 'nba' && sport !== 'nfl') return Promise.resolve(null);
+  return request(`/api/board?view=finder-moneylines&sport=${sport}`, options);
+}
+
+// Other spellings of a team's abbreviation than ESPN's.
+const TEAM_ALIAS = {GSW: 'GS', NYK: 'NY', SAS: 'SA', NOP: 'NO', NOR: 'NO', UTA: 'UTAH', WAS: 'WSH', PHO: 'PHX', BRK: 'BKN', JAC: 'JAX'};
+const teamKey = abbr => {const key = String(abbr || '').toUpperCase(); return TEAM_ALIAS[key] || key;};
+
+/** The rows with their team's chance to win (`winChance`, 0-100) where the
+ * slate has their game: the entry starting nearest the row's start, within
+ * 6 hours, or the one against its opponent. Rows that already carry one
+ * keep it. */
+export function withMoneylines(rows, teams) {
+  if (!teams || !rows?.length) return rows;
+  let changed = false;
+  const out = rows.map(row => {
+    if (Number.isFinite(row.winChance)) return row;
+    const entries = teams[teamKey(row.teamAbbr)];
+    if (!entries?.length) return row;
+    const start = Date.parse(row.startsAt || '');
+    const opponent = teamKey(row.opponent);
+    let best = null, gap = Infinity;
+    for (const entry of entries) {
+      const at = Date.parse(entry.startsAt || '');
+      const apart = Number.isFinite(start) && Number.isFinite(at) ? Math.abs(at - start) : null;
+      if (apart != null && apart <= 6 * 3600e3 && apart < gap) {best = entry; gap = apart;}
+      else if (apart == null && opponent && teamKey(entry.opponent) === opponent && !best) best = entry;
+    }
+    if (!best || !Number.isFinite(best.chance)) return row;
+    changed = true;
+    return {...row, winChance: Math.round(best.chance * 1000) / 10};
+  });
+  return changed ? out : rows;
+}
+
 // The games behind a line, newest last, for the Smart Slip's projection
 // (slip-analyst.js): each game's value, date, venue, opponent and the
 // player's playing time (minutes, plate appearances, pitches; a college
