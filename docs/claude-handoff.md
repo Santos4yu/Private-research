@@ -79,7 +79,13 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   `nba_context(..., earlier)` puts it before this season's.
 - The Game predictor check (workflow, run by hand) prints every team's
   ranks both ways, tonight's days since the last game and the meetings, from
-  ESPN's box scores built in the run.
+  ESPN's box scores built in the run. Its Nov 11 run against PickFinder's two
+  cards: offense ranks the same (NY 10th, WSH 23rd, IND 21st; CLE 13th vs
+  12th); rest the same (CLE 1 day, NY back-to-back, WSH / IND 1 day); head to
+  head the same, 3-0 both (the last three, playoffs included: NY's 2026
+  sweep of CLE). Defense ranks a few places off in the packed middle (NY 3rd
+  vs 6th, CLE 15th vs 19th, IND 18th vs 14th): our possessions are the
+  box-score estimate, theirs likely NBA.com's own count.
 
 ### Nov 11 (c): the game page on a computer redesigned; one win chance on phones
 
