@@ -58,6 +58,42 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (k): his sections stacked, research kept on the device, no chart fades, "2026"
+
+- The owner: "i dont want game log stats and depth together i want them
+  seperate like pickfinder it should be depth first stats then game log at
+  the bottom it should line up with the end of right side of the data and
+  also fix the loading speeds ... it should be instant like the trends ...
+  remove the fade animation of the team logos and stats on the trend ...
+  also why does it say 2027? its 2026".
+- Stacked (finder-player-app.css, 1051px+ only; a phone keeps them among
+  the swiped tiles): `.fp2-his` drops its tabs and shows every section as
+  its own card in reverse order (`column-reverse`: Depth, Stats, Game log
+  for the NBA). The grid stretches both columns; the game log (first
+  section) takes what's left (`flex: 1 1 0; contain: size; min-height:
+  320px`) and scrolls inside, so the left ends with the right whenever the
+  right is longer.
+- Speed (src/sports/wnba/wnba-research.js): each research answer is kept
+  in localStorage (`wnba-saved:v1:` + URL; under 900KB each, 2.4MB in all,
+  oldest dropped, two days at most) and a page shows it at once while the
+  fresh one loads (`savedAnswer`; on a failed refresh the kept one stays).
+  `prefetchResearch(row)` asks for league-context, player-context, dvp and
+  matchup when a Finder row is hovered, pressed or focused; the board warms
+  league-context and each shown game's matchup in idle time (UnifiedFinder,
+  `warmKey`). `dvpParams` / `matchupParams` keep the page's and the
+  prefetch's URLs identical. The server side is unchanged: a cold instance
+  still reads the stored season (and last season, for player-context) from
+  KV, which is the real wait; caching computed answers in KV is the next
+  step if it's still slow.
+- Chart motion (trend-edge.css): only the bars grow (.42s, 18ms apart); the
+  numbers, logos, dates, next game, line tag and windows have no fade. The
+  player page's cards no longer rise in.
+- Seasons by start year (app.js `learnSeasonStarts` / `seasonLabel` /
+  `seasonKey`): when the loaded games show end-year naming (a game dated
+  the year before its season's name), every season shows as the year it
+  started (NBA 2027 -> "2026"), in the season tile, the Year filter and the
+  filter chip. The keys stay ESPN's.
+
 ### Nov 11 (j): the player page's sections after PickFinder's
 
 - The owner sent PickFinder's Defense vs Position, Offense vs Defense,

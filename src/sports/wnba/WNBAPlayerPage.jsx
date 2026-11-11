@@ -4,7 +4,7 @@ import {WNBA_STATS,researchRows,wnbaChart,wnbaLines,wnbaOdds} from './trend-data
 import WNBAFinderContext from './WNBAFinderContext';
 import {FinderPlayerLayout} from '../../FinderPlayerLayout';
 import {basketballLogUrl} from '../../unified-finder-data';
-import {applySplits,finite,fmt,hasPlayerContext,hasSplit,leagueOf,logValue,opponentOf,playerContextParams,positionOf,realGames,shortDate,splitFilter,splitKey,splitLabel,toggleSplit,useWnba} from './wnba-research';
+import {applySplits,finite,fmt,hasPlayerContext,hasSplit,leagueOf,logValue,matchupParams,opponentOf,playerContextParams,positionOf,realGames,shortDate,splitFilter,splitKey,splitLabel,toggleSplit,useWnba} from './wnba-research';
 import '../../mlb-finder-context.css';
 import './wnba-context.css';
 import {withLines} from '../../trend-lines';
@@ -143,7 +143,7 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
    .then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'Game logs unavailable');setTrend({state:'ready',rows:data.rows||[]});})
    .catch(error=>{if(error.name!=='AbortError')setTrend({state:'error',rows:[],error:error.message});});
   return()=>controller.abort();},[row.playerId,row.sport,retry]);
- const matchup=useWnba('matchup',{home:selected.homeTeamAbbr,away:selected.awayTeamAbbr,startsAt:selected.startsAt,league:leagueOf(selected)},Boolean(selected.homeTeamAbbr&&selected.awayTeamAbbr&&selected.startsAt));
+ const matchup=useWnba('matchup',matchupParams(selected),Boolean(selected.homeTeamAbbr&&selected.awayTeamAbbr&&selected.startsAt));
  // His stats with no line tonight that his games can still chart (Dunks).
  const extraRows=useMemo(()=>researchRows(row,playerRows,trend.rows),[row,playerRows,trend.rows]);
  const onStat=useMemo(()=>key=>{const next=[...playerRows,...extraRows].find(item=>item.marketKey===key);if(next)setSelected(next);},[playerRows,extraRows]);

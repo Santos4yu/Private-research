@@ -3522,8 +3522,27 @@ function wireMoreFilters() {
 // the internal key that gameLogState/filterGames() expect.
 const GL_HAND_PAIRS = [["all", "All"], ["L", "vs LHP"], ["R", "vs RHP"]];
 const GL_VENUE_PAIRS = [["all", "All"], ["home", "Home"], ["road", "Road"]];
-const seasonLabel = (key) => (key === "all" ? "All" : String(key));
-const seasonKey = (label) => (label === "All" ? "all" : String(label));
+// A season is shown by the year it started (Nov 11, the owner on "2027": "its
+// 2026"): ESPN names an NBA or NHL season by the year it ends, so the season
+// under way in November 2026 is "2027". The key stays ESPN's.
+let seasonShown = {};
+function learnSeasonStarts(games) {
+  // A season named by the year it ends has games dated the year before
+  // (October in an NBA season): then every season shows the year before
+  // its name. One named by the year it starts (WNBA, MLB, the NFL) never does.
+  const endNamed = (games || []).some((game) => {
+    const key = Number(game.season), year = Number(String(game.fullDate || "").slice(0, 4));
+    return key > 1900 && year > 1900 && year < key;
+  });
+  seasonShown = {};
+  if (!endNamed) return;
+  for (const game of games || []) {
+    const key = String(game.season || "");
+    if (/^\d{4}$/.test(key)) seasonShown[key] = String(Number(key) - 1);
+  }
+}
+const seasonLabel = (key) => (key === "all" ? "All" : seasonShown[String(key)] || String(key));
+const seasonKey = (label) => (label === "All" ? "all" : Object.keys(seasonShown).find((key) => seasonShown[key] === label) || String(label));
 const pairOptions = (pairs) => pairs.map(([, label]) => ({ value: label, label }));
 const labelForKey = (pairs, key) => (pairs.find(([k]) => k === key) || pairs[0])[1];
 const keyForLabel = (pairs, label) => (pairs.find(([, l]) => l === label) || pairs[0])[0];
@@ -3608,12 +3627,13 @@ function latestSeason(games) {
   if (!/^\d{4}$/.test(last)) return { label: "", count: 0 };
   let count = 0;
   for (let i = games.length - 1; i >= 0 && seasonOf(games[i]) === last; i -= 1) count += 1;
-  return { label: last, count };
+  return { label: seasonLabel(last), count };
 }
 // The windows behind the last tile's menu.
 const MORE_WINDOWS = ["15", "20", "30", "season"];
 
 function renderGameLogTabs() {
+  learnSeasonStarts(recentGameLogSource());
   const filtered = filterGames(recentGameLogSource());
   const max = filtered.length;
   // Keep the requested window as filters/data change. Clamping the stored
@@ -3864,7 +3884,7 @@ function renderGameLogChart() {
   const filterBits = [];
   if (gameLogState.handFilter !== "all") filterBits.push(`vs ${gameLogState.handFilter}HP`);
   if (gameLogState.venueFilter !== "all") filterBits.push(gameLogState.venueFilter === "home" ? "at home" : "on the road");
-  if (gameLogState.season !== "all") filterBits.push(gameLogState.season);
+  if (gameLogState.season !== "all") filterBits.push(seasonLabel(gameLogState.season));
   if (seasonKindOn() && gameLogState.seasonKind && gameLogState.seasonKind !== "all") filterBits.push(labelForKey(GL_KIND_PAIRS, gameLogState.seasonKind));
   for (const [field] of GL_EXTRA_FILTERS) {
     const wanted = gameLogState.extraFilters?.[field];

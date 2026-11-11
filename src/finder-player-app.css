@@ -288,3 +288,45 @@ html:root .fp2 .wnba-similar-key i[data-tone=poor] { background: #E04556; }
   html:root .fp2 .wnba-similar-cols, html:root .fp2 .wnba-similar-row { grid-template-columns: minmax(0, 1fr) 54px minmax(96px, 34%); }
   html:root .fp2 .wnba-similar-min { display: block; font-size: 11.5px; }
 }
+
+/* ------------------------------------------------------------ his games, stacked (Nov 11)
+   The owner: "i dont want game log stats and depth together i want them
+   seperate like pickfinder it should be depth first stats then game log at
+   the bottom it should line up with the end of right side of the data". On
+   a computer each of his sections is its own card under the chart, no tabs,
+   in reverse (Depth, Stats, Game log for the NBA; Stats, Game log for the
+   others), the last one stretching so the left column ends with the right.
+   A phone keeps them among the swiped tiles. */
+@media (min-width: 1051px) {
+  html:root .fp2 .fp2-grid { align-items: stretch; }
+  html:root .fp2 .fp2-chart { display: flex; flex-direction: column; }
+  html:root .fp2 .fp2-chart > .fp2-his {
+    display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 18px; flex: 1 1 auto;
+    margin-top: 18px; padding: 0; border: 0; border-radius: 0; background: none !important; box-shadow: none !important;
+  }
+  html:root .fp2 .fp2-his > .fp2-tabs { display: none; }
+  html:root .fp2 .fp2-his > .fp2-section[hidden] { display: block !important; }
+  html:root .fp2 .fp2-his > .fp2-section { animation: none; }
+  html:root .fp2 .fp2-his > .fp2-section > .mlb-context-card {
+    margin: 0; padding: var(--fp2-card-pad) !important; border: 0 !important; border-radius: 18px !important;
+    background-color: var(--fp2-panel) !important; background-image: var(--fp2-sheen) !important;
+    box-shadow: inset 0 0 0 1px var(--fp2-line), var(--fp2-depth) !important;
+  }
+  html:root .fp2 .fp2-his > .fp2-section > .mlb-context-card > header {
+    margin: calc(var(--fp2-card-pad) * -1) calc(var(--fp2-card-pad) * -1) 14px !important; padding: 13px var(--fp2-card-pad) !important;
+    border-radius: 17px 17px 0 0; background: rgba(255, 255, 255, .032) !important; box-shadow: inset 0 -1px var(--fp2-line) !important;
+  }
+  /* The game log (first in the page, last on screen) takes what's left, so
+     the two columns end together: it counts as no height of its own
+     (contain: size) beyond a floor, and scrolls inside when it has more. */
+  html:root .fp2 .fp2-his > .fp2-section:first-of-type { display: flex !important; flex-direction: column; flex: 1 1 0; min-height: 320px; contain: size; }
+  html:root .fp2 .fp2-his > .fp2-section:first-of-type > .mlb-context-card { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+  html:root .fp2 .fp2-his > .fp2-section:first-of-type .mlb-player-log-scroll { flex: 1 1 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  html:root .fp2 .fp2-his > .fp2-section:first-of-type .mlb-player-log-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--fp2-panel); }
+}
+
+/* Everything on the page simply there: no cards rising or fading in. */
+html:root .fp2 .fp2-section:not([hidden]),
+html:root .fp2 .fp2-head,
+html:root .fp2.finder-trend-view .mlb-context-card,
+html:root .fp2.finder-trend-view .mlb-support-track > div { animation: none !important; }

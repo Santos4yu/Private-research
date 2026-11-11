@@ -4,7 +4,7 @@ import {FinderDropdown,FinderDropdownAssets} from '../../FinderDropdown';
 import {FinderResearchTabs,FinderResearchCard as Card} from '../../FinderResearchSections';
 import {propFocus} from '../../prop-focus';
 import PropFocusTag from '../../PropFocusTag';
-import {MARKET_STAT,POSITIONS,baseMarket,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
+import {MARKET_STAT,POSITIONS,baseMarket,dvpParams,ago,average,finite,fmt,hasPlayerContext,hasSplit,leagueOf,opponentOf,ordinal,playerContextParams,positionOf,price,rankTone,realGames,shortDate,signed,splitFilter,useWnba} from './wnba-research';
 import {useIsAdmin,QUIET} from '../../admin-notice.js';
 import Opportunity from './Opportunity';
 import {theirDefenders,theirSeasons} from './defenders';
@@ -90,7 +90,7 @@ function DefenseVsPosition({row,stat}){
  const [season,setSeason]=useState(null),[position,setPosition]=useState(null),[view,setView]=useState('total'),[team,setTeam]=useState(opponent),[open,setOpen]=useState(null),[all,setAll]=useState(false);
  useEffect(()=>setTeam(opponent),[opponent]);
  useEffect(()=>{setSeason(null);setPosition(null);setOpen(null);setAll(false);},[row.playerId]);
- const state=useWnba('dvp',{league:leagueOf(row),season,position,playerId:row.playerId,view,team});
+ const state=useWnba('dvp',dvpParams(row,{season,position,view,team}));
  // The last table stays up while another season, position or view loads.
  const shown=useRef(null);
  if(state.data)shown.current=state.data;

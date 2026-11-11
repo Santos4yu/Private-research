@@ -5,6 +5,7 @@ import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncrea
 import {finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,keepOpenPlayer,takeOpenPlayer,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
 import {comebackTag} from './workload';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
+import {matchupParams,prefetchResearch,wnbaGet} from './sports/wnba/wnba-research';
 import {siteFinderSportAllowed,siteIsAdmin} from './site-access';
 import {accountProfile} from './account-sync';
 import {LEAGUE_LOGOS} from './league-logos';
@@ -98,7 +99,8 @@ const Row=React.memo(function Row({row,index,onOpen,pick,onPick}){
  const softness=finite(row.defense)&&teams>0?row.defense/teams:null;
  const defTone=softness==null?undefined:softness>2/3?(under?'low':'good'):softness<=1/3?(under?'good':'low'):undefined;
  const avgTone=!delta?undefined:(delta>0)!==under?'good':'low';
- return <tr onClick={()=>onOpen(row)} style={{'--i':index}}>
+ // A press or a hover starts the page's research loading (Nov 11, the owner on the wait).
+ return <tr onClick={()=>onOpen(row)} onPointerEnter={()=>prefetchResearch(row)} onPointerDown={()=>prefetchResearch(row)} onFocus={()=>prefetchResearch(row)} style={{'--i':index}}>
   <td className="finder-player-cell"><div className="finder-player"><div className="finder-portrait-wrap"><Photo src={row.headshot} className="finder-portrait" width="38" height="38" loading="lazy" fallback={<span className="finder-portrait finder-initials">{row.player.split(' ').map(p=>p[0]).slice(0,2).join('')}</span>}/>{row.teamLogo&&<img className="finder-team" src={row.teamLogo} alt="" width="16" height="16" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}<button className="finder-star" type="button" data-requires-tab="saved" aria-label={pick?row.player+' '+row.line+' '+row.market+' is in your picks ('+pick+'). Change or remove':'Add '+row.player+' '+row.line+' '+row.market+' to your picks'} aria-haspopup="dialog" aria-pressed={Boolean(pick)} data-side={pick?pick.toLowerCase():undefined} onClick={e=>{e.stopPropagation();onPick(row,e.currentTarget);}}><Star size={10} fill={pick?'currentColor':'none'}/></button></div>
    <button type="button" className="finder-open" onClick={e=>{e.stopPropagation();onOpen(row);}} aria-label={'Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends'}><span className="finder-name">{row.player}{row.position&&<em>{row.position}</em>}</span><span className="finder-game">{back&&<b className="finder-comeback" title={back.title}>{back.text}</b>}<League sport={row.sport}/>{row.teamAbbr||row.sport.toUpperCase()}{row.opponent?' vs '+row.opponent:''}{row.startsAt?' · '+when(row.startsAt):''}</span><span className="finder-pf-line"><b data-side={under?'less':'more'}>{under?'Less':'More'} {row.line}</b> {row.market}</span></button></div></td>
   <td className="finder-line-cell"><span className="finder-market"><b data-side={row.direction==='UNDER'?'less':'more'}><i>{row.direction==='UNDER'?'Less':'More'}</i>{row.line}</b>{['goblin','demon'].includes(row.modifier)&&<img src={'/prizepicks/'+row.modifier+'.png'} alt={row.modifier} width="15" height="15"/>}</span><span className="finder-stat-name">{row.market}</span></td>
@@ -375,6 +377,23 @@ export function UnifiedFinder(){
  },[sportRows,marketFilter,bookFilter,teamFilter,dayFilter,gameFilter,modifierFilter,hitFilter,savedOnly,picks,words,order]);
  useEffect(()=>setPage(0),[scopeKey,query,marketFilter,bookFilter,teamFilter,dayFilter,gameFilter,modifierFilter,hitFilter,pageSize,savedOnly,order]);
  const pages=Math.max(1,Math.ceil(rows.length/pageSize)),currentPage=Math.min(page,pages-1),visible=rows.slice(currentPage*pageSize,(currentPage+1)*pageSize);
+ // With the board up: the league's research (the depth charts, ranks and
+ // defenses every player page reads) and each game's matchup on this page,
+ // asked once in idle time, so a player's page opens on them.
+ const warmed=useRef(new Set());
+ const warmKey=[...new Set(visible.filter(row=>['nba','wnba'].includes(row.sport)).map(row=>[row.sport,row.homeTeamAbbr||'',row.awayTeamAbbr||'',row.startsAt||''].join('|')))].sort().join(',');
+ useEffect(()=>{
+  if(!warmKey)return undefined;
+  const run=()=>{
+   for(const game of warmKey.split(',')){
+    const [sport,home,away,startsAt]=game.split('|'),league=sport==='nba'?'nba':undefined;
+    if(!warmed.current.has('league:'+sport)){warmed.current.add('league:'+sport);wnbaGet('league-context',{league}).catch(()=>{});}
+    if(home&&away&&startsAt&&!warmed.current.has(game)){warmed.current.add(game);wnbaGet('matchup',matchupParams({sport,homeTeamAbbr:home,awayTeamAbbr:away,startsAt})).catch(()=>{});}
+   }
+  };
+  const idle=window.requestIdleCallback?window.requestIdleCallback(run,{timeout:2500}):window.setTimeout(run,800);
+  return()=>{window.cancelIdleCallback?window.cancelIdleCallback(idle):window.clearTimeout(idle);};
+ },[warmKey]);
  priority.current=new Set([...visible,...rows.slice(0,60)].map(row=>row.id));
  const loading=scope.some(k=>['loading','idle'].includes(boards[k].state)),errors=scope.filter(k=>boards[k].error).map(k=>k.toUpperCase()+': '+boards[k].error),histories=sportRows.filter(r=>r.historyStatus==='pending').length;
  // A league whose board didn't load tries again on its own, a little later
