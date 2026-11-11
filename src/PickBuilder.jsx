@@ -88,12 +88,30 @@ function Leg({leg,busy,index,now}){
  </li>;
 }
 
-export function PickBuilder({onClose,titleId='pick-builder-title'}){
+// `compact`: inside the desktop menu rail, under its links (Nov 11, the
+// owner: "i dont want a full screen builder fit it on the side bar"): a
+// small heading with Clear and the x, the cards, and Export under them.
+export function PickBuilder({onClose,titleId='pick-builder-title',compact=false}){
  const builder=usePickBuilder();
  const count=builder.legs.length;
  // The start chips count down: the time read again every half minute while picks are in.
  const [now,setNow]=useState(()=>Date.now());
  useEffect(()=>{if(!count)return undefined;const timer=setInterval(()=>setNow(Date.now()),30000);return()=>clearInterval(timer);},[count]);
+ if(compact)return <section className="pick-builder is-compact" data-count={count} aria-labelledby={titleId}>
+  <header className="pick-builder-rail-head">
+   <h2 id={titleId}>Pick Builder{count>0&&<small>{count} of {MAX}</small>}</h2>
+   {count>0&&<button type="button" className="pick-builder-rail-clear" disabled={builder.busy} onClick={pickBuilder.clear}><Trash2 size={13} aria-hidden="true"/>Clear {count}</button>}
+   {onClose&&<button type="button" className="pick-builder-rail-close" aria-label="Close Pick Builder" onClick={onClose}><X size={15} aria-hidden="true"/></button>}
+  </header>
+  {count===0?<div className="pick-builder-empty"><span className="pick-builder-mark" aria-hidden="true"><Ticket size={16}/></span><span><strong>Your slip is empty</strong>Tap the star on a Finder prop or + on a Props line.</span></div>
+   :<ol className="pick-builder-list" aria-live="polite">{builder.legs.map((leg,index)=><Leg key={leg.id} leg={leg} busy={builder.busy} index={index} now={now}/>)}</ol>}
+  {count>0&&<footer className="pick-builder-footer">
+   <p role="status">{builder.status}</p>
+   {builder.link&&!builder.busy?<a className="pick-builder-export" href={builder.link} target="_blank" rel="noopener noreferrer"><img src="/prizepicks/logo.png" alt="" width="20" height="20"/><span>Open in PrizePicks</span><ExternalLink size={15} aria-hidden="true"/></a>
+    :<button type="button" className="pick-builder-export" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.export}><img src="/prizepicks/logo.png" alt="" width="20" height="20"/><span>{builder.busy?'Checking lines…':'Export'}</span><ExternalLink size={15} aria-hidden="true"/></button>}
+   <button type="button" className="pick-builder-link" disabled={!builder.canExport||builder.busy} onClick={pickBuilder.copy}><Link2 size={14} aria-hidden="true"/>Copy link</button>
+  </footer>}
+ </section>;
  return <section className="pick-builder" data-count={count} aria-labelledby={titleId}>
   <header className="pick-builder-head">
    {onClose&&<button type="button" className="pick-builder-back" aria-label="Close Pick Builder, back to the menu" onClick={onClose}><ArrowLeft size={16} aria-hidden="true"/><span>Menu</span></button>}

@@ -58,6 +58,20 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (o): the Pick Builder fits in the side bar
+
+- The owner, with the builder filling the whole rail and PickFinder's
+  sitting under its menu: "i dont want a full screen builder fit it on the
+  side bar".
+- VortexSidebar: the rail opens to 300px (was 380) and the links stay, only
+  tighter (34px rows, 26px icon tiles, at most 56% of the height, scrolling
+  past that); the builder takes the space between them and the account
+  footer (vortex-sidebar.css `.vortex-sidebar-builder`, 180px at least).
+- PickBuilder `compact` (the rail's): a small "Pick Builder 2 of 6" heading
+  with Clear N (red) and the x, the cards a touch tighter and scrolling, then
+  Export (white, PrizePicks logo) and Copy link. The phone side panel keeps
+  the full builder.
+
 ### Nov 11 (n): Moneyline filled, gradient cells, tidy top, phone cards, Pick Builder, Admin badge
 
 - The owner, with PickFinder's phone list, its computer board, its Pick

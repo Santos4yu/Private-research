@@ -232,16 +232,16 @@
   .vortex-sidebar-desktop, .vortex-sidebar-desktop * { transition: none !important; animation: none !important; }
 }
 
-/* The Pick Builder inside the rail: the rail widens and the builder takes
-   the space between the links and the footer, scrolling on its own. */
-.vortex-sidebar-body.has-builder .vortex-sidebar-inner { gap: 14px; }
-.vortex-sidebar-body.has-builder .vortex-sidebar-links { flex: 0 0 auto; }
-/* The links fold into a row of icon tiles above it, so the builder gets the room. */
-.vortex-sidebar-body.has-builder .vortex-sidebar-links { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.vortex-sidebar-body.has-builder .vortex-sidebar-group { display: contents; }
-.vortex-sidebar-body.has-builder .vortex-sidebar-heading { display: none; }
-.vortex-sidebar-body.has-builder .vortex-sidebar-link { justify-content: center; padding: 0; }
-.vortex-sidebar-body.has-builder .vortex-sidebar-link-label { display: none !important; }
-.vortex-sidebar-body.has-builder .vortex-sidebar-link.active::before { display: none; }
-.vortex-sidebar-builder { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; padding: 0 4px; scrollbar-width: thin; }
+/* The Pick Builder inside the rail, under the links (Nov 11, the owner: "i
+   dont want a full screen builder fit it on the side bar"). The rail widens
+   a little; the links stay as they are, only tighter, so the builder gets
+   the space between them and the footer and scrolls its picks there. */
+.vortex-sidebar-body.has-builder .vortex-sidebar-inner { gap: 12px; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-links { flex: 0 1 auto; gap: 6px; max-height: 56%; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-group { gap: 0; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-heading { height: 20px; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-link { min-height: 34px; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-link-icon { width: 26px; height: 26px; border-radius: 8px; }
+.vortex-sidebar-body.has-builder .vortex-sidebar-link-icon svg { width: 15px; height: 15px; }
+.vortex-sidebar-builder { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 180px; overflow: hidden; margin: 0; padding: 12px 0 0; border-top: 1px solid rgba(255, 255, 255, .06); }
 

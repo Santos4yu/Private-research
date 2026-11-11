@@ -119,9 +119,8 @@
  .side-panel{left:64px!important}
 }
 
-/* In the desktop rail (VortexSidebar) the builder has the rail to itself:
-   the links step aside while it's open and its Menu button brings them back. */
-.vortex-sidebar-body.has-builder .vortex-sidebar-links{display:none!important}
+/* In the desktop rail (VortexSidebar) the builder sits under the links
+   (PickBuilder's `compact`), styled at the end of this file. */
 .vortex-sidebar-builder .pick-builder{--pb-panel:#111317;min-height:100%;border:0;border-radius:20px;background:var(--pb-panel)}
 
 /* ---- Nov 11: each pick a card (the owner, with PickFinder's builder:
@@ -170,3 +169,34 @@
 .pick-builder-export{gap:10px;min-height:48px;border-radius:14px;background:linear-gradient(180deg,#FFFFFF,#E6E6E6);color:#0B0B0B}
 .pick-builder-export img{width:20px;height:20px;border-radius:5px;object-fit:contain}
 .pick-builder-export:disabled img{opacity:.4}
+
+/* ---- In the desktop rail, under the links (Nov 11, the owner: "i dont
+   want a full screen builder fit it on the side bar"). No panel of its own:
+   a small heading (Pick Builder, how many, Clear, the x), the cards a touch
+   tighter, and Export under them; the list scrolls inside the rail. */
+.pick-builder.is-compact{--pb-card:#17181B;min-height:0;height:100%;border:0;border-radius:0;background:none}
+.pick-builder-rail-head{display:flex;align-items:center;gap:8px;padding:2px 4px 8px}
+.pick-builder-rail-head h2{display:flex;align-items:baseline;gap:7px;flex:1;min-width:0;margin:0;color:#8F939A;font:700 11px/1 var(--font-sans,'Inter'),sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.pick-builder-rail-head h2 small{color:#6B6F76;font-size:10.5px;letter-spacing:.04em}
+.pick-builder-rail-clear{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;border:0;border-radius:8px;background:none;color:#F4606E;font:600 12px/1 var(--font-sans,'Inter'),sans-serif!important}
+.pick-builder-rail-clear:not(:disabled):hover{background:rgba(244,96,110,.1)}
+.pick-builder-rail-close{display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:8px;background:none;color:#7C8088}
+.pick-builder-rail-close:hover{background:rgba(255,255,255,.07);color:#fff}
+.pick-builder.is-compact .pick-builder-empty{margin:2px 0 0;padding:12px;border:1px solid rgba(255,255,255,.06);border-radius:14px;background:#141416}
+.pick-builder.is-compact .pick-builder-empty .pick-builder-mark{width:32px;height:32px}
+.pick-builder.is-compact .pick-builder-list{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;gap:8px;padding:0;scrollbar-width:thin}
+.pick-builder.is-compact .pick-builder-leg,.pick-builder.is-compact .pick-builder-leg+.pick-builder-leg{grid-template-columns:36px minmax(0,1fr) 24px;gap:9px 9px;padding:10px;border-radius:14px}
+.pick-builder.is-compact .pick-builder-photo{width:36px;height:36px}
+.pick-builder.is-compact .pick-builder-team{width:16px;height:16px}
+.pick-builder.is-compact .pick-builder-copy strong{font-size:13.5px}
+.pick-builder.is-compact .pick-builder-copy .pick-builder-stat b{font-size:14px}
+.pick-builder.is-compact .pick-builder-copy .pick-builder-stat span{font-size:12px}
+.pick-builder.is-compact .pick-builder-remove{width:24px;height:24px}
+.pick-builder.is-compact .pick-builder-book{font-size:11.5px}
+.pick-builder.is-compact .pick-builder-book>img{width:16px;height:16px}
+.pick-builder.is-compact .pick-builder-when{height:22px;padding:0 7px;font-size:11px}
+.pick-builder.is-compact .pick-builder-leg .pick-builder-side button{height:34px;font-size:12.5px!important}
+.pick-builder.is-compact .pick-builder-footer{position:static;gap:6px;margin:0;padding:10px 0 0;border-radius:0;background:none;box-shadow:none}
+.pick-builder.is-compact .pick-builder-footer p{font-size:11.5px}
+.pick-builder.is-compact .pick-builder-export{min-height:42px;border-radius:12px;font-size:14px!important}
+.pick-builder.is-compact .pick-builder-link{min-height:30px;font-size:12px!important}

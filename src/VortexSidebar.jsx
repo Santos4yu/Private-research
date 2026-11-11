@@ -74,9 +74,10 @@ export function VortexSidebar() {
   const [tab, setTab] = useState('finder');
   const [saved, setSaved] = useState(0);
   const [open, setOpen] = useState(false);
-  // The Pick Builder shows inside this rail (widened) rather than in a
-  // second panel beside it. It stays open while picks are added from the
-  // page, and closes from its own x, Esc, the Builder item or navigating.
+  // The Pick Builder shows inside this rail, under the links (Nov 11, the
+  // owner: "i dont want a full screen builder fit it on the side bar"). It
+  // stays open while picks are added from the page, and closes from its own
+  // x, Esc, the Builder item or navigating.
   const [builderOpen, setBuilderOpen] = useState(false);
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 761px)');
@@ -158,7 +159,7 @@ export function VortexSidebar() {
   // names fade in, and nothing on the page is laid out again mid-way.
   return (
     <aside className={`vortex-sidebar-desktop vortex-sidebar-body${builderOpen ? ' has-builder' : ''}${wide ? ' is-wide' : ''}`}
-      style={{ '--rail-open': builderOpen ? 380 : 244 }} aria-label="Site"
+      style={{ '--rail-open': builderOpen ? 300 : 244 }} aria-label="Site"
       onMouseEnter={() => setOpen(true)} onMouseLeave={() => { if (!builderOpen) setOpen(false); }}>
       <span className="vortex-sidebar-shade" aria-hidden="true" />
       <span className="vortex-sidebar-sheet" aria-hidden="true" />
@@ -205,7 +206,7 @@ export function VortexSidebar() {
         </nav>
         {builderOpen && (
           <div className="vortex-sidebar-builder" data-requires-tab="saved">
-            <PickBuilder titleId="rail-pick-builder-title" onClose={() => setBuilderOpen(false)} />
+            <PickBuilder compact titleId="rail-pick-builder-title" onClose={() => setBuilderOpen(false)} />
           </div>
         )}
         <div className="vortex-sidebar-footer">
