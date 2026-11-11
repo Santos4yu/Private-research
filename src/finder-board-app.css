@@ -2,21 +2,30 @@
    with PickFinder's props table: "now the finder lets make ours look better
    and cleaner like pickfinder"). Their layout, our black and white:
 
-     - the board is one glass panel: a header strip of titles, the rows, and
+     - the board is one dark panel: a header strip of titles, the rows, and
        the pages along its foot;
      - each row is two lines (his name, then the pick and the game), on a
        full-width rule;
      - Moneyline and Defense are outlined pills (the defense as a rank,
        "15th", with a shield), IP the over and under stacked;
      - the hit rates and the streak are flush cells filled in their color,
-       deeper the stronger the rate, a light along their top.
+       deeper the stronger the rate.
 
    It loads after the other board sheets (finder-board.css and the phone's)
    and only touches a computer's width; the phone board is unchanged. Rules
    carry `body` and a doubled class to win over finder-board.css, and
-   !important where its rules use it. */
+   !important where its rules use it.
+
+   Later the same day, the owner: "remove all the extra white lines on the
+   sides and on the boxes like the highlights": no lit top edges on the
+   panel, the pills, the cells, the pages or the filters (the site's gloss
+   sheen is off them too), and the outlines are fainter. */
 
 html:root .unified-finder .finder-ord { display: none; }
+
+/* No lit top line on the search, the app picker or the filters, on any
+   screen (the site's gloss sheen draws one). */
+html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-app-filter, .finder-multi-select, .finder-multi-trigger) { background-image: none !important; }
 
 @media (min-width: 761px) {
   html:root body .unified-finder.unified-finder {
@@ -40,10 +49,10 @@ html:root .unified-finder .finder-ord { display: none; }
     position: relative;
     margin: 0;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, .075) !important;
+    border: 1px solid rgba(255, 255, 255, .05) !important;
     border-radius: 16px;
     background: linear-gradient(180deg, #111113 0%, var(--fba-panel) 140px) !important;
-    box-shadow: inset 0 1px rgba(255, 255, 255, .07), 0 24px 48px -30px rgba(0, 0, 0, .9);
+    box-shadow: 0 24px 48px -30px rgba(0, 0, 0, .9);
   }
   html:root body .unified-finder.unified-finder .finder-scroll { max-height: calc(100dvh - 252px); min-height: 300px; }
 
@@ -146,7 +155,7 @@ html:root .unified-finder .finder-ord { display: none; }
     border: 1px solid rgba(var(--pill), .32);
     border-radius: 999px;
     background: linear-gradient(180deg, rgba(var(--pill), .13), rgba(var(--pill), .05));
-    box-shadow: inset 0 1px rgba(255, 255, 255, .06);
+    box-shadow: none;
     color: rgba(var(--pill), 1);
     font: 700 12px/1 var(--font-sans);
     font-variant-numeric: tabular-nums;
@@ -187,8 +196,8 @@ html:root .unified-finder .finder-ord { display: none; }
   /* ------------------------------------------------------------ the hit rates */
 
   /* Flush cells, no gaps, each filled in its color: a strong rate (or a weak
-     one, in red) fills deeper. A dark hairline between cells, a light along
-     their top; the rate in white over its record. */
+     one, in red) fills deeper. A dark hairline between cells; the rate in
+     white over its record. */
   html:root body .unified-finder.unified-finder .finder-table tbody td:is(.finder-stat, :nth-child(5)) { padding: 0 !important; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)) { --fill: 255, 255, 255; --depth: 0%; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=good] { --fill: var(--fba-good); --depth: calc(var(--rate, 90%) * .34); }
@@ -197,9 +206,9 @@ html:root .unified-finder .finder-ord { display: none; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)) {
     border-radius: 0 !important;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, .075), rgba(255, 255, 255, 0) 58%),
+      linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 58%),
       rgba(var(--fill), var(--depth)) !important;
-    box-shadow: inset 1px 0 rgba(0, 0, 0, .5), inset 0 1px rgba(255, 255, 255, .08) !important;
+    box-shadow: inset 1px 0 rgba(0, 0, 0, .5) !important;
     transition: filter .15s ease;
   }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)):not([data-tone]),
@@ -239,10 +248,10 @@ html:root .unified-finder .finder-ord { display: none; }
   html:root body .unified-finder.unified-finder .finder-pagination > div {
     gap: 2px;
     padding: 3px;
-    border: 1px solid rgba(255, 255, 255, .08);
+    border: 1px solid rgba(255, 255, 255, .05);
     border-radius: 12px;
     background: linear-gradient(180deg, #19191C, #141416);
-    box-shadow: inset 0 1px rgba(255, 255, 255, .06);
+    box-shadow: none;
   }
   html:root body .unified-finder.unified-finder .finder-pagination > div > :is(button, span, label) { height: 30px; border-radius: 9px; background: none; color: var(--fba-muted); }
   html:root body .unified-finder.unified-finder .finder-pagination > div > button { width: 30px; }
@@ -254,14 +263,15 @@ html:root .unified-finder .finder-ord { display: none; }
 
   /* ------------------------------------------------------------ the filters */
 
-  /* The search, the app picker and each filter: dark glass with a hairline. */
+  /* The search, the app picker and each filter: dark, with a faint outline. */
   html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-app-filter, .finder-search-row > .finder-icon),
   html:root body .unified-finder.unified-finder .finder-filters .finder-multi-select,
   html:root body .unified-finder.unified-finder .finder-filters > .finder-saved,
   html:root body .unified-finder.unified-finder .finder-filters > .finder-reset {
-    border: 1px solid rgba(255, 255, 255, .075) !important;
+    border: 1px solid rgba(255, 255, 255, .05) !important;
     background-color: #131315 !important;
-    box-shadow: inset 0 1px rgba(255, 255, 255, .05) !important;
+    background-image: none !important;
+    box-shadow: none !important;
   }
   html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-app-filter, .finder-search-row > .finder-icon):hover,
   html:root body .unified-finder.unified-finder .finder-filters .finder-multi-select:hover,

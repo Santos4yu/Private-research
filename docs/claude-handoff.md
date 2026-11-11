@@ -58,6 +58,28 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (m): no white edges or highlight lines on the Finder
+
+- The owner, with our Defense vs position card beside PickFinder's:
+  "remove all the extra white lines on the sides and on the boxes like the
+  highlights mak eit clean like pickfinders".
+- prop-focus.css (every research table, site-wide): no edge down the left
+  of the line's rows or the related rows; the line's row keeps its soft
+  tint, related rows no tint; the Related pill is a grey fill, no outline.
+- finder-player-app.css: `--fp2-sheen` without its 1px lit top line,
+  `--fp2-line` fainter (.055), the research cards a single hairline (their
+  border is off), and no white top highlights, white rings or white glows
+  on buttons, tabs, tiles, the window picker or the chart and supporting
+  bars (the colored glow under the chart bars stays).
+- finder-board-app.css: no lit edges on the panel, pills, cells, pages or
+  filters; outlines .05; the site's gloss sheen is off the search, the app
+  picker and the filters on every screen.
+- unified-finder.css (phone bar): the sport picker's outline .08 and no top
+  highlight, the profile circle's ring .14, the photo star without its
+  highlight.
+- The site-wide gloss (gloss.css) still lights card edges on other pages;
+  offered to the owner, not done unasked.
+
 ### Nov 11 (l): the Finder board finished like an app
 
 - The owner, with PickFinder's props table and ours: "now the finder lets
