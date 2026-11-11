@@ -108,6 +108,20 @@ class AcceptTests(Base):
         self.assertIsNone(relay.rows('leaguedashptstats', tracking._params('Rebounding', 2026, 0)))
         self.assertEqual(relay.status(NOW)['last'], int(NOW))
 
+    def test_team_ratings_are_asked_for_and_kept_with_when_they_came(self):
+        endpoint, params = relay.team_ratings(2027)
+        self.assertIn((endpoint, params), relay.tables(2027))
+        link = relay.url(endpoint, params)
+        self.assertIn('MeasureType=Advanced', link)
+        self.assertIn('Season=2026-27', link)
+        self.assertIsNone(relay.sent_at(endpoint, params))
+        # NBA.com echoes every parameter it was asked with.
+        relay.accept(answer('leaguedashteamstats', {**params, 'MeasureType': 'Advanced'}, ['TEAM_ID', 'TEAM_NAME', 'GP', 'OFF_RATING', 'DEF_RATING'],
+                            [[1610612752, 'New York Knicks', 10, 113.9, 106.2]]), now=NOW)
+        self.assertEqual(relay.rows(endpoint, params), [{'TEAM_ID': 1610612752, 'TEAM_NAME': 'New York Knicks', 'GP': 10,
+                                                         'OFF_RATING': 113.9, 'DEF_RATING': 106.2}])
+        self.assertEqual(relay.sent_at(endpoint, params), int(NOW))
+
     def test_a_table_taken_clears_the_last_turned_away_note(self):
         relay.note_problem('Not a table the site asks for (unnamed).')
         self.assertTrue(relay.status(NOW)['problem'])

@@ -526,6 +526,30 @@ class NbaV2Tests(unittest.TestCase):
         for season in (2023, 2024, 2025):
             gp._memory.pop(gp.MEETINGS_KEY.format(season=season), None)
 
+    def test_nba_com_ratings_rank_the_teams_when_the_phone_sent_them(self):
+        import nba_relay
+        ids = {abbr: team_id for team_id, abbr in gp.NBA_TEAM_IDS.items()}
+        table = [{"TEAM_ID": team_id, "GP": 6, "OFF_RATING": 110.0 + index * 0.1, "DEF_RATING": 115.0 - index * 0.1}
+                 for index, team_id in enumerate(sorted(gp.NBA_TEAM_IDS))]
+        table[[row["TEAM_ID"] for row in table].index(ids["DEN"])].update(OFF_RATING=125.0, DEF_RATING=100.0)
+        now = NOW.timestamp()
+        box = gp.nba_model_v2(game(), self.context)["teams"]["home"]
+        for sent, expect in ((now - 3600, True), (now - gp.OFFICIAL_SECONDS - 60, False), (None, False)):
+            gp._memory.pop("nba-official", None)
+            with patch.object(nba_relay, "sent_at", return_value=sent), patch.object(nba_relay, "rows", return_value=table), \
+                    patch.object(gp.time, "time", return_value=now):
+                official = gp.nba_official_ratings(now)
+                home = gp.nba_model_v2(game(), self.context)["teams"]["home"]
+            if expect:
+                self.assertEqual((official["DEN"]["offRank"], official["DEN"]["defRank"]), (1, 1))
+                self.assertEqual((home["ortg"], home["drtg"]), ([125.0, 1], [100.0, 1]))
+                # Points a game stay this season's box scores.
+                self.assertEqual(home["pts"], box["pts"])
+            else:
+                self.assertIsNone(official)
+                self.assertEqual((home["ortg"], home["drtg"]), (box["ortg"], box["drtg"]))
+        gp._memory.pop("nba-official", None)
+
     def test_sit_warnings(self):
         # TOR at home by 5 with two day-to-day regulars worth 1.8 and 1.5.
         built = {"margin": 5.0, "sigma": 10.0, "scenarios": [

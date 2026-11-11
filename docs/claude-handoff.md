@@ -58,6 +58,31 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (e): offense and defense ranks from NBA.com, through the phone relay
+
+- The owner: "Figure it out to match pickfidner". The Team ratings check
+  (workflow, run by hand, `.github/workflows/team-ratings-check.yml`)
+  ranked this season every way from ESPN's box scores against PickFinder's
+  eight (CLE 12 / 19, NY 10 / 6, WSH 23 / 17, IND 21 / 14): the game's
+  possessions with players' turnovers (what we had) matched 3, the best;
+  team turnovers in, each team's own possessions, Basketball-Reference's
+  formula and its own ratings, the last 10 or 5, the season through Nov
+  5-9, preseason counted, shooting allowed and last season blended in all
+  did worse. Offense lines up (ours CLE 13th sits in a three-way tie at
+  113.3 with DAL and TOR); every way puts IND's defense 16th-20th, theirs
+  14th. Read: PickFinder uses NBA.com's OFF_RATING / DEF_RATING, which
+  count each possession from the play-by-play. stats.nba.com timed out
+  from GitHub too.
+- So the phone relay now also asks for NBA.com's Advanced team table
+  (`nba_relay.team_ratings`, second in `tables()`; `sent_at` says when it
+  came). `game_predictor.nba_official_ratings` reads it (team ids in
+  `NBA_TEAM_IDS`) when sent within 36 hours (`OFFICIAL_SECONDS`), and
+  `nba_model_v2`'s profile takes its ratings and ranks over the box-score
+  ones; without it, the box-score ranks as before. Points a game stay ours.
+- Needs the owner's phone Shortcut to run (it reads the job list, so
+  nothing to change on the phone). Not yet seen arriving: check the
+  Matchup card's ranks against PickFinder after the phone's next run.
+
 ### Nov 11 (d): the Matchup card's numbers checked against PickFinder's
 
 - The owner, with PickFinder's card for CLE @ NYK beside ours: "Our data is

@@ -1287,6 +1287,48 @@ def _nba_last_meetings(season, load=None, store=None, fetch=None) -> dict:
     return value
 
 
+# NBA.com's team ids (leaguedashteamstats) to ESPN's abbreviations.
+NBA_TEAM_IDS = dict(zip(range(1610612737, 1610612767), (
+    "ATL", "BOS", "CLE", "NO", "CHI", "DAL", "DEN", "GS", "HOU", "LAC", "LAL", "MIA", "MIL", "MIN", "BKN",
+    "NY", "ORL", "IND", "PHI", "PHX", "POR", "SAC", "SA", "OKC", "TOR", "UTAH", "MEM", "WSH", "DET", "CHA")))
+# NBA.com's ratings count only while the phone sent them this recently (it asks daily).
+OFFICIAL_SECONDS = 36 * 3600
+
+
+def nba_official_ratings(now=None) -> dict | None:
+    """{abbr: {off, def, offRank, defRank, games}} from NBA.com's own team
+    ratings, as the phone relay last sent them (nba_relay.team_ratings);
+    None when it hasn't, or not within OFFICIAL_SECONDS. NBA.com counts each
+    possession from the play-by-play, where the box-score estimate
+    (season_numbers) can be a point or two off: PickFinder's ranks are its
+    (Nov 11)."""
+    import nba_relay
+    now = time.time() if now is None else now
+    hit = _memory.get("nba-official")
+    if hit and now - hit[0] < 600:
+        return hit[1]
+    value = None
+    try:
+        endpoint, params = nba_relay.team_ratings(nba_relay.current_season(datetime.fromtimestamp(now, timezone.utc)))
+        sent = nba_relay.sent_at(endpoint, params)
+        rows = nba_relay.rows(endpoint, params) if sent and now - sent < OFFICIAL_SECONDS else None
+        teams = {}
+        for row in rows or []:
+            abbr = NBA_TEAM_IDS.get(int(row.get("TEAM_ID") or 0))
+            off, deff = row.get("OFF_RATING"), row.get("DEF_RATING")
+            if abbr and isinstance(off, (int, float)) and isinstance(deff, (int, float)) and (row.get("GP") or 0) > 0:
+                teams[abbr] = {"off": float(off), "def": float(deff), "games": row.get("GP")}
+        if len(teams) >= 25:
+            offense, defense = {t: row["off"] for t, row in teams.items()}, {t: row["def"] for t, row in teams.items()}
+            for abbr, row in teams.items():
+                row["offRank"], row["defRank"] = _rank_of(offense, abbr), _rank_of(defense, abbr, high_first=False)
+            value = teams
+    except Exception:  # noqa: BLE001 -- the box-score ratings stand in
+        value = None
+    _memory["nba-official"] = (now, value)
+    return value
+
+
 def _nba_v2(now=None) -> dict:
     import predictor_nba
     from backend.sports.wnba import league
@@ -1327,12 +1369,15 @@ def nba_model_v2(game, context) -> dict | None:
     pace = {team: rt["pace_mu"] + rt["pace"].get(team, 0.0) for team in rated}
 
     season = context.get("seasonTable") or {}
+    official = nba_official_ratings() or {}
 
     def profile(side):
         abbr = game[side]["abbr"]
         results = (context["results"].get(abbr) or [])[-10:]
         offense, defense, speed = rt["mu"] + rt["off"][abbr], rt["mu"] + rt["def"][abbr], rt["pace_mu"] + rt["pace"].get(abbr, 0.0)
         mine = season.get(abbr) or {}
+        if mine.get("games", 0) >= 3 and abbr in official:  # NBA.com's own ratings and ranks
+            mine = {**mine, **{key: official[abbr][key] for key in ("off", "def", "offRank", "defRank")}}
         if mine.get("games", 0) >= 3:  # this season's own numbers and ranks
             return {"ortg": [round(mine["off"], 1), mine["offRank"]], "drtg": [round(mine["def"], 1), mine["defRank"]],
                     "pts": [round(mine["ppg"], 1), mine["ppgRank"]], "ptsAllowed": [round(mine["oppg"], 1), mine["oppgRank"]],

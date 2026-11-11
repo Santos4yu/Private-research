@@ -49,6 +49,7 @@ IDENTITY = {
     'leaguedashptstats': ('Season', 'PtMeasureType', 'LastNGames'),
     'leaguedashptdefend': ('Season', 'DefenseCategory'),
     'synergyplaytypes': ('SeasonYear', 'PlayType', 'PlayerOrTeam', 'TypeGrouping'),
+    'leaguedashteamstats': ('Season', 'MeasureType'),
 }
 # Tables to ask for again when the phone sent them before a given time
 # (epoch seconds): 2025-26's season passing and rebounding were overwritten
@@ -115,11 +116,19 @@ def _season_of(endpoint, params):
     return str(lowered.get('seasonyear' if _norm(endpoint) == 'synergyplaytypes' else 'season') or '')
 
 
+def team_ratings(season):
+    """NBA.com's team ratings table (OFF_RATING, DEF_RATING: points per 100
+    of its own possession count), as its Advanced team stats page asks."""
+    return ('leaguedashteamstats', {**_BLANK, 'Season': season_label(season), 'MeasureType': 'Advanced', 'PaceAdjust': 'N',
+                                    'PlusMinus': 'N', 'Rank': 'N', 'GameScope': '', 'ShotClockRange': '', 'TwoWay': 0,
+                                    'ISTRound': ''})
+
+
 def tables(season):
     """Every table the phone fetches for a season: [(endpoint, params)]."""
     from backend.sports.wnba.tracking import MEASURES, RECENT, RECENT_MEASURES, _params
     label = season_label(season)
-    out = [('commonallplayers', {'LeagueID': '00', 'Season': label, 'IsOnlyCurrentSeason': '1'})]
+    out = [('commonallplayers', {'LeagueID': '00', 'Season': label, 'IsOnlyCurrentSeason': '1'}), team_ratings(season)]
     out += [('leagueseasonmatchups', {'LeagueID': '00', 'Season': label, 'SeasonType': 'Regular Season', 'PerMode': 'Totals',
                                       'OffTeamID': team}) for team in TEAM_IDS]
     out += [('leaguedashptstats', _params(measure, season, 0)) for measure in MEASURES]
@@ -351,6 +360,17 @@ def rows(endpoint, params):
             _memory[(endpoint, json.dumps(lowered, sort_keys=True, default=str))] = (time.time(), value)
         return value
     except Exception:  # noqa: BLE001 -- the store is a convenience, never a reason to fail
+        return None
+
+
+def sent_at(endpoint, params):
+    """When the phone last sent a table (epoch seconds), or None."""
+    try:
+        reply = _pipeline([['HGETALL', SENT_KEY]])
+        flat = (reply or [[]])[0] or []
+        value = dict(zip(flat[0::2], flat[1::2])).get(fingerprint(endpoint, params))
+        return float(value) if value is not None else None
+    except Exception:  # noqa: BLE001
         return None
 
 
