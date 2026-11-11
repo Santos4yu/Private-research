@@ -993,3 +993,6 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 .gp-mu-bars::before{background:rgba(255,255,255,.16)}
 .gp-mu-up i{background:linear-gradient(180deg,color-mix(in srgb,var(--gp-up) 70%,#fff),color-mix(in srgb,var(--gp-up) 72%,#06140d));box-shadow:0 0 12px -3px color-mix(in srgb,var(--gp-up) 70%,transparent)}
 .gp-mu-down i{background:linear-gradient(0deg,color-mix(in srgb,var(--gp-down) 72%,#fff),color-mix(in srgb,var(--gp-down) 72%,#14060a));box-shadow:0 0 12px -3px color-mix(in srgb,var(--gp-down) 70%,transparent)}
+
+/* The admin's note under Side by side: where the offense and defense ranks come from. */
+.gp-ranks-from{margin-top:10px;font-size:12px;color:var(--gp-faint)}

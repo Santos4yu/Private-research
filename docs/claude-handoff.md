@@ -81,6 +81,15 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   up to 36 hours when PBPStats is down. The card's order now: NBA.com's
   table from the phone relay (36 hours fresh) -> PBPStats -> the box-score
   estimate. Tests never ask PBPStats (`_no_pbpstats` in the test module).
+- Round five (PBPStats through each of the last nights): no single night
+  gives PickFinder's eight, so its table isn't simply a day behind (all
+  games 2 of 8, through Nov 9 1, Nov 8 3, Nov 7 1). The owner's 2:42 PM
+  screenshot had ours at WSH 23 / 16, IND 21 / 15 (the box scores say IND
+  18th, PBPStats WSH 24th on offense), which reads like NBA.com's own table
+  having come from the phone. To stop guessing, the prediction carries
+  `ranksFrom` ({source: nba | counted | box, at}) and the Players tab's
+  Side by side shows the admin one line saying which it is (`ranksNote`,
+  `gp-ranks-from`; members never see it).
 - Prices: PickFinder shows the best price across many sportsbooks; the
   Game Predictor reads DraftKings' own free feed. The Moneylines tab
   already reads The Odds API for NFL / MLB / NHL / WNBA (ten books, a

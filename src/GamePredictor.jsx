@@ -280,7 +280,7 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
   {key==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
   {key==='why'&&<><Analysis state={analysis} prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
    <Factors prediction={prediction}/><ReadGuide prediction={prediction} chart={chart}/></>}
-  {key==='players'&&<><Players prediction={prediction}/><Compare prediction={prediction}/></>}
+  {key==='players'&&<><Players prediction={prediction}/><Compare prediction={prediction} admin={admin}/></>}
  </>;
  const waiting=result?.loading&&!prediction?<Shimmer rows={3} tall/>
   :result?.error&&!prediction?<p className="gp-note gp-page-note">{admin?result.error:'There isn\'t enough on this game yet. Try again closer to the start.'}</p>:null;
@@ -959,9 +959,21 @@ function Players({prediction}){
  </Section>;
 }
 
-function Compare({prediction}){
+// For the admin only: where the offense and defense ranks come from (Nov 11, the owner comparing them with PickFinder's).
+function ranksNote(from){
+ if(!from)return null;
+ if(from.source==='nba'){
+  const when=from.at&&!Number.isNaN(Date.parse(from.at))?new Date(from.at).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):null;
+  return `Admin: the offense and defense ranks are NBA.com's own ratings${when?`, sent by your phone ${when}`:''}.`;
+ }
+ if(from.source==='counted')return 'Admin: the offense and defense ranks are from PBPStats (every possession counted). NBA.com\'s own table hasn\'t come from your phone in the last 36 hours.';
+ return 'Admin: the offense and defense ranks are our box-score estimate. Neither NBA.com\'s table (your phone) nor PBPStats answered.';
+}
+
+function Compare({prediction,admin}){
  const teams=prediction.teams;
  if(!teams)return null;
+ const note=admin&&prediction.sport==='nba'?ranksNote(prediction.ranksFrom):null;
  const rank=value=>value?.[1]?<small>{value[1]}{['th','st','nd','rd'][value[1]%10>3||[11,12,13].includes(value[1]%100)?0:value[1]%10]}</small>:null;
  const cell=value=>value?.[0]==null?'—':<>{value[0]} {rank(value)}</>;
  const rest=days=>restText(days,prediction.sport==='nfl');
@@ -984,6 +996,7 @@ function Compare({prediction}){
  return <Section title="Side by side">
   <table className="gp-table"><thead><tr><th/><th><Logo team={prediction.away} size={20}/>{prediction.away.abbr}</th><th><Logo team={prediction.home} size={20}/>{prediction.home.abbr}</th></tr></thead>
    <tbody>{rows.map(([label,away,home])=><tr key={label}><th scope="row">{label}</th><td>{away}</td><td>{home}</td></tr>)}</tbody></table>
+  {note&&<p className="gp-note gp-ranks-from">{note}</p>}
  </Section>;
 }
 

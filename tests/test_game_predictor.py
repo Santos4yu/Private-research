@@ -544,7 +544,10 @@ class NbaV2Tests(unittest.TestCase):
             with patch.object(nba_relay, "sent_at", return_value=sent), patch.object(nba_relay, "rows", return_value=table), \
                     patch.object(gp.time, "time", return_value=now):
                 official = gp.nba_official_ratings(now)
-                home = gp.nba_model_v2(game(), self.context)["teams"]["home"]
+                built = gp.nba_model_v2(game(), self.context)
+                home = built["teams"]["home"]
+            # The admin's note: where the ranks came from, and when the phone sent them.
+            self.assertEqual(built["ranksFrom"], {"source": "nba", "at": datetime.fromtimestamp(sent, timezone.utc).isoformat()} if expect else {"source": "box"})
             if expect:
                 self.assertEqual((official["DEN"]["offRank"], official["DEN"]["defRank"]), (1, 1))
                 self.assertEqual((home["ortg"], home["drtg"]), ([125.0, 1], [100.0, 1]))
@@ -593,8 +596,10 @@ class NbaV2Tests(unittest.TestCase):
         clear()
         gp._memory.pop("nba-official", None)
         with patch.object(nba_relay, "sent_at", return_value=None), patch.object(gp, "nba_counted_ratings", return_value=counted):
-            home = gp.nba_model_v2(game(), self.context)["teams"]["home"]
+            built = gp.nba_model_v2(game(), self.context)
+        home = built["teams"]["home"]
         self.assertEqual((home["ortg"], home["drtg"]), ([125.0, 1], [100.0, 1]))
+        self.assertEqual(built["ranksFrom"], {"source": "counted"})
         gp._memory.pop("nba-official", None)
 
     def test_sit_warnings(self):

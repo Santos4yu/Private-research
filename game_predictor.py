@@ -1323,6 +1323,7 @@ def nba_official_ratings(now=None) -> dict | None:
             for abbr, row in teams.items():
                 row["offRank"], row["defRank"] = _rank_of(offense, abbr), _rank_of(defense, abbr, high_first=False)
             value = teams
+            _memory["nba-official-sent"] = (now, sent)
     except Exception:  # noqa: BLE001 -- the box-score ratings stand in
         value = None
     _memory["nba-official"] = (now, value)
@@ -1439,7 +1440,17 @@ def nba_model_v2(game, context) -> dict | None:
     pace = {team: rt["pace_mu"] + rt["pace"].get(team, 0.0) for team in rated}
 
     season = context.get("seasonTable") or {}
-    official = nba_official_ratings() or nba_counted_ratings() or {}
+    # Where the offense and defense ranks come from, for the admin's note on the page:
+    # NBA.com's own table (and when the phone sent it), PBPStats' counts, or the box scores.
+    official, ranks_from = nba_official_ratings(), {"source": "box"}
+    if official:
+        sent = (_memory.get("nba-official-sent") or (0, None))[1]
+        ranks_from = {"source": "nba", "at": datetime.fromtimestamp(sent, timezone.utc).isoformat() if sent else None}
+    else:
+        official = nba_counted_ratings()
+        if official:
+            ranks_from = {"source": "counted"}
+    official = official or {}
 
     def profile(side):
         abbr = game[side]["abbr"]
@@ -1475,6 +1486,7 @@ def nba_model_v2(game, context) -> dict | None:
                   "recent": {side: (states.get(game[side]["abbr"]) or {}).get("recent") or [] for side in ("home", "away")},
                   "meetings": (context.get("meetings") or {}).get("|".join(sorted((home, away)))) or [],
                   "teams": {"home": profile("home"), "away": profile("away")}, "leaguePace": rt["pace_mu"],
+                  "ranksFrom": ranks_from,
                   "sigma": _staged_sigma(fewest, params["sigma_by_games"]), "model": "v2", "warnings": warnings})
     # For the analysis: each team's profile, the model's own (schedule-adjusted) ratings and how fresh the box scores are.
     profiles = context.get("profiles") or {}
@@ -2316,6 +2328,7 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
             "profiles": (built or {}).get("profiles"), "adjusted": (built or {}).get("adjusted"), "homeInfo": (built or {}).get("homeInfo"),
             "boxScoresThrough": (built or {}).get("boxScoresThrough"), "possessions": (built or {}).get("poss"),
             "recent": (built or {}).get("recent"), "meetings": (built or {}).get("meetings"),
+            "ranksFrom": (built or {}).get("ranksFrom"),
             "lastFive": game.get("lastFive") or {}, "madeAt": (now or datetime.now(timezone.utc)).isoformat()}
     try:
         made["story"] = story(made, built)
