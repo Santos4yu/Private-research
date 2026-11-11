@@ -324,7 +324,8 @@ function GameHeader({game,prediction,chart,colors,status,live,onBack}){
   </div>;
  };
  // The back button in the card's corner (Nov 11, the owner: no row of its own above it, and not beside the card either: "This looks super weird").
- return <header className="gp-gh" data-live={live||undefined} data-back={onBack?true:undefined}>
+ return <header className="gp-gh" data-live={live||undefined} data-back={onBack?true:undefined}
+  style={{'--away':teamColor({color:colors.away})||'#5b6b9a','--home':teamColor({color:colors.home})||'#5b6b9a'}}>
   {onBack&&<button type="button" className="gp-back gp-gh-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={18}/></button>}
   {team('away')}
   <div className="gp-gh-mid"><span className="gp-gh-status">{status}</span>{line&&<small>{line}</small>}{prediction?.market?.provider&&!live&&!final&&<small>{prediction.market.provider}</small>}</div>

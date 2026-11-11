@@ -58,6 +58,29 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (f): the glossy look, on the Game Predictor first
+
+- The owner, with PickFinder's card beside ours: "look at the colors how do
+  they make their colors and apps look 4k and our looks bland just grey ...
+  theirs is like glossy shiny glowy ... That's how we make the web app look
+  like a real app". A sample on the Game Predictor only (the "Gloss" block
+  at the end of game-predictor.css), layout untouched:
+  - A deep blue-black base (`--gp-ink` #060a14) with a navy light at the
+    top, instead of the site's charcoal.
+  - Cards are glass: `--gp-glass` (navy, lighter at the top) and
+    `--gp-lift` (a lit top edge, a hairline edge, a deep shadow), instead of
+    white film over grey.
+  - Colors at full strength (`--gp-up` / `--gp-down` / `--gp-gold`) with a
+    soft text glow; numbers white; greys cool.
+  - Team colors are lifted before they glow (`--away-lit` / `--home-lit` /
+    `--team-lit`: oklch relative colors, lightness at least .64, chroma
+    x1.3; plain team colors where that's unsupported), so a navy team
+    still shows on navy. The scoreboard carries `--away` / `--home` now.
+  - Win bar and last-10 bars glossy (a light top) with a glow in their color.
+- Next, if the owner likes it: the same tokens app-wide (ace-theme.css's
+  `--ace-*` surfaces are charcoal by design: "PropScout is black and
+  white").
+
 ### Nov 11 (e): offense and defense ranks from NBA.com, through the phone relay
 
 - The owner: "Figure it out to match pickfidner". The Team ratings check
