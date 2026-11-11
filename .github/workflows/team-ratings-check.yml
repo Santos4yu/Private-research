@@ -6,10 +6,12 @@
 # last 10 or 5, the season through earlier nights, preseason counted,
 # shooting allowed, last season blended in): the game's possessions with
 # players' turnovers matched 3 of 8, the best; none matched its defense.
-# Round three, here: possessions counted from NBA.com's own play-by-play
-# (what its ratings use), ratings adjusted for opponents (ours and
-# Basketball-Reference's), points a game over the latest games, home and
-# road splits, and what TeamRankings and ESPN publish. Run by hand.
+# Round three: ratings adjusted for opponents (ours and Basketball-
+# Reference's), points a game over the latest games, home and road splits
+# and TeamRankings' tables: none matched either (Basketball-Reference and
+# TeamRankings agree with ours). Round four, here: possessions counted from
+# NBA.com's own play-by-play (what its ratings use) and PBPStats' counts.
+# Run by hand.
 name: Team ratings check
 
 on:
@@ -135,31 +137,31 @@ jobs:
           except Exception:  # noqa: BLE001
               traceback.print_exc()
 
-          # NBA.com's own feeds (cdn.nba.com): its box scores and play-by-play, possessions counted from the plays.
+          # NBA.com's own feeds (cdn.nba.com/static/json/liveData, as nba_live.py reads them): every game's box score and
+          # play-by-play by its id (this season's are 00226 and a number, in schedule order: its schedule file
+          # turned GitHub away), possessions counted from the plays.
           try:
-              CDN = "https://cdn.nba.com/static/json"
-              board = requests.get(CDN + "/staticData/scheduleLeagueV2.json", headers=UA, timeout=30).json()
-              finals = [g for day in board["leagueSchedule"]["gameDates"] for g in day["games"]
-                        if str(g.get("gameId", "")).startswith("002") and g.get("gameStatus") == 3]
-              print("NBA.com finals:", len(finals))
-              def load(game):
+              from datetime import datetime, timedelta
+              CDN, HEAD = "https://cdn.nba.com/static/json/liveData", {"Accept": "application/json", "User-Agent": "Mozilla/5.0", "Referer": "https://www.nba.com/"}
+              def load(number):
                   out = {}
                   for kind in ("boxscore", "playbyplay"):
                       try:
-                          reply = requests.get(f"{CDN}/liveData/{kind}/{kind}_{game['gameId']}.json", headers=UA, timeout=20)
+                          reply = requests.get(f"{CDN}/{kind}/{kind}_00226{number:05d}.json", headers=HEAD, timeout=20)
                           out[kind] = reply.json()["game"] if reply.status_code == 200 else None
                       except Exception:  # noqa: BLE001
                           out[kind] = None
-                  return game, out
+                      if kind == "boxscore" and (not out[kind] or out[kind].get("gameStatus") != 3):
+                          return number, None
+                  return number, out
               with ThreadPoolExecutor(max_workers=10) as pool:
-                  loaded = list(pool.map(load, finals))
-              have = [(g, d) for g, d in loaded if d.get("boxscore") and d.get("playbyplay")]
-              print("NBA.com games with a box score and plays:", len(have), "of", len(finals))
+                  loaded = list(pool.map(load, range(1, len(games) + 90)))
+              have = [(n, d) for n, d in loaded if d and d.get("playbyplay")]
+              print("NBA.com finals with plays:", len(have), "of", len(games), "| highest id", max((n for n, _ in have), default=None))
               abbr = lambda code: nba_live.ESPN_ABBR.get(code, code)
-              named = False
-              tally = {key: (defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(float)) for key in ("plays-own", "plays-game", "box-own", "box-game", "box-given")}
-              samples = []
-              for game, data in have:
+              BALL = {"2pt", "3pt", "freethrow", "rebound", "turnover", "foul", "jumpball", "violation", "steal", "block"}
+              rows, named, samples = [], False, []
+              for number, data in have:
                   box, plays = data["boxscore"], data["playbyplay"].get("actions") or []
                   sides = {"home": box["homeTeam"], "away": box["awayTeam"]}
                   if not named:
@@ -167,11 +169,14 @@ jobs:
                       print("NBA.com play fields:", sorted(plays[len(plays) // 2]) if plays else None)
                       named = True
                   ids = {side: team.get("teamId") for side, team in sides.items()}
-                  # A possession starts when the ball changes hands, or a period starts.
+                  # A possession starts when the ball changes hands, or a period starts (a technical's free throw aside).
                   counted, current, period = {ids["home"]: 0, ids["away"]: 0}, None, None
                   for action in plays:
                       if action.get("period") != period:
                           period, current = action.get("period"), None
+                      words = f"{action.get('subType') or ''} {action.get('descriptor') or ''}".lower()
+                      if action.get("actionType") not in BALL or (action.get("actionType") in ("freethrow", "foul") and "technical" in words):
+                          continue
                       holder = action.get("possession")
                       if holder in counted and holder != current:
                           counted[holder] += 1
@@ -179,27 +184,57 @@ jobs:
                   stats = {side: team.get("statistics") or {} for side, team in sides.items()}
                   formula = {side: (s.get("fieldGoalsAttempted") or 0) - (s.get("reboundsOffensive") or 0) + (s.get("turnoversTotal") or s.get("turnovers") or 0)
                              + 0.44 * (s.get("freeThrowsAttempted") or 0) for side, s in stats.items()}
-                  given = {side: s.get("possessions") or s.get("estimatedPossessions") for side, s in stats.items()}
+                  when = str(box.get("gameTimeUTC") or box.get("gameEt") or "")
+                  try:
+                      day = (datetime.fromisoformat(when.replace("Z", "+00:00")) - timedelta(hours=5)).date().isoformat()
+                  except ValueError:
+                      day = ""
                   if len(samples) < 6:
-                      samples.append((game["gameId"], {side: (counted[ids[side]], round(formula[side], 1), given[side]) for side in sides}))
+                      samples.append((number, day, {side: (counted[ids[side]], round(formula[side], 1)) for side in sides}))
                   for side, other in (("home", "away"), ("away", "home")):
-                      team = abbr(sides[side].get("teamTricode"))
-                      pts, allowed = stats[side].get("points") or 0, stats[other].get("points") or 0
-                      ways = {"plays-own": (counted[ids[side]], counted[ids[other]]),
-                              "plays-game": ((counted[ids[side]] + counted[ids[other]]) / 2,) * 2,
-                              "box-own": (formula[side], formula[other]), "box-game": ((formula[side] + formula[other]) / 2,) * 2}
-                      if given[side] and given[other]:
-                          ways["box-given"] = (given[side], given[other])
-                      for key, (mine, theirs) in ways.items():
-                          scored, against, own, opp = tally[key]
-                          scored[team] += pts; against[team] += allowed; own[team] += mine; opp[team] += theirs
-              print("a few games (counted from plays, box formula, NBA.com's own):", samples)
-              for key, (scored, against, own, opp) in tally.items():
-                  if own:
-                      show(f"NBA.com {key}", {t: 100 * scored[t] / own[t] for t in own if own[t]}, {t: 100 * against[t] / opp[t] for t in own if opp[t]},
-                           top=key in ("plays-own", "box-given"))
+                      rows.append({"team": abbr(sides[side].get("teamTricode")), "day": day, "pts": stats[side].get("points") or 0, "opp": stats[other].get("points") or 0,
+                                   "plays-own": (counted[ids[side]], counted[ids[other]]), "plays-game": ((counted[ids[side]] + counted[ids[other]]) / 2,) * 2,
+                                   "box-own": (formula[side], formula[other]), "box-game": ((formula[side] + formula[other]) / 2,) * 2})
+              print("a few games (id, day, possessions counted from plays and by the box formula):", samples)
+              print("days:", sorted({row["day"] for row in rows})[-4:], "team games:", len(rows))
+              def rated(key, until=None):
+                  scored, against, own, opp = defaultdict(float), defaultdict(float), defaultdict(float), defaultdict(float)
+                  for row in rows:
+                      if until and row["day"] > until:
+                          continue
+                      scored[row["team"]] += row["pts"]; against[row["team"]] += row["opp"]
+                      own[row["team"]] += row[key][0]; opp[row["team"]] += row[key][1]
+                  return {t: 100 * scored[t] / own[t] for t in own if own[t]}, {t: 100 * against[t] / opp[t] for t in own if opp[t]}
+              for key in ("plays-own", "plays-game", "box-own", "box-game"):
+                  show(f"NBA.com {key}", *rated(key), top=key == "plays-own")
+              for until in ("2026-11-10", "2026-11-09", "2026-11-08", "2026-11-07"):
+                  show(f"NBA.com plays-own through {until}", *rated("plays-own", until))
+                  show(f"NBA.com plays-game through {until}", *rated("plays-game", until))
           except Exception:  # noqa: BLE001
               traceback.print_exc()
+
+          # PBPStats (api.pbpstats.com): free, every possession counted from NBA.com's play-by-play.
+          try:
+              totals = {}
+              for kind in ("Team", "Opponent"):
+                  reply = requests.get("https://api.pbpstats.com/get-totals/nba", params={"Season": "2026-27", "SeasonType": "Regular Season", "Type": kind}, headers=UA, timeout=30)
+                  found = (reply.json() or {}).get("multi_row_table_data") or []
+                  print("PBPStats", kind, reply.status_code, len(found), "rows; fields:", sorted(found[0])[:80] if found else reply.text[:200])
+                  totals[kind] = {nba_live.ESPN_ABBR.get(row.get("TeamAbbreviation"), row.get("TeamAbbreviation")): row for row in found}
+              if totals["Team"] and totals["Opponent"]:
+                  team, other = totals["Team"], totals["Opponent"]
+                  show("PBPStats points per 100 possessions", {t: 100 * row["Points"] / row["OffPoss"] for t, row in team.items() if row.get("OffPoss")},
+                       {t: 100 * row["Points"] / row["OffPoss"] for t, row in other.items() if row.get("OffPoss")}, top=True)
+                  print("   PBPStats games:", {t: team[t].get("GamesPlayed") for t in PF})
+          except Exception as error:  # noqa: BLE001
+              print("PBPStats:", type(error).__name__, str(error)[:200])
+
+          # Dunks & Threes (ratings adjusted for opponents): what its front page carries.
+          try:
+              reply = requests.get("https://dunksandthrees.com/__data.json", headers=UA, timeout=20)
+              print("Dunks & Threes:", reply.status_code, len(reply.text), reply.text[:240].replace("\n", " "))
+          except Exception as error:  # noqa: BLE001
+              print("Dunks & Threes:", type(error).__name__, str(error)[:200])
 
           # Basketball-Reference's ratings page (adjusted for opponents too).
           try:
