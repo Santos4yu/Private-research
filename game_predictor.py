@@ -407,14 +407,21 @@ def _us_day(moment: datetime) -> str:
 
 def slate(sport, now=None) -> dict:
     """{sport, games}: the games still to start, and those on now, soonest
-    first -- the NBA's today and tomorrow, the NFL's week (the next one too
-    once this week's are all played)."""
+    first -- the NBA's today and tomorrow (and yesterday's still on, after
+    midnight Eastern), the NFL's week (the next one too once this week's are
+    all played)."""
     now = now or datetime.now(timezone.utc)
+
+    # A late tip runs past midnight in the East (Nov 10, the owner: "why did
+    # the live games go away?"): yesterday's games too until 6 AM Eastern,
+    # as the live list reads them (game_live.live_list); only the ones still
+    # on are kept, finished games drop out below.
+    days = sorted({_us_day(now - timedelta(hours=6)), _us_day(now), _us_day(now + timedelta(days=1))}) if sport == "nba" else []
 
     def load():
         if sport == "nba":
             events = []
-            for day in (_us_day(now + timedelta(days=offset)) for offset in (0, 1)):
+            for day in days:
                 events += _espn(sport, "/scoreboard", {"dates": day, "limit": 100}).get("events") or []
             return [_event(sport, event) for event in events]
         # ESPN's NFL scoreboard answers a date range with 400 (Nov 5); its
@@ -436,7 +443,7 @@ def slate(sport, now=None) -> dict:
             pass
         return found
     # DraftKings' moneylines again on the kept list: its read is seconds old.
-    games = with_dk(sport, _kept(f"slate:{sport}:{_us_day(now)}", SLATE_SECONDS, fresh))
+    games = with_dk(sport, _kept(f"slate:{sport}:{','.join(days) or _us_day(now)}", SLATE_SECONDS, fresh))
     games = [game for game in games if game["home"] and game["away"] and game["state"] in ("pre", "in")]
     games.sort(key=lambda game: game["startsAt"] or "")
     return {"sport": sport, "games": games, "fetchedAt": now.isoformat()}

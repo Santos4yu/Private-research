@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-09 (the moneyline Generator's NBA + NFL parlays: a leg from each league, a league with no games that day bringing its next ones. Before that, the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-11 (live NBA games after midnight Eastern stay in the games list. Before that, the moneyline Generator's NBA + NFL parlays: a leg from each league, a league with no games that day bringing its next ones. Before that, the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -57,6 +57,17 @@ Last updated 2026-11-09 (the moneyline Generator's NBA + NFL parlays: a leg from
   minutes. Scores are worked out on the phone, so without this a phone kept
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
+
+### Nov 11: live games disappeared from the list after midnight Eastern
+
+- The owner, with a screenshot starting at "Tomorrow": "why did the live
+  games go away?". `slate()` read the NBA's today and tomorrow by the US
+  East date (`_us_day`, UTC-5), so at midnight Eastern it jumped to the next
+  day and a West Coast game still on dropped out; the list only shows live
+  games that are in the slate (`liveFirst`).
+- Now the NBA slate also reads yesterday until 6 AM Eastern (the same rule
+  as `game_live.live_list`); finished games still drop out. Its cache key
+  carries the days read. Test: `test_a_late_game_still_on_after_midnight_in_the_east_stays_in_the_list`.
 
 ### Nov 9 (d): parlays between the two sports (moneyline Generator)
 

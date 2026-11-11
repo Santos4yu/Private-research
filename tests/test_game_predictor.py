@@ -854,6 +854,30 @@ class HistoryTests(unittest.TestCase):
             found = gp.slate("nfl", now=NOW)
         self.assertEqual([game["id"] for game in found["games"]], ["2"])
 
+    def test_a_late_game_still_on_after_midnight_in_the_east_stays_in_the_list(self):
+        # 12:30 AM Eastern on Nov 11: Nov 10's late tip is still on, its early games are over.
+        late = datetime(2026, 11, 11, 5, 30, tzinfo=timezone.utc)
+        asked = []
+
+        def board(path, params=None):
+            asked.append(params["dates"])
+            event = lambda id_, state, when: {"id": id_, "date": when, "competitions": [{"status": {"type": {"state": state}},
+                "competitors": [{"homeAway": "home", "team": {"abbreviation": "LAL"}}, {"homeAway": "away", "team": {"abbreviation": "GS"}}]}]}
+            if params["dates"] == "20261110":
+                return {"events": [event("late", "in", "2026-11-11T03:30Z"), event("early", "post", "2026-11-11T00:00Z")]}
+            return {"events": [event(params["dates"], "pre", "2026-11-12T00:00Z")]}
+        gp._memory.clear()
+        with patch.object(gp, "_espn", side_effect=lambda sport, path, params=None: board(path, params)):
+            found = gp.slate("nba", now=late)
+        self.assertEqual(asked, ["20261110", "20261111", "20261112"])
+        self.assertEqual([game["id"] for game in found["games"]], ["late", "20261111", "20261112"])
+        # By morning yesterday is left alone.
+        asked.clear()
+        gp._memory.clear()
+        with patch.object(gp, "_espn", side_effect=lambda sport, path, params=None: board(path, params)):
+            gp.slate("nba", now=datetime(2026, 11, 11, 15, tzinfo=timezone.utc))
+        self.assertEqual(asked, ["20261111", "20261112"])
+
     def test_predict_keeps_nothing(self):
         store = FakeStore()
         tables = gp.nba_tables(payload(), None)
