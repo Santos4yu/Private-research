@@ -79,8 +79,11 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   header is on every game page now; the old title row and the two board
   rows (`gp-board`, with their win chances) are gone. On a phone (760px or
   less) each logo sits over the team's short name, the record under it,
-  the score under that once it's on, the time and line between; the back
-  button sits above the card (`gp-page-back`).
+  the score under that once it's on, the time and line between.
+- Then, with a phone screenshot of the empty row above it: "look at that
+  top gap I don't want that". The back button sits beside the header card
+  (`gp-page-head`, a flex row), not on a row of its own; on a phone the
+  line wraps and the sportsbook line is left out to fit.
 
 ### Nov 11 (b): a Matchup tab on every game (PickFinder's moneyline card as the reference)
 

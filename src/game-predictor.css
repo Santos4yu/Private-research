@@ -891,7 +891,9 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 .gp-gh-mid{display:grid;justify-items:center;gap:4px;min-width:150px;text-align:center}
 .gp-gh-status{display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:850;letter-spacing:-.01em}
 .gp-gh-mid small{color:var(--gp-faint);font-size:12px;font-weight:650;white-space:nowrap}
-.gp-page-back{display:flex;padding:6px 0 4px}
+.gp-page-head{display:flex;align-items:center;gap:10px;margin-top:4px}
+.gp-page-head>.gp-gh{flex:1;min-width:0;margin:0 0 6px}
+.gp-page-head>.gp-back{flex:none;margin-bottom:6px}
 /* A phone: each logo over the team's short name, the score under it, the time and line between. */
 @media (max-width:760px){
  .gp-gh{gap:8px;padding:16px 12px;border-radius:20px}
@@ -906,8 +908,10 @@ button.gp-pickrow-x:active{transform:scale(.9)}
  .gp-gh-name small .is-venue{display:none}
  .gp-gh-score,.gp-gh-team[data-side="home"] .gp-gh-score{margin:0;font-size:30px}
  .gp-gh-mid{min-width:0;gap:3px}
- .gp-gh-status{font-size:14px}
- .gp-gh-mid small{font-size:11px}
+ .gp-gh-status{font-size:14px;white-space:nowrap}
+ .gp-gh-mid small{font-size:11px;white-space:normal;line-height:1.3}
+ .gp-gh-mid small+small{display:none}
+ .gp-page-head{gap:8px;margin-top:2px}
 }
 @media (min-width:1100px){
  .gp-detail .gp-page-left,.gp-detail .gp-page.is-embedded:not(.is-split)>.gp-page-body{display:flex;flex-direction:column}

@@ -291,8 +291,11 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  return <>
  <div className="gp-page-bg" style={{'--home':tint(colors.home),'--away':tint(colors.away)}} aria-hidden="true"/>
  <div className={`gp-page${embedded?' is-embedded':''}${split?' is-split':''}`}>
-  {onBack&&<div className="gp-page-back"><button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button></div>}
-  <GameHeader game={game} prediction={prediction} chart={chart} colors={colors} status={status} live={live}/>
+  {/* The back button beside the header, not a row of its own (Nov 11, the owner on the gap above it: "I don't want that"). */}
+  <div className="gp-page-head">
+   {onBack&&<button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>}
+   <GameHeader game={game} prediction={prediction} chart={chart} colors={colors} status={status} live={live}/>
+  </div>
   {split?<div className="gp-page-cols">
    <div className="gp-page-body gp-page-left">{waiting||shown('chance')}</div>
    <div className="gp-page-right">{tabs(sideTabs)}<div className="gp-page-body" key={right}>{waiting||shown(right)}</div></div>
