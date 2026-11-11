@@ -936,30 +936,31 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 }
 
 /* Gloss (Nov 11, the owner, with PickFinder's card beside ours: "theirs is
-   like glossy shiny glowy ... ours looks bland just grey"). What made the
-   difference: a deep blue-black instead of charcoal; cards a shade lighter,
-   a hairline edge and a lit top edge instead of grey film; colors at full
-   strength with a soft glow of their own; white numbers. Team colors are
-   lifted (lighter, a little richer) before they glow, so a navy team still
-   shows on navy. Same layout: colors, surfaces and light only. */
+   like glossy shiny glowy ... ours looks bland just grey"; then "I didn't
+   want their colors I just want the glossy look"). Our black and white,
+   finished like glass (gloss.css does the rest of the site): a deep black
+   page, cards a shade lighter with a lit top edge and a shadow instead of
+   grey film, colors at full strength with a soft glow, white numbers. Team
+   colors are lifted (lighter, a little richer) before they glow, so a dark
+   team still shows on black. Same layout: colors, surfaces and light only. */
 .game-predictor,.gp-screen{
- --gp-ink:#060a14;
- --gp-text:#fff;--gp-muted:#9ba4bb;--gp-faint:#68738e;
- --gp-up:#2fe690;--gp-down:#ff5b6e;--gp-gold:#ffc94f;
- --gp-soft:rgba(140,160,255,.07);--gp-soft-2:rgba(140,160,255,.12);--gp-rule:rgba(140,160,255,.12);
- --gp-edge:rgba(150,170,255,.15);
- --gp-glass:linear-gradient(180deg,#151d33 0%,#0c1223 100%);
- --gp-lift:inset 0 1px 0 rgba(255,255,255,.09),0 0 0 1px var(--gp-edge),0 26px 52px -30px rgba(0,0,0,.95)}
+ --gp-ink:#070707;
+ --gp-text:#fff;--gp-muted:#a8a8ae;--gp-faint:#74747b;
+ --gp-up:var(--ace-positive,#12e09a);--gp-down:var(--ace-negative,#ff5a6a);--gp-gold:var(--ace-warning,#ffc94f);
+ --gp-soft:rgba(255,255,255,.05);--gp-soft-2:rgba(255,255,255,.09);--gp-rule:rgba(255,255,255,.08);
+ --gp-edge:rgba(255,255,255,.08);
+ --gp-glass:linear-gradient(180deg,#1c1c1f 0%,#121214 100%);
+ --gp-lift:inset 0 1px 0 rgba(255,255,255,.1),0 0 0 1px var(--gp-edge),0 26px 52px -30px rgba(0,0,0,.95)}
 .gp-page-bg,.gp-gh,.gp-mu{--away-lit:var(--away);--home-lit:var(--home)}
 .gp-gh-team,.gp-mu-price{--team-lit:var(--team)}
 @supports (color:oklch(from red l c h)){
  .gp-page-bg,.gp-gh,.gp-mu{--away-lit:oklch(from var(--away) max(l,.64) calc(c * 1.3) h);--home-lit:oklch(from var(--home) max(l,.64) calc(c * 1.3) h)}
  .gp-gh-team,.gp-mu-price{--team-lit:oklch(from var(--team) max(l,.64) calc(c * 1.3) h)}
 }
-.gp-list-bg{background:radial-gradient(110% 50% at 50% -12%,#17244f 0%,rgba(23,36,79,0) 62%),var(--gp-ink)}
-.gp-page-bg{background:radial-gradient(90% 40% at 0% 0%,color-mix(in srgb,var(--away-lit) 26%,transparent),transparent 70%),
- radial-gradient(90% 40% at 100% 0%,color-mix(in srgb,var(--home-lit) 26%,transparent),transparent 70%),
- radial-gradient(120% 46% at 50% -10%,#15204a,rgba(21,32,74,0) 66%),var(--gp-ink)}
+.gp-list-bg{background:radial-gradient(110% 50% at 50% -12%,rgba(255,255,255,.06) 0%,rgba(255,255,255,0) 62%),var(--gp-ink)}
+.gp-page-bg{background:radial-gradient(90% 40% at 0% 0%,color-mix(in srgb,var(--away-lit) 24%,transparent),transparent 70%),
+ radial-gradient(90% 40% at 100% 0%,color-mix(in srgb,var(--home-lit) 24%,transparent),transparent 70%),
+ radial-gradient(120% 46% at 50% -10%,rgba(255,255,255,.05),rgba(255,255,255,0) 66%),var(--gp-ink)}
 
 /* The scoreboard: each team's color lit in its corner. */
 .gp-gh{background:radial-gradient(75% 150% at 0% 0%,color-mix(in srgb,var(--away-lit) 42%,transparent),transparent 62%),
@@ -985,10 +986,10 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 .gp-mu-bar i::after{background:linear-gradient(180deg,rgba(255,255,255,.4),rgba(255,255,255,0))}
 .gp-mu-price{background:linear-gradient(135deg,color-mix(in srgb,var(--team-lit) 30%,transparent),transparent 64%),var(--gp-glass);box-shadow:var(--gp-lift)}
 .gp-mu-price strong{color:#fff;text-shadow:0 0 18px rgba(255,255,255,.18)}
-.gp-mu-row:nth-child(odd){background:rgba(140,160,255,.055)}
-.gp-mu-cell{color:#dfe4f3}
+.gp-mu-row:nth-child(odd){background:rgba(255,255,255,.04)}
+.gp-mu-cell{color:#e6e6ea}
 .gp-mu-cell[data-tone] b,.gp-mu-cell[data-move] b{text-shadow:0 0 16px color-mix(in srgb,currentColor 42%,transparent)}
 .gp-mu-cell[data-tone="bad"] b,.gp-mu-cell[data-move="down"] b{color:var(--gp-down)}
-.gp-mu-bars::before{background:rgba(150,170,255,.2)}
+.gp-mu-bars::before{background:rgba(255,255,255,.16)}
 .gp-mu-up i{background:linear-gradient(180deg,color-mix(in srgb,var(--gp-up) 70%,#fff),color-mix(in srgb,var(--gp-up) 72%,#06140d));box-shadow:0 0 12px -3px color-mix(in srgb,var(--gp-up) 70%,transparent)}
 .gp-mu-down i{background:linear-gradient(0deg,color-mix(in srgb,var(--gp-down) 72%,#fff),color-mix(in srgb,var(--gp-down) 72%,#14060a));box-shadow:0 0 12px -3px color-mix(in srgb,var(--gp-down) 70%,transparent)}

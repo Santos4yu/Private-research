@@ -58,6 +58,34 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (g): the glossy finish site-wide, in our own black and white
+
+- The owner, after the navy sample: "I didn't want their colors I just
+  want the glossy look and I want it for the whole website". The Game
+  Predictor's Gloss block is back on black (`--gp-ink` #070707, neutral
+  glass `--gp-glass`, white edges); team colors still glow there (lifted).
+- `src/gloss.css` (new, the last shared sheet in main.jsx), the whole site:
+  - Tokens: `--ace-bg` #070707 (deeper, so cards stand off it), and the
+    result colors at full strength (`--ace-positive` #12E09A,
+    `--ace-negative` #FF5A6A, `--ace-warning` #FFC94F).
+  - Flat cards (a list by page: slip analyzer, cheat sheets, my bets, promo
+    board, scout assistant, smart slip, moneylines, bot, NFL, pitcher,
+    results...): `--gloss-sheen` (a bright hairline at the top, a faint
+    light fading down), `--gloss-depth` (a shadow under), a lit top border.
+    Cards with a shadow of their own: sheen and edge. Cards that paint
+    their own gradient: only the lit top border.
+  - Controls (Finder filters, search, segment rails): the sheen.
+  - Buttons (`.mb-primary`, `.ss-next`, `.ace-primary`,
+    `.main-menu-primary`): a light across the top over their own color.
+  - Green / yellow / red numbers glow in their own color (`.nm-grade b`,
+    `.nm-l10 b`, `.nm-rate-cell`, the Finder's `.finder-heat strong`), and
+    the Finder's hit bars are lit with a glow.
+  - The sections' own sheets load after it, so its rules lift their
+    specificity with `:is(..., #gloss#gloss)` (two ids that are never on
+    the page) instead of `!important`. Nothing changes a card's color,
+    size or layout. To add a page's cards, put their classes in the list
+    that fits (flat / own shadow / own gradient).
+
 ### Nov 11 (f): the glossy look, on the Game Predictor first
 
 - The owner, with PickFinder's card beside ours: "look at the colors how do

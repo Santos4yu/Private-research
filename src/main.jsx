@@ -47,6 +47,7 @@ import './trend-edge.css';
 import './trend-page.css';
 import './prop-focus.css';
 import './page-switch.css';
+import './gloss.css';
 
 import { topTabs } from './navTabs';
 import { VortexSidebar } from './VortexSidebar';

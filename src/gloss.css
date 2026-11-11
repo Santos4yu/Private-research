@@ -1,0 +1,98 @@
+/* Gloss: the site-wide finish (Nov 11, the owner, with PickFinder's card
+   beside ours: "I didn't want their colors I just want the glossy look ...
+   I need the whole website to have this polished look"). PropScout stays
+   black and white; what changes is the finish:
+
+   - a deeper black behind everything, so cards stand off it;
+   - cards lit like glass: a bright hairline along the top edge, a faint
+     sheen fading down, a soft shadow underneath;
+   - green, red and yellow at full strength, the numbers in them glowing;
+   - buttons with a light across the top.
+
+   Loaded last of the shared sheets (main.jsx). The sections' own sheets
+   load later with their code, so the card rules lift their specificity
+   with an id that's never on the page (:is(..., #gloss#gloss) counts as
+   two ids) instead of !important, and only add a sheen, an edge and a
+   shadow: no card's color, size or layout changes. Cards that already
+   paint their own gradient keep it and only get the lit edge. */
+
+:root {
+  --ace-bg: #070707;
+  --ace-positive: #12E09A;
+  --ace-negative: #FF5A6A;
+  --ace-warning: #FFC94F;
+  --gloss-sheen: linear-gradient(180deg, rgba(255,255,255,.12) 0, rgba(255,255,255,.12) 1px, rgba(255,255,255,.05) 1px, rgba(255,255,255,0) 66%);
+  --gloss-depth: 0 1px 0 rgba(0,0,0,.6), 0 24px 44px -24px rgba(0,0,0,.95);
+  --gloss-edge: rgba(255,255,255,.2);
+  --gloss-button: linear-gradient(180deg, rgba(255,255,255,.3), rgba(255,255,255,0) 58%);
+}
+
+/* Flat cards: sheen, depth and the lit edge. */
+:root[data-theme] body :is(
+  .sa-shot, .sa-explain, .sa-edge, .sa-reading, .sa-problem,
+  .cs-table-wrap, .lb-rows, .lb-picked,
+  .mb-card, .mb-error,
+  .pb-best, .pb-card, .pb-empty,
+  .ace-spot-line,
+  .ss-mini, .ss-stage, .ss-empty,
+  .mobile-slip-actions,
+  .ml2-empty, .ml2-view,
+  .kb-matchup, .kb-duel, .kb-team,
+  .rp-card, .nfl-game-card, .nfl-rail-card, .pitcher-line-card, .ap-card,
+  .site-account-dialog, .community-post, .builder-step, .matchup-score-card,
+  #gloss#gloss) {
+  background-image: var(--gloss-sheen);
+  box-shadow: var(--gloss-depth);
+  border-top-color: var(--gloss-edge);
+}
+
+/* Controls (the Finder's filters, search and sport pickers): the sheen. */
+:root[data-theme] body :is(
+  .unified-finder .finder-app-filter, .unified-finder .finder-multi-select, .unified-finder label.finder-search,
+  .moves-segment, .moves-search, .mb-seg, .cs-seg, .search-box,
+  #gloss#gloss) {
+  background-image: var(--gloss-sheen);
+}
+
+/* Flat cards with a shadow of their own: the sheen and the edge. */
+:root[data-theme] body :is(
+  .lb-hub-card, .cs-sports, .mb-form, .ace-research, .ace-board,
+  .nfl-matchup-hero, .mp-card, .fpb-card, .as-panel, .install-sheet, .nba-out,
+  #gloss#gloss) {
+  background-image: var(--gloss-sheen);
+  border-top-color: var(--gloss-edge);
+}
+
+/* Cards that paint their own gradient: only the lit edge. */
+:root[data-theme] body :is(
+  .ace-page-head, .slate-error, .slate-read,
+  .sa-stage, .sa-demo-card, .sa-parlay, .sa-case,
+  .mb-deck, .pb-head, .ace-hero, .ace-spot, .ace-composer,
+  .ss-wiz, .lab-player, .lab-tool, .lab-matchup-card, .lab-board-button,
+  .saved-card, .empty-state, .ml2-head, .ml2-record, .ml2-game, .ml2-pick,
+  .moves-head, .gr-card, .nfl-feature-card, .nfl-chart-card, .nfl-player-header,
+  .mlb-context-card, .ap-sheet, .settings-panel, .modal-panel, .player-detail-sheet,
+  .wt-card, .builder-hero, .builder-summary, .report-block,
+  #gloss#gloss) {
+  border-top-color: var(--gloss-edge);
+}
+
+/* Buttons: a light across the top over their own color. */
+:root[data-theme] body :is(.mb-primary, .ss-next, .ace-primary, .main-menu-primary, #gloss#gloss) {
+  background-image: var(--gloss-button);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(0,0,0,.14), 0 10px 22px -12px rgba(255,255,255,.32);
+}
+
+/* The bottom bar: a lit top edge on its glass. */
+:root[data-theme] body .mobile-app-nav { border-top-color: rgba(255,255,255,.16); }
+
+/* Numbers in green, yellow or red glow in their own color. */
+:root[data-theme] body :is(.nm-grade b, .nm-l10 b, .nm-rate-cell, .unified-finder .finder-heat strong) {
+  text-shadow: 0 0 14px color-mix(in srgb, currentColor 42%, transparent);
+}
+
+/* Hit bars (the Finder's rows): a light along the top and a glow in their own color. */
+:root[data-theme] body .unified-finder .finder-table .finder-heat[style]::after {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tone, #888) 62%, #fff), var(--tone, #888));
+  box-shadow: 0 0 10px -1px color-mix(in srgb, var(--tone, #888) 70%, transparent);
+}
