@@ -1171,6 +1171,15 @@ def season_meetings(listing) -> dict:
     return dict(meetings)
 
 
+def game_meetings(games) -> dict:
+    """season_meetings from box-score games (predictor_nba.games_of)."""
+    meetings = defaultdict(list)
+    for g in games:
+        meetings["|".join(sorted((g["home"], g["away"])))].append({"date": g["date"].isoformat(), "home": g["home"], "away": g["away"],
+                                                                  "hs": g["hs"], "as": g["as"]})
+    return dict(meetings)
+
+
 def nba_context(payload, prior, today, earlier=None) -> dict:
     """v2's NBA numbers as of `today` (games before it only): the ratings,
     each team's regulars, its results and what defenses allow each position.
@@ -1189,9 +1198,8 @@ def nba_context(payload, prior, today, earlier=None) -> dict:
     # first (the matchup card's head to head: Nov 11, the owner comparing it
     # with PickFinder's, which reaches back into last season).
     meetings = defaultdict(list, {pair: list(rows) for pair, rows in (earlier or {}).items()})
-    for g in past:
-        meetings["|".join(sorted((g["home"], g["away"])))].append({"date": g["date"].isoformat(), "home": g["home"], "away": g["away"],
-                                                                  "hs": g["hs"], "as": g["as"]})
+    for pair, rows in game_meetings(past).items():
+        meetings[pair].extend(rows)
     return {"rt": predictor_nba.rate(games, today, params, prior), "meetings": dict(meetings),
             "seasonTable": season_numbers([(g["home"], g["away"], g["hs"], g["as"], g["poss"]) for g in past], per_100=True),
             "profiles": team_profiles(past),
@@ -1233,12 +1241,14 @@ def _nba_v2_prior(season, load=None, store=None) -> dict | None:
     return value
 
 
-def _nba_last_meetings(season, load=None, store=None) -> dict:
+def _nba_last_meetings(season, load=None, store=None, fetch=None) -> dict:
     """A finished season's meetings of each pair of teams (season_meetings):
-    worked out once from its stored schedule and kept."""
+    worked out once and kept. From its stored schedule; a season stored
+    before the schedule kept final scores (Oct 30) from its box scores; with
+    neither, from ESPN's team schedules. None found: asked again in an hour."""
     key = MEETINGS_KEY.format(season=season)
     hit = _memory.get(key)
-    if hit:
+    if hit and (hit[1] or time.time() - hit[0] < 3600):
         return hit[1]
     store = _store() if store is None else store
     try:
@@ -1249,15 +1259,26 @@ def _nba_last_meetings(season, load=None, store=None) -> dict:
             return value
     except Exception:  # noqa: BLE001
         pass
+    import predictor_nba
+    value = {}
     try:
         if load is None:
             from backend.sports.wnba import league
             load = lambda: league.stored(season, "nba")
-        value = season_meetings((load() or {}).get("schedule"))
+        payload = load() or {}
+        value = season_meetings(payload.get("schedule")) or game_meetings(predictor_nba.games_of(payload)[0])
     except Exception:  # noqa: BLE001 -- the head to head falls back to this season's
-        return {}
+        value = {}
+    if not value:
+        try:
+            if fetch is None:
+                from backend.sports.wnba import league
+                fetch = lambda: league.schedule(season, league.team_directory("nba"), "nba")
+            value = season_meetings(fetch())
+        except Exception:  # noqa: BLE001
+            value = {}
+    _memory[key] = (time.time(), value)
     if value:
-        _memory[key] = (time.time(), value)
         try:
             if store:
                 store.set(key, json.dumps(value, separators=(",", ":")))

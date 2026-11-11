@@ -76,7 +76,11 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   (PickFinder showed 3-0 for WAS / IND with none this season, and 3-0 for
   NYK / CLE with one). `season_meetings` reads last season's stored
   schedule once (`_nba_last_meetings`, kept under `MEETINGS_KEY`);
-  `nba_context(..., earlier)` puts it before this season's.
+  `nba_context(..., earlier)` puts it before this season's. Live, the card
+  still read 1-0 (the owner's next screenshot): last season was stored
+  before the schedule kept final scores (Oct 30), so it now falls back to
+  last season's box scores (`game_meetings`), then ESPN's team schedules;
+  nothing found is asked again an hour later, not on every read.
 - The Game predictor check (workflow, run by hand) prints every team's
   ranks both ways, tonight's days since the last game and the meetings, from
   ESPN's box scores built in the run. Its Nov 11 run against PickFinder's two

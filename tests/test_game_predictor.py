@@ -510,9 +510,21 @@ class NbaV2Tests(unittest.TestCase):
         self.assertEqual(gp._nba_last_meetings(2026, load, Store()), earlier)
         self.assertEqual(len(loads), 1)
         gp._memory.pop(gp.MEETINGS_KEY.format(season=2026), None)
-        # Nothing stored for last season: no meetings, nothing kept.
-        self.assertEqual(gp._nba_last_meetings(2025, lambda: None, Store()), {})
+        # A season stored before its schedule kept final scores: its box scores.
+        stored = payload()
+        stored["schedule"] = [{k: v for k, v in row.items() if k != "score"} for row in listing]
+        boxes = gp._nba_last_meetings(2024, lambda: stored, Store(), fetch=lambda: self.fail("asked ESPN"))
+        self.assertEqual(boxes["BOS|DEN"], gp.nba_context(payload(), None, NOW.date())["meetings"]["BOS|DEN"])
+        # Nothing stored: ESPN's team schedules.
+        self.assertEqual(gp._nba_last_meetings(2023, lambda: None, Store(), fetch=lambda: listing), earlier)
+        # Nothing anywhere: no meetings, nothing kept, not asked again within the hour.
+        asked = []
+        self.assertEqual(gp._nba_last_meetings(2025, lambda: None, Store(), fetch=lambda: asked.append(1) or []), {})
+        self.assertEqual(gp._nba_last_meetings(2025, lambda: None, Store(), fetch=lambda: asked.append(1) or []), {})
+        self.assertEqual(len(asked), 1)
         self.assertNotIn(gp.MEETINGS_KEY.format(season=2025), store)
+        for season in (2023, 2024, 2025):
+            gp._memory.pop(gp.MEETINGS_KEY.format(season=season), None)
 
     def test_sit_warnings(self):
         # TOR at home by 5 with two day-to-day regulars worth 1.8 and 1.5.
