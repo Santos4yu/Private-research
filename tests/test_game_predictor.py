@@ -482,6 +482,38 @@ class NbaV2Tests(unittest.TestCase):
         players = gp.nba_players_v2(game(), self.context, healthy)
         self.assertEqual(set(players["home"]["avg"]), {"pts", "reb", "ast"})
 
+    def test_head_to_head_reaches_into_last_season(self):
+        listing = [{"id": "1", "date": "2026-03-01T00:00Z", "completed": True, "home": "DEN", "away": "BOS", "score": {"DEN": 101, "BOS": 110}},
+                   {"id": "2", "date": "2025-11-02T00:00Z", "completed": True, "home": "BOS", "away": "DEN", "score": {"BOS": 99, "DEN": 104}},
+                   {"id": "3", "date": "2026-03-09T00:00Z", "completed": False, "home": "BOS", "away": "DEN"},
+                   {"id": "4", "date": "2026-01-01T00:00Z", "completed": True, "home": "BOS", "away": "NY", "score": {"BOS": 90, "NY": 80}}]
+        earlier = gp.season_meetings(listing)
+        self.assertEqual([row["date"] for row in earlier["BOS|DEN"]], ["2025-11-02", "2026-03-01"])
+        self.assertEqual(earlier["BOS|DEN"][1], {"date": "2026-03-01", "home": "DEN", "away": "BOS", "hs": 101, "as": 110})
+        this = gp.nba_model_v2(game(), self.context)["meetings"]
+        both = gp.nba_model_v2(game(), gp.nba_context(payload(), None, NOW.date(), earlier))["meetings"]
+        # Last season's first, then this season's.
+        self.assertEqual(both, earlier["BOS|DEN"] + this)
+        # Worked out once from the stored schedule, then kept.
+        store, loads = {}, []
+
+        class Store:
+            def get(self, key):
+                return store.get(key)
+
+            def set(self, key, value):
+                store[key] = value
+        gp._memory.pop(gp.MEETINGS_KEY.format(season=2026), None)
+        load = lambda: loads.append(1) or {"schedule": listing}
+        self.assertEqual(gp._nba_last_meetings(2026, load, Store()), earlier)
+        gp._memory.pop(gp.MEETINGS_KEY.format(season=2026), None)
+        self.assertEqual(gp._nba_last_meetings(2026, load, Store()), earlier)
+        self.assertEqual(len(loads), 1)
+        gp._memory.pop(gp.MEETINGS_KEY.format(season=2026), None)
+        # Nothing stored for last season: no meetings, nothing kept.
+        self.assertEqual(gp._nba_last_meetings(2025, lambda: None, Store()), {})
+        self.assertNotIn(gp.MEETINGS_KEY.format(season=2025), store)
+
     def test_sit_warnings(self):
         # TOR at home by 5 with two day-to-day regulars worth 1.8 and 1.5.
         built = {"margin": 5.0, "sigma": 10.0, "scenarios": [

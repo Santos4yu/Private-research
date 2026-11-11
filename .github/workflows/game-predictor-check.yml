@@ -17,7 +17,7 @@ permissions:
 jobs:
   espn:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - run: python -m pip install --quiet requests numpy
@@ -250,3 +250,42 @@ jobs:
                       print("   chart now:", found["now"], "state:", found["state"])
               except Exception:  # noqa: BLE001
                   traceback.print_exc()
+
+      - name: The matchup card's numbers (ranks, rest, head to head) from ESPN's box scores
+        shell: python
+        run: |
+          # This season's NBA box scores built here (the site keeps them in
+          # its store): every team's offense and defense ranked per 100
+          # possessions and a game, tonight's rest and the last meetings
+          # since last season, to check against other sites by hand.
+          import sys, traceback
+          sys.path.insert(0, ".")
+          from datetime import datetime, timezone
+          import game_predictor as gp
+          import predictor_nba
+          from backend.sports.wnba import league
+          now = datetime.now(timezone.utc)
+          try:
+              season = league.current_season(now, "nba")
+              payload = league.build(season, deadline_seconds=None, store=False, league="nba")
+              print("season", season, "games built:", len(payload["games"]), "failed:", len(payload["failed"]))
+              teams = league.team_directory("nba")
+              earlier = gp.season_meetings(league.schedule(season - 1, teams, "nba"))
+              print("last season's pairs:", len(earlier))
+              today = predictor_nba.us_date(now)
+              context = gp.nba_context(payload, None, today, earlier)
+              table = context["seasonTable"]
+              print("team  G   ORtg rk   DRtg rk  |  PPG rk   OPPG rk")
+              for abbr, row in sorted(table.items(), key=lambda item: item[1]["offRank"]):
+                  print(f"{abbr:4} {row['games']:2}  {row['off']:6.1f} {row['offRank']:2}  {row['def']:6.1f} {row['defRank']:2}  |  {row['ppg']:5.1f} {row['ppgRank']:2}  {row['oppg']:5.1f} {row['oppgRank']:2}")
+              for game in gp.slate("nba", now)["games"]:
+                  home, away = game["home"]["abbr"], game["away"]["abbr"]
+                  start = gp._when(game.get("startsAt"))
+                  day = predictor_nba.us_date(start) if start else today
+                  rest = {side: (predictor_nba.rest_of(context["states"].get(abbr), day, home) or {}).get("days") for side, abbr in (("away", away), ("home", home))}
+                  last = {side: str((context["states"].get(abbr) or {}).get("lastDate")) for side, abbr in (("away", away), ("home", home))}
+                  meetings = (context["meetings"].get("|".join(sorted((home, away)))) or [])
+                  print(f"{away} @ {home} {day}: days since last game {rest} (last {last}) | meetings:",
+                        [(row["date"], row["away"], row["as"], row["home"], row["hs"]) for row in meetings])
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()

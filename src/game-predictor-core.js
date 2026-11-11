@@ -579,11 +579,16 @@ export function pickScoreText(live){
 const espnLogo=(sport,abbr)=>abbr?`https://a.espncdn.com/i/teamlogos/${sport}/500/${String(abbr).toLowerCase()}.png`:null;
 const rankText=cell=>Array.isArray(cell)&&Number.isFinite(cell[1])?`#${cell[1]}`:'—';
 const recordOf=spot=>spot&&Number.isFinite(spot.w)?`${spot.w}-${spot.l}`:null;
-const daysText=days=>!Number.isFinite(days)?'—':days<=1?(days===1?'1 day':'Back-to-back'):`${days} days`;
+// Rest as days off (the NBA: a game last night is a back-to-back, two nights ago 1 day; Nov 11, the
+// owner with PickFinder's card, where ours read a day high); the NFL's days between games.
+const restOf=(days,nfl)=>!Number.isFinite(days)?null:nfl?days:Math.max(0,days-1);
+const daysText=(off,nfl)=>off==null?'—':!nfl&&off===0?'Back-to-back':off===1?'1 day':`${off} days`;
+/** A team's rest from the days since its last game (prediction.rest): "Back-to-back", "1 day"... */
+export const restText=(days,nfl)=>daysText(restOf(days,nfl),nfl);
 
-/** This season's meetings: each side's wins, {away, home, games}, or null. */
+/** The teams' last three meetings (this season's and last season's): each side's wins, {away, home, games}, or null. */
 export function headToHead(prediction){
- const games=prediction?.meetings||[];
+ const games=(prediction?.meetings||[]).slice(-3);
  if(!games.length)return null;
  const abbr={home:prediction.home?.abbr,away:prediction.away?.abbr};
  const wins=side=>games.filter(game=>(game.home===abbr[side]&&game.hs>game.as)||(game.away===abbr[side]&&game.as>game.hs)).length;
@@ -608,10 +613,10 @@ export function matchupRows(prediction){
    {text:`${americanText(open.home)} → ${americanText(prices.home)}`,move:moveOf(open.home,prices.home),share:share('home')});
   else pair('price','Moneyline',{text:americanText(prices.away),share:share('away')},{text:americanText(prices.home),share:share('home')});
  }
- // Points a game scored and allowed (Nov 11, the owner: "the defense and
- // offense ... rankings dont seem correct": per 100 possessions ranked a
- // slow team's defense lower than the points-a-game ranks most sites show).
- const perGame=!nfl&&(teams.home?.pts||teams.away?.pts);
+ // The NBA's ranks per 100 possessions, as PickFinder's: points a game ranked a
+ // slow team's offense far too low (Nov 11, the owner: "Our data is just not
+ // correct", NYK 22nd a game, 10th there). Points a game only when there are no ratings.
+ const perGame=!nfl&&!(teams.home?.ortg||teams.away?.ortg)&&(teams.home?.pts||teams.away?.pts);
  const off=nfl?'pf':perGame?'pts':'ortg',def=nfl?'pa':perGame?'ptsAllowed':'drtg',count=nfl?32:30;
  const fromRank=cell=>Array.isArray(cell)&&Number.isFinite(cell[1])?Math.max(0,Math.min(1,(count+1-cell[1])/count)):null;
  const ranked=(key,label,field,unit)=>{
@@ -634,11 +639,11 @@ export function matchupRows(prediction){
  const shareOf=spot=>spot&&spot.w+spot.l>0?spot.w/(spot.w+spot.l):null;
  if(road||home)pair('venue','Home / road',{text:road?`${road} road`:'—',share:shareOf(info.away?.away),tone:shareTone(shareOf(info.away?.away))},
   {text:home?`${home} home`:'—',share:shareOf(info.home?.home),tone:shareTone(shareOf(info.home?.home))});
- const rest=prediction.rest||{};
- const rested=days=>Number.isFinite(days)?Math.min(days,4)/4:null;
- const restTone=days=>Number.isFinite(days)&&days<=0?'bad':null;
- if(Number.isFinite(rest.home)||Number.isFinite(rest.away))pair('rest','Rest',{text:daysText(rest.away),share:rested(rest.away),tone:restTone(rest.away)},{text:daysText(rest.home),share:rested(rest.home),tone:restTone(rest.home)},
-  Number.isFinite(rest.home)&&Number.isFinite(rest.away)&&rest.home!==rest.away?(rest.away>rest.home?'away':'home'):null);
+ const rest={home:restOf(prediction.rest?.home,nfl),away:restOf(prediction.rest?.away,nfl)};
+ const rested=off=>off==null?null:Math.min(off,nfl?10:3)/(nfl?10:3);
+ const restTone=off=>!nfl&&off===0?'bad':null;
+ if(rest.home!=null||rest.away!=null)pair('rest','Rest',{text:daysText(rest.away,nfl),share:rested(rest.away),tone:restTone(rest.away)},{text:daysText(rest.home,nfl),share:rested(rest.home),tone:restTone(rest.home)},
+  rest.home!=null&&rest.away!=null&&rest.home!==rest.away?(rest.away>rest.home?'away':'home'):null);
  const meet=headToHead(prediction);
  if(meet)pair('h2h','Head to head',{text:`${meet.away}-${meet.home}`,share:meet.away/meet.games,tone:shareTone(meet.away/meet.games)},{text:`${meet.home}-${meet.away}`,share:meet.home/meet.games,tone:shareTone(meet.home/meet.games)},meet.away!==meet.home?(meet.away>meet.home?'away':'home'):null);
  return rows;

@@ -58,6 +58,29 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (d): the Matchup card's numbers checked against PickFinder's
+
+- The owner, with PickFinder's card for CLE @ NYK beside ours: "Our data is
+  just not correct". Three real faults (the card's look is untouched):
+- Rest read a day high: `prediction.rest` is days since the last game
+  (`predictor_nba.rest_of`; 1 = played last night), and the card printed it
+  as days of rest. The NBA's now shows days off (`restOf` / `restText` in
+  game-predictor-core.js): last night "Back-to-back" (red), two nights ago
+  "1 day". The NFL's stays days between games. The Why tab's table too.
+- Offense and defense ranks are per 100 possessions again (`ortg` / `drtg`
+  from `season_numbers`, this season's own). The Nov 11 switch to points a
+  game was a wrong read of PickFinder: its offense ranks had matched ours per
+  100 (WAS 23rd, IND 21st); a game ranked NYK's slow offense 22nd, PickFinder
+  10th. Points a game only show when there are no ratings.
+- Head to head counts the last three meetings, last season's included
+  (PickFinder showed 3-0 for WAS / IND with none this season, and 3-0 for
+  NYK / CLE with one). `season_meetings` reads last season's stored
+  schedule once (`_nba_last_meetings`, kept under `MEETINGS_KEY`);
+  `nba_context(..., earlier)` puts it before this season's.
+- The Game predictor check (workflow, run by hand) prints every team's
+  ranks both ways, tonight's days since the last game and the meetings, from
+  ESPN's box scores built in the run.
+
 ### Nov 11 (c): the game page on a computer redesigned; one win chance on phones
 
 - The owner, with a laptop screenshot: "DO NOT TOUCH THE NEW MATCHUP THING

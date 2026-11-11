@@ -421,7 +421,8 @@ test('the matchup card: the teams side by side, the better side marked, their la
  assert.equal(defense.home.better,true);
  assert.equal(last10.away.better,true);
  assert.deepEqual([venue.away.text,venue.home.text],['2-5 road','0-5 home']);
- assert.deepEqual([rest.away.text,rest.home.text,rest.away.better],['2 days','1 day',true]);
+ // Rest as days off: a game last night is a back-to-back, two nights ago 1 day.
+ assert.deepEqual([rest.away.text,rest.home.text,rest.away.better,rest.home.tone],['1 day','Back-to-back',true,'bad']);
  assert.deepEqual(headToHead(prediction),{away:2,home:0,games:2});
  assert.deepEqual([h2h.away.text,h2h.home.text,h2h.away.better],['2-0','0-2',true]);
  // The NBA's last 10 from the season; ESPN's last five otherwise, oldest first, own score first.
@@ -430,4 +431,17 @@ test('the matchup card: the teams side by side, the better side marked, their la
  assert.deepEqual(recentGames(prediction,'away').map(game=>[game.opponent.abbr,game.margin,game.home]),[['TOR',-10,false],['CHI',4,true]]);
  assert.equal(outPoints([{kind:'out',ppg:21.8},{kind:'questionable',ppg:9.4,chance:0.5},{kind:'other',ppg:5}]),26.5);
  assert.deepEqual(matchupRows(null),[]);
+ // The ranks per 100 possessions even when points a game are there too (PickFinder's); points a game only without ratings.
+ const both={...prediction,teams:{home:{...prediction.teams.home,pts:[108,22],ptsAllowed:[104,1]},away:{...prediction.teams.away,pts:[118,10],ptsAllowed:[117,19]}}};
+ assert.deepEqual(matchupRows(both).filter(row=>row.key==='offense'||row.key==='defense').map(row=>[row.away.text,row.home.text]),[['#23','#21'],['#17','#14']]);
+ const games={...prediction,teams:{home:{pts:[108,22],ptsAllowed:[104,1]},away:{pts:[118,10],ptsAllowed:[117,19]}}};
+ assert.deepEqual(matchupRows(games).filter(row=>row.key==='offense').map(row=>[row.away.text,row.away.small]),[['#10','118 a game']]);
+ // The last three meetings, last season's included.
+ const four={...prediction,meetings:[{home:'IND',away:'WSH',hs:120,as:100},...prediction.meetings,{home:'IND',away:'WSH',hs:99,as:101}]};
+ assert.deepEqual(headToHead(four),{away:3,home:0,games:3});
+ // The NFL's rest is the days between games.
+ const nfl=matchupRows({...prediction,sport:'nfl',teams:{},rest:{home:7,away:4}}).find(row=>row.key==='rest');
+ assert.deepEqual([nfl.away.text,nfl.home.text,nfl.home.better],['4 days','7 days',true]);
+ const {restText}=await import('../src/game-predictor-core.js');
+ assert.deepEqual([restText(1),restText(2),restText(4),restText(null),restText(7,true)],['Back-to-back','1 day','3 days','—','7 days']);
 });

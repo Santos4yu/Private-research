@@ -25,7 +25,7 @@ import {useInk,inkStyle} from './use-ink.js';
 import {ChipMenu,Empty,Section,Segmented,Shimmer} from './gp-parts.jsx';
 import {GameRecord} from './GameRecord.jsx';
 import {CountUp} from './count-up.jsx';
-import {SPORTS,matchupRows,outPoints,recentGames,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,matchupRows,restText,outPoints,recentGames,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import {PropGenerator} from './PropGenerator.jsx';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
@@ -963,7 +963,7 @@ function Compare({prediction}){
  if(!teams)return null;
  const rank=value=>value?.[1]?<small>{value[1]}{['th','st','nd','rd'][value[1]%10>3||[11,12,13].includes(value[1]%100)?0:value[1]%10]}</small>:null;
  const cell=value=>value?.[0]==null?'—':<>{value[0]} {rank(value)}</>;
- const rest=days=>days==null?'—':days<=1?'Back-to-back':`${days} days`;
+ const rest=days=>restText(days,prediction.sport==='nfl');
  const last=side=>{const games=prediction.lastFive?.[prediction[side].abbr]||[];return games.length?<span className="gp-form">{games.map((game,index)=><i key={index} data-result={game.result}>{game.result}</i>)}</span>:'—';};
  const rows=prediction.sport==='nba'?[
   ['Offense (pts / 100)',cell(teams.away.ortg),cell(teams.home.ortg)],

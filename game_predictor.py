@@ -132,6 +132,7 @@ DK_SECONDS = 6
 DK_RESTING = 120
 PRIOR_KEY = "krazy_data:predictor:v1:nba-prior:{season}"
 PRIOR2_KEY = "krazy_data:predictor:v2:nba-prior:{season}"
+MEETINGS_KEY = "krazy_data:predictor:v2:nba-meetings:{season}"
 MAX_HISTORY = 400
 # A game is settled once ESPN calls it final; asked about this long after its start.
 SETTLE_AFTER = {"nba": 2.5 * 3600, "nfl": 3.5 * 3600}
@@ -1154,9 +1155,27 @@ def _with_home(sport, built, game, season, home, away, usual):
     return built
 
 
-def nba_context(payload, prior, today) -> dict:
+def season_meetings(listing) -> dict:
+    """{"AAA|BBB": [{date, home, away, hs, as}]}: each pair of teams' finished
+    games in a season's schedule listing (league.schedule), oldest first."""
+    meetings = defaultdict(list)
+    for game in listing or []:
+        score = game.get("score") or {}
+        home, away = game.get("home"), game.get("away")
+        if not game.get("completed") or score.get(home) is None or score.get(away) is None:
+            continue
+        meetings["|".join(sorted((home, away)))].append({"date": str(game.get("date") or "")[:10], "home": home, "away": away,
+                                                         "hs": score[home], "as": score[away]})
+    for rows in meetings.values():
+        rows.sort(key=lambda row: row["date"])
+    return dict(meetings)
+
+
+def nba_context(payload, prior, today, earlier=None) -> dict:
     """v2's NBA numbers as of `today` (games before it only): the ratings,
-    each team's regulars, its results and what defenses allow each position."""
+    each team's regulars, its results and what defenses allow each position.
+    `earlier`: last season's meetings (season_meetings), put before this
+    season's for the matchup card's head to head."""
     import predictor_nba
     params = V2["nba"]
     games, index = predictor_nba.games_of(payload)
@@ -1166,8 +1185,10 @@ def nba_context(payload, prior, today) -> dict:
     for g in past:
         results[g["home"]].append(g["hs"] > g["as"])
         results[g["away"]].append(g["as"] > g["hs"])
-    # This season's meetings of each pair of teams, oldest first (the matchup card's head to head).
-    meetings = defaultdict(list)
+    # Each pair of teams' meetings, last season's then this season's, oldest
+    # first (the matchup card's head to head: Nov 11, the owner comparing it
+    # with PickFinder's, which reaches back into last season).
+    meetings = defaultdict(list, {pair: list(rows) for pair, rows in (earlier or {}).items()})
     for g in past:
         meetings["|".join(sorted((g["home"], g["away"])))].append({"date": g["date"].isoformat(), "home": g["home"], "away": g["away"],
                                                                   "hs": g["hs"], "as": g["as"]})
@@ -1212,6 +1233,39 @@ def _nba_v2_prior(season, load=None, store=None) -> dict | None:
     return value
 
 
+def _nba_last_meetings(season, load=None, store=None) -> dict:
+    """A finished season's meetings of each pair of teams (season_meetings):
+    worked out once from its stored schedule and kept."""
+    key = MEETINGS_KEY.format(season=season)
+    hit = _memory.get(key)
+    if hit:
+        return hit[1]
+    store = _store() if store is None else store
+    try:
+        raw = store.get(key) if store else None
+        if raw:
+            value = json.loads(raw)
+            _memory[key] = (time.time(), value)
+            return value
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if load is None:
+            from backend.sports.wnba import league
+            load = lambda: league.stored(season, "nba")
+        value = season_meetings((load() or {}).get("schedule"))
+    except Exception:  # noqa: BLE001 -- the head to head falls back to this season's
+        return {}
+    if value:
+        _memory[key] = (time.time(), value)
+        try:
+            if store:
+                store.set(key, json.dumps(value, separators=(",", ":")))
+        except Exception:  # noqa: BLE001
+            pass
+    return value
+
+
 def _nba_v2(now=None) -> dict:
     import predictor_nba
     from backend.sports.wnba import league
@@ -1223,7 +1277,7 @@ def _nba_v2(now=None) -> dict:
     hit = _memory.get("nba-v2")
     if hit and hit[1][0] == built and time.time() - hit[0] < TABLE_SECONDS:
         return hit[1][1]
-    context = nba_context(payload, _nba_v2_prior(season - 1), today)
+    context = nba_context(payload, _nba_v2_prior(season - 1), today, _nba_last_meetings(season - 1))
     _memory["nba-v2"] = (time.time(), (built, context))
     return context
 
@@ -1281,7 +1335,7 @@ def nba_model_v2(game, context) -> dict | None:
                                       f"counted as {round(scenario['chance'] * 100)}% to sit: if he sits, about "
                                       f"{scenario['impact'] * (1 - scenario['chance']):.1f} more points swing to {other}."))
     built.update({"rest": {side: (rest[side] or {}).get("days") for side in rest}, "restInfo": rest,
-                  # The matchup card: each side's last 10 margins and this season's meetings.
+                  # The matchup card: each side's last 10 margins and the teams' meetings since last season.
                   "recent": {side: (states.get(game[side]["abbr"]) or {}).get("recent") or [] for side in ("home", "away")},
                   "meetings": (context.get("meetings") or {}).get("|".join(sorted((home, away)))) or [],
                   "teams": {"home": profile("home"), "away": profile("away")}, "leaguePace": rt["pace_mu"],
