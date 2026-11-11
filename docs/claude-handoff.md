@@ -75,6 +75,12 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   with `gp-ourpick-kpis` (our chance, market, edge, price, confidence;
   `ChanceTab` gets `wide`) and "Our projected final" before a game; the
   chart is 236px tall. Styles at the end of game-predictor.css (`gp-gh-*`).
+- Then, with a screenshot of the header: "but this for mobile to". The
+  header is on every game page now; the old title row and the two board
+  rows (`gp-board`, with their win chances) are gone. On a phone (760px or
+  less) each logo sits over the team's short name, the record under it,
+  the score under that once it's on, the time and line between; the back
+  button sits above the card (`gp-page-back`).
 
 ### Nov 11 (b): a Matchup tab on every game (PickFinder's moneyline card as the reference)
 

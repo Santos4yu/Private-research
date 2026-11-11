@@ -871,26 +871,45 @@ button.gp-pickrow-x:active{transform:scale(.9)}
    in place of the title and the two rows (and their second win chance),
    our pick leading the left column with its numbers laid out, a taller
    chart. Phones are as they were. */
-.gp-gh{display:none}
+/* The scoreboard header, on every game page (a computer's beside the list, a phone's on its own). */
+.gp-gh{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;margin:4px 0 6px;padding:20px 22px;
+ border-radius:22px;overflow:hidden;isolation:isolate;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 22px 50px -30px rgba(0,0,0,.8);animation:gp-rise .45s var(--gp-ease) both}
+.gp-gh-team{position:relative;display:flex;align-items:center;gap:14px;min-width:0}
+.gp-gh-team[data-side="home"]{flex-direction:row-reverse;text-align:right}
+.gp-gh-team::before{content:"";position:absolute;top:50%;width:150px;height:150px;border-radius:50%;transform:translateY(-50%);pointer-events:none;
+ background:radial-gradient(closest-side,color-mix(in srgb,var(--team,#777) 28%,transparent),transparent);z-index:-1}
+.gp-gh-team[data-side="away"]::before{left:-60px}
+.gp-gh-team[data-side="home"]::before{right:-60px}
+.gp-gh-logo{display:grid;place-items:center;filter:drop-shadow(0 6px 14px rgba(0,0,0,.45))}
+.gp-gh-name{display:grid;gap:3px;min-width:0}
+.gp-gh-name b{overflow:hidden;font-size:21px;font-weight:850;letter-spacing:-.02em;white-space:nowrap;text-overflow:ellipsis}
+.gp-gh-name b .is-short{display:none}
+.gp-gh-name small{color:var(--gp-muted);font-size:12.5px;font-weight:650}
+.gp-gh-score{margin-left:auto;font-size:40px;font-weight:850;letter-spacing:-.04em;font-variant-numeric:tabular-nums;animation:gp-slide .35s var(--gp-ease) both}
+.gp-gh-team[data-side="home"] .gp-gh-score{margin-left:0;margin-right:auto}
+.gp-gh-mid{display:grid;justify-items:center;gap:4px;min-width:150px;text-align:center}
+.gp-gh-status{display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:850;letter-spacing:-.01em}
+.gp-gh-mid small{color:var(--gp-faint);font-size:12px;font-weight:650;white-space:nowrap}
+.gp-page-back{display:flex;padding:6px 0 4px}
+/* A phone: each logo over the team's short name, the score under it, the time and line between. */
+@media (max-width:760px){
+ .gp-gh{gap:8px;padding:16px 12px;border-radius:20px}
+ .gp-gh-team,.gp-gh-team[data-side="home"]{flex-direction:column;gap:7px;text-align:center}
+ .gp-gh-team::before{top:22px;width:120px;height:120px;left:50%!important;right:auto!important;transform:translate(-50%,-50%)}
+ .gp-gh-logo .gp-logo{width:46px!important;height:46px!important}
+ .gp-gh-name{justify-items:center;gap:2px}
+ .gp-gh-name b{font-size:16px}
+ .gp-gh-name b .is-full{display:none}
+ .gp-gh-name b .is-short{display:inline}
+ .gp-gh-name small{font-size:11.5px}
+ .gp-gh-name small .is-venue{display:none}
+ .gp-gh-score,.gp-gh-team[data-side="home"] .gp-gh-score{margin:0;font-size:30px}
+ .gp-gh-mid{min-width:0;gap:3px}
+ .gp-gh-status{font-size:14px}
+ .gp-gh-mid small{font-size:11px}
+}
 @media (min-width:1100px){
- .gp-detail .gp-gh{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;margin:4px 0 6px;padding:20px 22px;
-  border-radius:22px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 22px 50px -30px rgba(0,0,0,.8);animation:gp-rise .45s var(--gp-ease) both}
- .gp-gh-team{position:relative;display:flex;align-items:center;gap:14px;min-width:0}
- .gp-gh-team[data-side="home"]{flex-direction:row-reverse;text-align:right}
- .gp-gh-team::before{content:"";position:absolute;top:50%;width:150px;height:150px;border-radius:50%;transform:translateY(-50%);pointer-events:none;
-  background:radial-gradient(closest-side,color-mix(in srgb,var(--team,#777) 28%,transparent),transparent);z-index:-1}
- .gp-gh-team[data-side="away"]::before{left:-60px}
- .gp-gh-team[data-side="home"]::before{right:-60px}
- .gp-gh-logo{display:grid;place-items:center;filter:drop-shadow(0 6px 14px rgba(0,0,0,.45))}
- .gp-gh-name{display:grid;gap:3px;min-width:0}
- .gp-gh-name b{overflow:hidden;font-size:21px;font-weight:850;letter-spacing:-.02em;white-space:nowrap;text-overflow:ellipsis}
- .gp-gh-name small{color:var(--gp-muted);font-size:12.5px;font-weight:650}
- .gp-gh-score{margin-left:auto;font-size:40px;font-weight:850;letter-spacing:-.04em;font-variant-numeric:tabular-nums;animation:gp-slide .35s var(--gp-ease) both}
- .gp-gh-team[data-side="home"] .gp-gh-score{margin-left:0;margin-right:auto}
- .gp-gh-mid{display:grid;justify-items:center;gap:4px;min-width:150px;text-align:center}
- .gp-gh-status{display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:850;letter-spacing:-.01em}
- .gp-gh-mid small{color:var(--gp-faint);font-size:12px;font-weight:650;white-space:nowrap}
  .gp-detail .gp-page-left,.gp-detail .gp-page.is-embedded:not(.is-split)>.gp-page-body{display:flex;flex-direction:column}
  .gp-detail .gp-page-left>.gp-ourpick,.gp-detail .gp-page.is-embedded:not(.is-split)>.gp-page-body>.gp-ourpick{order:-1}
  .gp-detail .gp-sec.gp-ourpick{padding:20px!important;border-radius:22px!important}

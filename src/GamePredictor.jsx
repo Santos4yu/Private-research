@@ -270,19 +270,8 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  const colors=pairColors(raw?.home||game.home,raw?.away||game.away);
  const prediction=useMemo(()=>raw&&{...raw,home:{...raw.home,color:colors.home},away:{...raw.away,color:colors.away}},[raw,colors.home,colors.away]);
  const live=(chart?.state||game.state)==='in';
- const now=chancesNow(prediction,chart);
- const home=prediction?.home||game.home,away=prediction?.away||game.away;
  const status=live?<><i className="gp-pulse" aria-hidden="true"/>{liveText(chart?.detail)||'Live'}</>:(chart?.state||game.state)==='post'?'Final':startText(game.startsAt);
  const tabsRow=useRef(null),ink=useInk(tabsRow,split?right:tab,'[aria-selected=true]');
- // Nov 11, the owner: "now we have 2 win %? the top one and the new one ... only change that for mobile".
- const showChance=!(tab==='matchup'&&!embedded);
- const row=(side,team)=>{const color=teamColor({color:colors[side]});const score=chart?.[side]?.score;
-  return <li style={color?{'--team':color}:undefined}>
-   <Logo team={team} size={32}/>
-   <span className="gp-board-name"><b>{team.name||team.short||team.abbr}</b><small>{team.record||team.abbr}</small></span>
-   {(live||chart?.state==='post')&&score!=null&&<strong className="gp-board-score">{score}</strong>}
-   {showChance&&<strong className="gp-board-pct">{now?pct(now[side]):'—'}</strong>}
-  </li>;};
  const tint=hex=>/^[0-9a-f]{6}$/i.test(hex||'')?`#${hex}`:'transparent';
  const shown=key=>prediction&&<>
   {key==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick} wide={embedded}/>}
@@ -302,13 +291,8 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  return <>
  <div className="gp-page-bg" style={{'--home':tint(colors.home),'--away':tint(colors.away)}} aria-hidden="true"/>
  <div className={`gp-page${embedded?' is-embedded':''}${split?' is-split':''}`}>
-  {embedded?<GameHeader game={game} prediction={prediction} chart={chart} colors={colors} status={status} live={live}/>:<>
-  <header className="gp-page-top">
-   {onBack?<button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>:<span className="gp-back-space" aria-hidden="true"/>}
-   <div><b>{away.abbr} @ {home.abbr}</b><small>{status}</small></div>
-   <span className="gp-back-space" aria-hidden="true"/>
-  </header>
-  <ul className="gp-board">{row('away',away)}{row('home',home)}</ul></>}
+  {onBack&&<div className="gp-page-back"><button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button></div>}
+  <GameHeader game={game} prediction={prediction} chart={chart} colors={colors} status={status} live={live}/>
   {split?<div className="gp-page-cols">
    <div className="gp-page-body gp-page-left">{waiting||shown('chance')}</div>
    <div className="gp-page-right">{tabs(sideTabs)}<div className="gp-page-body" key={right}>{waiting||shown(right)}</div></div>
@@ -320,10 +304,11 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  </>;
 }
 
-// The game's header on a computer (Nov 11, the owner: "redesign the rest
-// for pc"): a scoreboard across the top, each team big with its logo,
-// record and home or road record, the time or the score in the middle with
-// the line. The win chance is the Matchup card's and the chart's.
+// The game's header (Nov 11, the owner: "redesign the rest for pc", then
+// "but this for mobile to"): a scoreboard across the top, each team big with
+// its logo, record and home or road record, the time or the score in the
+// middle with the line. The win chance is the Matchup card's and the
+// chart's. On a phone each logo sits over the team's short name.
 function GameHeader({game,prediction,chart,colors,status,live}){
  const final=(chart?.state||game.state)==='post';
  const info=prediction?.homeInfo||{};
@@ -334,7 +319,8 @@ function GameHeader({game,prediction,chart,colors,status,live}){
   const color=teamColor({color:colors[side]});
   return <div className="gp-gh-team" data-side={side} style={color?{'--team':color}:undefined}>
    <span className="gp-gh-logo"><Logo team={info2} size={58}/></span>
-   <span className="gp-gh-name"><b>{info2.name||info2.short||info2.abbr}</b><small>{[info2.record,venue(side)].filter(Boolean).join(' · ')}</small></span>
+   <span className="gp-gh-name"><b><span className="is-full">{info2.name||info2.short||info2.abbr}</span><span className="is-short">{info2.short||info2.abbr}</span></b>
+    <small><span>{info2.record}</span>{venue(side)&&<span className="is-venue">{info2.record?' · ':''}{venue(side)}</span>}</small></span>
    {(live||final)&&score!=null&&<strong className="gp-gh-score" key={score}>{score}</strong>}
   </div>;
  };
