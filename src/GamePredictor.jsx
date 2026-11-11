@@ -274,16 +274,18 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  const home=prediction?.home||game.home,away=prediction?.away||game.away;
  const status=live?<><i className="gp-pulse" aria-hidden="true"/>{liveText(chart?.detail)||'Live'}</>:(chart?.state||game.state)==='post'?'Final':startText(game.startsAt);
  const tabsRow=useRef(null),ink=useInk(tabsRow,split?right:tab,'[aria-selected=true]');
+ // Nov 11, the owner: "now we have 2 win %? the top one and the new one ... only change that for mobile".
+ const showChance=!(tab==='matchup'&&!embedded);
  const row=(side,team)=>{const color=teamColor({color:colors[side]});const score=chart?.[side]?.score;
   return <li style={color?{'--team':color}:undefined}>
    <Logo team={team} size={32}/>
    <span className="gp-board-name"><b>{team.name||team.short||team.abbr}</b><small>{team.record||team.abbr}</small></span>
    {(live||chart?.state==='post')&&score!=null&&<strong className="gp-board-score">{score}</strong>}
-   <strong className="gp-board-pct">{now?pct(now[side]):'—'}</strong>
+   {showChance&&<strong className="gp-board-pct">{now?pct(now[side]):'—'}</strong>}
   </li>;};
  const tint=hex=>/^[0-9a-f]{6}$/i.test(hex||'')?`#${hex}`:'transparent';
  const shown=key=>prediction&&<>
-  {key==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
+  {key==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick} wide={embedded}/>}
   {key==='matchup'&&<MatchupTab prediction={prediction} chart={chart}/>}
   {key==='live'&&<LiveTab prediction={prediction} chart={chart}/>}
   {key==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
@@ -300,12 +302,13 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  return <>
  <div className="gp-page-bg" style={{'--home':tint(colors.home),'--away':tint(colors.away)}} aria-hidden="true"/>
  <div className={`gp-page${embedded?' is-embedded':''}${split?' is-split':''}`}>
+  {embedded?<GameHeader game={game} prediction={prediction} chart={chart} colors={colors} status={status} live={live}/>:<>
   <header className="gp-page-top">
    {onBack?<button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>:<span className="gp-back-space" aria-hidden="true"/>}
    <div><b>{away.abbr} @ {home.abbr}</b><small>{status}</small></div>
    <span className="gp-back-space" aria-hidden="true"/>
   </header>
-  <ul className="gp-board">{row('away',away)}{row('home',home)}</ul>
+  <ul className="gp-board">{row('away',away)}{row('home',home)}</ul></>}
   {split?<div className="gp-page-cols">
    <div className="gp-page-body gp-page-left">{waiting||shown('chance')}</div>
    <div className="gp-page-right">{tabs(sideTabs)}<div className="gp-page-body" key={right}>{waiting||shown(right)}</div></div>
@@ -315,6 +318,31 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
   </>}
  </div>
  </>;
+}
+
+// The game's header on a computer (Nov 11, the owner: "redesign the rest
+// for pc"): a scoreboard across the top, each team big with its logo,
+// record and home or road record, the time or the score in the middle with
+// the line. The win chance is the Matchup card's and the chart's.
+function GameHeader({game,prediction,chart,colors,status,live}){
+ const final=(chart?.state||game.state)==='post';
+ const info=prediction?.homeInfo||{};
+ const venue=side=>{const spot=side==='home'?info.home?.home:info.away?.away;return spot&&Number.isFinite(spot.w)?`${spot.w}-${spot.l} ${side==='home'?'at home':'on the road'}`:null;};
+ const line=lineText(game)||lineText({line:prediction?.market});
+ const team=side=>{
+  const info2=prediction?.[side]||game[side]||{},score=chart?.[side]?.score;
+  const color=teamColor({color:colors[side]});
+  return <div className="gp-gh-team" data-side={side} style={color?{'--team':color}:undefined}>
+   <span className="gp-gh-logo"><Logo team={info2} size={58}/></span>
+   <span className="gp-gh-name"><b>{info2.name||info2.short||info2.abbr}</b><small>{[info2.record,venue(side)].filter(Boolean).join(' · ')}</small></span>
+   {(live||final)&&score!=null&&<strong className="gp-gh-score" key={score}>{score}</strong>}
+  </div>;
+ };
+ return <header className="gp-gh" data-live={live||undefined}>
+  {team('away')}
+  <div className="gp-gh-mid"><span className="gp-gh-status">{status}</span>{line&&<small>{line}</small>}{prediction?.market?.provider&&!live&&!final&&<small>{prediction.market.provider}</small>}</div>
+  {team('home')}
+ </header>;
 }
 
 // Both teams' chance over time (Nov 6, the owner, with DraftKings' game
@@ -436,7 +464,7 @@ function LastPlay({prediction,chart}){
 // line, the away team's below, taller the more they won it by.
 // (Nov 9, the owner: the little bars under the chart are gone.)
 
-function ChanceTab({prediction,chart,onPick}){
+function ChanceTab({prediction,chart,onPick,wide}){
  const side=prediction.winner,team=prediction[side];
  const live=chart?.state==='in'&&(chart?.live||[]).length>1;
  const status=pickStatus(prediction,chart);
@@ -460,7 +488,14 @@ function ChanceTab({prediction,chart,onPick}){
      :<>{marketSide!=null&&<>Market {pct(marketSide)} · <span data-tone={edge>0.005?'up':edge<-0.005?'down':undefined}>{edgeText(edge)}</span> · </>}{prediction.confidence} confidence</>}</small></span>
     {status?<strong className="gp-ourpick-result" data-tone={status.tone} key={status.result}>{status.result||pct(status.now)}</strong>:<strong>{pct(prediction.chance[side])}</strong>}
    </div>
-   {prediction.score&&<p className="gp-ourpick-score">{status&&!status.final?'Our projected final':'Final score'} <b>{prediction.away.abbr} {prediction.score.away} – {prediction.score.home} {prediction.home.abbr}</b></p>}
+   {prediction.score&&<p className="gp-ourpick-score">{(status&&!status.final)||(wide&&!status)?'Our projected final':'Final score'} <b>{prediction.away.abbr} {prediction.score.away} – {prediction.score.home} {prediction.home.abbr}</b></p>}
+   {wide&&!status&&<dl className="gp-ourpick-kpis">
+    <div><dt>Our chance</dt><dd>{pct(prediction.chance[side])}</dd></div>
+    <div><dt>Market</dt><dd>{marketSide!=null?pct(marketSide):'—'}</dd></div>
+    <div><dt>Edge</dt><dd data-tone={edge>0.005?'up':edge<-0.005?'down':undefined}>{edge!=null?edgeText(edge):'—'}</dd></div>
+    <div><dt>Price</dt><dd>{odds(prediction.market?.moneyline?.[side])}</dd></div>
+    <div><dt>Confidence</dt><dd>{prediction.confidence}</dd></div>
+   </dl>}
   </section>
  </>;
 }

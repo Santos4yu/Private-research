@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-11 (a Matchup tab on every game, after PickFinder's moneyline card. Before that, live NBA games after midnight Eastern stay in the games list. Before that, the moneyline Generator's NBA + NFL parlays: a leg from each league, a league with no games that day bringing its next ones. Before that, the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-11 (the game page redesigned for computers around the Matchup card; no second win chance on phones. Before that, a Matchup tab on every game, after PickFinder's moneyline card. Before that, live NBA games after midnight Eastern stay in the games list. Before that, the moneyline Generator's NBA + NFL parlays: a leg from each league, a league with no games that day bringing its next ones. Before that, the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -57,6 +57,24 @@ Last updated 2026-11-11 (a Matchup tab on every game, after PickFinder's moneyli
   minutes. Scores are worked out on the phone, so without this a phone kept
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
+
+### Nov 11 (c): the game page on a computer redesigned; one win chance on phones
+
+- The owner, with a laptop screenshot: "DO NOT TOUCH THE NEW MATCHUP THING
+  WE ADDED BUT REDESIGN THE REST FOR PC SEE HOW NOW WE HAVE 2 WIN %? the
+  top one and the new one only change that for mobile and the redesign
+  only for pc". The Matchup card (`MatchupTab`, `gp-mu-*`) is untouched.
+- Phones (and any game page not beside the list): the top board hides its
+  win chance while the Matchup tab is open (`showChance` in GamePage);
+  nothing else changed there.
+- Computers (`embedded`, 1100px+): `GameHeader` replaces the title and the
+  two board rows: a scoreboard card, each team with a 58px logo (a soft
+  glow in its color), name, record and home / road record, the score big
+  once it's on, the status and the line (and DraftKings before the game)
+  in the middle. The left column leads with Our pick (CSS order), bigger,
+  with `gp-ourpick-kpis` (our chance, market, edge, price, confidence;
+  `ChanceTab` gets `wide`) and "Our projected final" before a game; the
+  chart is 236px tall. Styles at the end of game-predictor.css (`gp-gh-*`).
 
 ### Nov 11 (b): a Matchup tab on every game (PickFinder's moneyline card as the reference)
 
