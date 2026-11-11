@@ -1317,11 +1317,24 @@ def nba_official_ratings(now=None) -> dict | None:
             abbr = NBA_TEAM_IDS.get(int(row.get("TEAM_ID") or 0))
             off, deff = row.get("OFF_RATING"), row.get("DEF_RATING")
             if abbr and isinstance(off, (int, float)) and isinstance(deff, (int, float)) and (row.get("GP") or 0) > 0:
-                teams[abbr] = {"off": float(off), "def": float(deff), "games": row.get("GP")}
+                teams[abbr] = {"off": float(off), "def": float(deff), "games": row.get("GP"),
+                               "listed": (row.get("OFF_RATING_RANK"), row.get("DEF_RATING_RANK")),
+                               "estimated": (row.get("E_OFF_RATING"), row.get("E_DEF_RATING"))}
         if len(teams) >= 25:
             offense, defense = {t: row["off"] for t, row in teams.items()}, {t: row["def"] for t, row in teams.items()}
+            number = lambda value: isinstance(value, (int, float)) and not isinstance(value, bool)
+            guess_off = {t: row["estimated"][0] for t, row in teams.items() if number(row["estimated"][0])}
+            guess_def = {t: row["estimated"][1] for t, row in teams.items() if number(row["estimated"][1])}
+            # NBA.com's own rank columns when it lists them for every team: the ratings come
+            # rounded to a tenth, so ranking them here can tie teams NBA.com tells apart.
+            listed = all(number(rank) for row in teams.values() for rank in row["listed"])
             for abbr, row in teams.items():
-                row["offRank"], row["defRank"] = _rank_of(offense, abbr), _rank_of(defense, abbr, high_first=False)
+                ours = [_rank_of(offense, abbr), _rank_of(defense, abbr, high_first=False)]
+                row["offRank"], row["defRank"] = [int(rank) for rank in row["listed"]] if listed else ours
+                # For the admin's note (Nov 11, checking each against PickFinder's): NBA.com's listed
+                # ranks, the ranks of its rounded ratings, and the ranks of its estimated ratings.
+                row["alt"] = {"listed": [int(rank) for rank in row["listed"]] if listed else None, "rounded": ours,
+                              "estimated": [_rank_of(guess_off, abbr), _rank_of(guess_def, abbr, high_first=False)] if len(guess_def) >= 25 else None}
             value = teams
             _memory["nba-official-sent"] = (now, sent)
     except Exception:  # noqa: BLE001 -- the box-score ratings stand in
@@ -1445,7 +1458,8 @@ def nba_model_v2(game, context) -> dict | None:
     official, ranks_from = nba_official_ratings(), {"source": "box"}
     if official:
         sent = (_memory.get("nba-official-sent") or (0, None))[1]
-        ranks_from = {"source": "nba", "at": datetime.fromtimestamp(sent, timezone.utc).isoformat() if sent else None}
+        ranks_from = {"source": "nba", "at": datetime.fromtimestamp(sent, timezone.utc).isoformat() if sent else None,
+                      "alt": {side: (official.get(game[side]["abbr"]) or {}).get("alt") for side in ("home", "away")}}
     else:
         official = nba_counted_ratings()
         if official:

@@ -546,8 +546,12 @@ class NbaV2Tests(unittest.TestCase):
                 official = gp.nba_official_ratings(now)
                 built = gp.nba_model_v2(game(), self.context)
                 home = built["teams"]["home"]
-            # The admin's note: where the ranks came from, and when the phone sent them.
-            self.assertEqual(built["ranksFrom"], {"source": "nba", "at": datetime.fromtimestamp(sent, timezone.utc).isoformat()} if expect else {"source": "box"})
+            # The admin's note: where the ranks came from, when the phone sent them, and the other ways to rank its table.
+            if expect:
+                self.assertEqual({key: built["ranksFrom"][key] for key in ("source", "at")}, {"source": "nba", "at": datetime.fromtimestamp(sent, timezone.utc).isoformat()})
+                self.assertEqual(built["ranksFrom"]["alt"]["home"], {"listed": None, "rounded": [1, 1], "estimated": None})
+            else:
+                self.assertEqual(built["ranksFrom"], {"source": "box"})
             if expect:
                 self.assertEqual((official["DEN"]["offRank"], official["DEN"]["defRank"]), (1, 1))
                 self.assertEqual((home["ortg"], home["drtg"]), ([125.0, 1], [100.0, 1]))
@@ -556,6 +560,16 @@ class NbaV2Tests(unittest.TestCase):
             else:
                 self.assertIsNone(official)
                 self.assertEqual((home["ortg"], home["drtg"]), (box["ortg"], box["drtg"]))
+        gp._memory.pop("nba-official", None)
+        # NBA.com's own rank columns win over ranking its rounded ratings; its estimated ratings are ranked for the note.
+        for index, row in enumerate(table):
+            row.update(OFF_RATING_RANK=30 - index, DEF_RATING_RANK=index + 1, E_OFF_RATING=100.0 + index, E_DEF_RATING=100.0 + index)
+        with patch.object(nba_relay, "sent_at", return_value=now - 60), patch.object(nba_relay, "rows", return_value=table), \
+                patch.object(gp.time, "time", return_value=now):
+            built = gp.nba_model_v2(game(), self.context)
+        place = [row["TEAM_ID"] for row in table].index(ids["DEN"])
+        self.assertEqual((built["teams"]["home"]["ortg"], built["teams"]["home"]["drtg"]), ([125.0, 30 - place], [100.0, place + 1]))
+        self.assertEqual(built["ranksFrom"]["alt"]["home"], {"listed": [30 - place, place + 1], "rounded": [1, 1], "estimated": [30 - place, place + 1]})
         gp._memory.pop("nba-official", None)
 
     def test_counted_possessions_stand_in_for_nba_com(self):

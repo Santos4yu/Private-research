@@ -90,6 +90,24 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   `ranksFrom` ({source: nba | counted | box, at}) and the Players tab's
   Side by side shows the admin one line saying which it is (`ranksNote`,
   `gp-ranks-from`; members never see it).
+- The note read "NBA.com's own ratings, sent by your phone Nov 11, 10:00
+  AM": the relay works, and the card was on NBA.com's table (WSH 108.1 /
+  113.2, IND 109.9 / 113.1). Then the owner's laptop screenshots, four more
+  teams each side. PickFinder that afternoon: CLE 13 / 18 (12 / 19 that
+  morning: its own numbers move with no games played), NY 10 / 6, BOS 4 /
+  3, TOR 9 / 15, SA 5 / 4, CHI 25 / 30, WSH 23 / 17, IND 21 / 14. Ours from
+  NBA.com's 10 AM table: CLE 11 / 17, NY 9 / 5, BOS 3 / 3, TOR 8 / 14, WSH
+  23 / 16, IND 21 / 15: a place or two apart, mostly ours a place better.
+- `nba_official_ratings` now takes NBA.com's own rank columns
+  (OFF_RATING_RANK / DEF_RATING_RANK) when it lists them for every team:
+  its ratings come rounded to a tenth, and ranking those here ties teams
+  NBA.com tells apart (ours gave tied teams the better place). The admin's
+  note lists, for the two teams, NBA.com's listed ranks, the ranks of its
+  rounded ratings and of its estimated ratings (E_OFF_RATING /
+  E_DEF_RATING), to hold against PickFinder's (`ranksFrom.alt`).
+- Round six of the check (sixteen ranks): season totals against each
+  game's rating averaged over the games, box-score or counted possessions
+  (PBPStats' game logs), sorted by how far each lands from PickFinder's.
 - Prices: PickFinder shows the best price across many sportsbooks; the
   Game Predictor reads DraftKings' own free feed. The Moneylines tab
   already reads The Odds API for NFL / MLB / NHL / WNBA (ten books, a

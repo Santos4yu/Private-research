@@ -15,7 +15,12 @@
 # (CLE 12 / 17, NY 9 / 5, WSH 24 / 16, IND 21 / 15); NBA.com's own feeds
 # didn't load from GitHub. Round five, here: PBPStats' counts through each
 # of the last few nights, to see whether PickFinder's table is simply a
-# day or two behind. Run by hand.
+# day or two behind: no single night gives its numbers. Round six, here,
+# against sixteen of its ranks from the afternoon of Nov 11 (its own had
+# moved since the morning: CLE 12 / 19 then, 13 / 18 now): each game's
+# rating averaged over the games (not the season's points over the
+# season's possessions), with possessions estimated from the box score
+# or counted (PBPStats' game logs). Run by hand.
 name: Team ratings check
 
 on:
@@ -31,43 +36,150 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python -m pip install --quiet requests numpy
-      - name: PBPStats' counted ratings through each of the last nights
+      - name: Sixteen of PickFinder's ranks against every way to rate a team
         shell: python
         run: |
-          import sys
+          import re, sys, time, traceback
+          from collections import defaultdict
+          from concurrent.futures import ThreadPoolExecutor
+          from statistics import mean, median
           import requests
           sys.path.insert(0, ".")
+          from backend.sports.wnba import league
           import nba_live
+          import game_predictor as gp
 
-          PF = {"CLE": (12, 19), "NY": (10, 6), "WSH": (23, 17), "IND": (21, 14)}
+          PF = {"CLE": (13, 18), "NY": (10, 6), "WSH": (23, 17), "IND": (21, 14), "BOS": (4, 3), "TOR": (9, 15), "SA": (5, 4), "CHI": (25, 30)}
           UA = {"Accept": "application/json", "User-Agent": "Mozilla/5.0"}
+          results = []
 
           def ranks(values, high_first=True):
               order = sorted(values, key=lambda team: values[team], reverse=high_first)
               return {team: order.index(team) + 1 for team in order}
 
-          def totals(extra):
-              out = {}
-              for kind in ("Team", "Opponent"):
-                  reply = requests.get("https://api.pbpstats.com/get-totals/nba", params={"Season": "2026-27", "SeasonType": "Regular Season", "Type": kind, **extra},
-                                       headers=UA, timeout=30)
-                  rows = (reply.json() or {}).get("multi_row_table_data") or []
-                  out[kind] = {nba_live.ESPN_ABBR.get(row.get("TeamAbbreviation"), row.get("TeamAbbreviation")): row for row in rows}
-              return out
+          def show(name, off, deff):
+              ro, rd = ranks(off), ranks(deff, high_first=False)
+              if not all(t in ro and t in rd for t in PF):
+                  print(name, "is missing teams")
+                  return
+              exact = sum((ro[t] == want[0]) + (rd[t] == want[1]) for t, want in PF.items())
+              error = sum(abs(ro[t] - want[0]) + abs(rd[t] - want[1]) for t, want in PF.items())
+              results.append((error, -exact, name, " ".join(f"{t} {ro[t]}/{rd[t]}" for t in PF),
+                              [(t, round(float(off[t]), 2)) for t in sorted(off, key=ro.get)], [(t, round(float(deff[t]), 2)) for t in sorted(deff, key=rd.get)]))
 
           print("PickFinder (off/def):", " ".join(f"{t} {o}/{d}" for t, (o, d) in PF.items()))
-          for name, extra in (("all games", {}), ("through Nov 10", {"ToDate": "2026-11-10"}), ("through Nov 9", {"ToDate": "2026-11-09"}),
-                              ("through Nov 8", {"ToDate": "2026-11-08"}), ("through Nov 7", {"ToDate": "2026-11-07"}), ("through Nov 6", {"ToDate": "2026-11-06"})):
-              try:
-                  found = totals(extra)
-                  team, other = found["Team"], found["Opponent"]
-                  off = {t: 100 * row["Points"] / row["OffPoss"] for t, row in team.items() if row.get("OffPoss")}
-                  deff = {t: 100 * row["Points"] / row["OffPoss"] for t, row in other.items() if row.get("OffPoss")}
-                  ro, rd = ranks(off), ranks(deff, high_first=False)
-                  each = sum((ro.get(t) == want[0]) + (rd.get(t) == want[1]) for t, want in PF.items())
-                  games = sum(row.get("GamesPlayed") or 0 for row in team.values()) // 2
-                  print(f"{name:16} {each}/8 | " + " ".join(f"{t} {ro.get(t)}/{rd.get(t)}" for t in PF), "| games", games, {t: team[t].get("GamesPlayed") for t in PF if t in team})
-                  print("    off:", [(t, round(off[t], 2)) for t in sorted(off, key=ro.get)])
-                  print("    def:", [(t, round(deff[t], 2)) for t in sorted(deff, key=rd.get)])
-              except Exception as error:  # noqa: BLE001
-                  print(name, type(error).__name__, str(error)[:200])
+          teams = league.team_directory("nba")
+          by_name = {row["name"]: abbr for abbr, row in teams.items()}
+
+          # ESPN's box scores, team totals: the season's totals and each game's own rating.
+          try:
+              season = league.current_season(league="nba")
+              listing = [g for g in league.schedule(season, teams, "nba") if g["completed"] and g["type"] == 2]
+              def summary(game):
+                  try:
+                      return game, league.espn("/summary", {"event": game["id"]}, 20, league="nba")
+                  except Exception:  # noqa: BLE001
+                      return game, None
+              with ThreadPoolExecutor(max_workers=12) as pool:
+                  found = list(pool.map(summary, listing))
+              games = []
+              for game, data in found:
+                  sides = {}
+                  for side in ((data or {}).get("boxscore") or {}).get("teams") or []:
+                      stats = {item.get("name"): item.get("displayValue") for item in side.get("statistics") or []}
+                      pair = lambda key: [float(x) for x in str(stats.get(key) or "0-0").split("-")[:2]]
+                      fgm, fga = pair("fieldGoalsMade-fieldGoalsAttempted")
+                      ftm, fta = pair("freeThrowsMade-freeThrowsAttempted")
+                      tpm, tpa = pair("threePointFieldGoalsMade-threePointFieldGoalsAttempted")
+                      num = lambda key: float(stats.get(key) or 0)
+                      sides[(side.get("team") or {}).get("abbreviation")] = {
+                          "fga": fga, "fta": fta, "oreb": num("offensiveRebounds"), "to": num("turnovers"),
+                          "tto": num("totalTurnovers") or num("turnovers"), "pts": 2 * fgm + tpm + ftm}
+                  if game["home"] in sides and game["away"] in sides:
+                      games.append((game, sides))
+              print("ESPN games read:", len(games), "of", len(listing))
+              per_team = defaultdict(list)
+              for game, sides in games:
+                  per_team[game["home"]].append((sides[game["home"]], sides[game["away"]]))
+                  per_team[game["away"]].append((sides[game["away"]], sides[game["home"]]))
+              for turnovers in ("to", "tto"):
+                  for weight in (0.44, 0.4, 0.475):
+                      trips = lambda box: box["fga"] - box["oreb"] + box[turnovers] + weight * box["fta"]
+                      ways = {"game": lambda a, b: ((trips(a) + trips(b)) / 2,) * 2, "own": lambda a, b: (trips(a), trips(b))}
+                      for label, poss in ways.items():
+                          tag = f"box, {label} poss, {'team' if turnovers == 'tto' else 'players'} TO, FT {weight}"
+                          total_o = {t: 100 * sum(a["pts"] for a, b in rows) / sum(poss(a, b)[0] for a, b in rows) for t, rows in per_team.items()}
+                          total_d = {t: 100 * sum(b["pts"] for a, b in rows) / sum(poss(a, b)[1] for a, b in rows) for t, rows in per_team.items()}
+                          show("season totals: " + tag, total_o, total_d)
+                          each_o = {t: [100 * a["pts"] / poss(a, b)[0] for a, b in rows] for t, rows in per_team.items()}
+                          each_d = {t: [100 * b["pts"] / poss(a, b)[1] for a, b in rows] for t, rows in per_team.items()}
+                          show("games averaged: " + tag, {t: mean(v) for t, v in each_o.items()}, {t: mean(v) for t, v in each_d.items()})
+                          if weight == 0.44:
+                              show("games' median: " + tag, {t: median(v) for t, v in each_o.items()}, {t: median(v) for t, v in each_d.items()})
+              show("points a game", {t: mean(a["pts"] for a, b in rows) for t, rows in per_team.items()}, {t: mean(b["pts"] for a, b in rows) for t, rows in per_team.items()})
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
+
+          # PBPStats: counted possessions, the season's totals and each game's own rating (its game logs).
+          try:
+              found = {}
+              for kind in ("Team", "Opponent"):
+                  reply = requests.get("https://api.pbpstats.com/get-totals/nba", params={"Season": "2026-27", "SeasonType": "Regular Season", "Type": kind}, headers=UA, timeout=30)
+                  found[kind] = {nba_live.ESPN_ABBR.get(row.get("TeamAbbreviation"), row.get("TeamAbbreviation")): row for row in (reply.json() or {}).get("multi_row_table_data") or []}
+              show("season totals: PBPStats, counted poss", {t: 100 * row["Points"] / row["OffPoss"] for t, row in found["Team"].items() if row.get("OffPoss")},
+                   {t: 100 * row["Points"] / row["OffPoss"] for t, row in found["Opponent"].items() if row.get("OffPoss")})
+              logs, named = {}, False
+              for team_id, abbr in gp.NBA_TEAM_IDS.items():
+                  rows = []
+                  for kind in ("Team", "Opponent"):
+                      reply = requests.get("https://api.pbpstats.com/get-game-logs/nba", params={"Season": "2026-27", "SeasonType": "Regular Season", "EntityId": team_id, "EntityType": kind},
+                                           headers=UA, timeout=30)
+                      data = (reply.json() or {}).get("multi_row_table_data") or [] if reply.status_code == 200 else []
+                      if not named and data:
+                          print("PBPStats game log", kind, reply.status_code, len(data), "rows; fields:", [key for key in sorted(data[0]) if re.search(r"Poss|Points$|Date|GameId|Opponent", key)][:30])
+                      rows.append({row.get("GameId"): row for row in data})
+                      time.sleep(0.15)
+                  named = True
+                  logs[abbr] = rows
+              each_o = {t: [100 * row["Points"] / row["OffPoss"] for row in own.values() if row.get("OffPoss")] for t, (own, other) in logs.items()}
+              each_d = {t: [100 * row["Points"] / row["OffPoss"] for row in other.values() if row.get("OffPoss")] for t, (own, other) in logs.items()}
+              print("PBPStats game logs: games a team", {t: (len(each_o[t]), len(each_d[t])) for t in PF})
+              if all(each_o.get(t) and each_d.get(t) for t in gp.NBA_TEAM_IDS.values()):
+                  show("games averaged: PBPStats, counted poss", {t: mean(v) for t, v in each_o.items()}, {t: mean(v) for t, v in each_d.items()})
+                  show("games' median: PBPStats, counted poss", {t: median(v) for t, v in each_o.items()}, {t: median(v) for t, v in each_d.items()})
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()
+
+          # Basketball-Reference's and TeamRankings' own tables.
+          try:
+              page = requests.get("https://www.basketball-reference.com/leagues/NBA_2027_ratings.html", headers=UA, timeout=20)
+              html = page.text.replace("<!--", "").replace("-->", "")
+              rated = {}
+              for row in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S):
+                  cells = dict(re.findall(r'data-stat="([a-z_0-9]+)"[^>]*>(.*?)</t[dh]>', row, re.S))
+                  name = re.sub(r"<[^>]+>", "", cells.get("team_name", cells.get("team", ""))).replace("*", "").strip()
+                  abbr = by_name.get(name) or {"Los Angeles Clippers": "LAC"}.get(name)
+                  if abbr and cells.get("off_rtg"):
+                      rated[abbr] = (float(re.sub(r"<[^>]+>", "", cells["off_rtg"])), float(re.sub(r"<[^>]+>", "", cells["def_rtg"])))
+              print("Basketball-Reference teams:", len(rated))
+              show("season totals: Basketball-Reference", {t: v[0] for t, v in rated.items()}, {t: v[1] for t, v in rated.items()})
+          except Exception as error:  # noqa: BLE001
+              print("Basketball-Reference:", type(error).__name__, str(error)[:200])
+          try:
+              short = {"Cleveland": "CLE", "New York": "NY", "Washington": "WSH", "Indiana": "IND", "Boston": "BOS", "Toronto": "TOR", "San Antonio": "SA", "Chicago": "CHI"}
+              tables = {}
+              for name in ("offensive-efficiency", "defensive-efficiency"):
+                  page = requests.get(f"https://www.teamrankings.com/nba/stat/{name}", headers=UA, timeout=20)
+                  rows = re.findall(r"<tr[^>]*>\s*<td[^>]*>(\d+)</td>\s*<td[^>]*>(?:<a[^>]*>)?([^<]+)(?:</a>)?</td>\s*<td[^>]*>([\d.]+)</td>", page.text)
+                  tables[name] = {short.get(team.strip(), team.strip()): float(value) for _, team, value in rows}
+              show("season totals: TeamRankings", tables["offensive-efficiency"], tables["defensive-efficiency"])
+          except Exception as error:  # noqa: BLE001
+              print("TeamRankings:", type(error).__name__, str(error)[:200])
+
+          print("\nClosest first (places off in total over the sixteen, how many exact):")
+          for error, exact, name, cells, off, deff in sorted(results)[:40]:
+              print(f"{error:3} off, {-exact:2}/16 exact | {name:58} | {cells}")
+          for error, exact, name, cells, off, deff in sorted(results)[:3]:
+              print(name)
+              print("    off:", off)
+              print("    def:", deff)
