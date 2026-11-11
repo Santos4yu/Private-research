@@ -743,3 +743,76 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 .gp-gen-body>.gp-controls>.gp-seg{margin-bottom:2px}
 .gp-legchip-tag{margin-left:2px;padding:1px 6px;border-radius:6px;background:rgba(255,255,255,.08);color:var(--gp-muted);font-size:10.5px;font-style:normal;font-weight:800;letter-spacing:.02em}
 .gp-mixed-note{margin:0 0 10px}
+
+/* The matchup (Nov 11, the owner with PickFinder's moneyline card as a
+   reference): the win chance split, each side's price, the teams side by
+   side, their last games as margins, who's out. Soft panels, numbers that
+   count up, bars that grow from the middle. */
+.gp-mu{display:grid;gap:12px;margin-top:12px}
+.gp-mu>section{animation:gp-rise .45s var(--gp-ease) both}
+.gp-mu-split-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-variant-numeric:tabular-nums}
+.gp-mu-split-top b{font-size:14px;font-weight:850}
+.gp-mu-split-top b:first-child{color:color-mix(in srgb,var(--away) 70%,#fff)}
+.gp-mu-split-top b:last-child{color:color-mix(in srgb,var(--home) 70%,#fff)}
+.gp-mu-split-top small{color:var(--gp-faint);font-size:11.5px;font-weight:700}
+.gp-mu-bar{display:flex;gap:3px;height:8px;margin-top:8px}
+.gp-mu-bar i{height:100%;flex:var(--w) 0 0;border-radius:99px;transform-origin:left;animation:gp-grow .9s var(--gp-ease) both .1s}
+.gp-mu-bar .is-away{background:var(--away)}
+.gp-mu-bar .is-home{background:var(--home);transform-origin:right}
+.gp-mu-prices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gp-mu-price{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-radius:16px;background:var(--gp-soft);
+ animation:gp-rise .45s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 60ms + 80ms)}
+.gp-mu-price[data-side="home"]{flex-direction:row-reverse;text-align:right}
+.gp-mu-price span{display:grid;gap:2px}
+.gp-mu-price small{color:var(--gp-faint);font-size:11px;font-weight:650}
+.gp-mu-price small:first-child{color:var(--gp-muted);font-weight:750}
+.gp-mu-price b{font-size:20px;font-weight:850;font-variant-numeric:tabular-nums}
+.gp-mu-table{padding:6px 0 2px;border-radius:16px}
+.gp-mu-head,.gp-mu-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(96px,auto) minmax(0,1fr);align-items:center;gap:10px}
+.gp-mu-head{padding:4px 12px 8px;color:var(--gp-muted);font-size:12.5px;font-weight:800}
+.gp-mu-head span{display:inline-flex;align-items:center;gap:7px}
+.gp-mu-head span:last-child{justify-content:flex-end}
+.gp-mu-row{min-height:40px;padding:6px 12px;border-radius:12px;animation:gp-rise .4s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 40ms + .1s)}
+.gp-mu-row:nth-child(even){background:var(--gp-soft)}
+.gp-mu-label{color:var(--gp-faint);font-size:12px;font-weight:700;text-align:center}
+.gp-mu-cell{display:grid;gap:1px;color:var(--gp-muted);font-size:14px;font-weight:750;font-variant-numeric:tabular-nums}
+.gp-mu-row .gp-mu-cell:last-child{text-align:right}
+.gp-mu-cell small{color:var(--gp-faint);font-size:11px;font-weight:650}
+.gp-mu-cell[data-better]{color:var(--gp-text);font-weight:850}
+.gp-mu-cell[data-move="up"]{color:var(--gp-up)}
+.gp-mu-cell[data-move="down"]{color:var(--gp-down)}
+.gp-mu-block{padding-top:14px;border-top:1px solid var(--gp-rule)}
+.gp-mu-block h4{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0;font-size:14.5px;font-weight:850}
+.gp-mu-block h4 small{color:var(--gp-faint);font-size:11.5px;font-weight:650}
+.gp-mu-charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px}
+.gp-mu-chart-top{display:flex;align-items:baseline;gap:7px;margin:0 0 6px;color:var(--gp-muted);font-size:12px;font-weight:750}
+.gp-mu-chart-top b{color:var(--gp-text);font-size:15px;font-weight:850}
+.gp-mu-chart:last-child .gp-mu-chart-top{justify-content:flex-end;flex-direction:row-reverse}
+.gp-mu-bars{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;height:96px}
+.gp-mu-col{display:grid;grid-template-rows:1fr 1fr;gap:2px;min-width:0}
+.gp-mu-up,.gp-mu-down{position:relative;display:flex;flex-direction:column;align-items:center}
+.gp-mu-up{justify-content:flex-end}
+.gp-mu-up i,.gp-mu-down i{display:block;width:100%;height:calc(max(.06,var(--h)) * 100%);transform-origin:bottom;animation:gp-rise-bar .55s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 35ms + .15s)}
+.gp-mu-up i{border-radius:4px 4px 1px 1px;background:color-mix(in srgb,var(--gp-up) 75%,#0c0c0c)}
+.gp-mu-down i{border-radius:1px 1px 4px 4px;background:color-mix(in srgb,var(--gp-down) 72%,#0c0c0c);transform-origin:top}
+.gp-mu-up small,.gp-mu-down small{color:var(--gp-faint);font-size:9.5px;font-weight:750;line-height:1.3;font-variant-numeric:tabular-nums}
+.gp-mu-up small{color:color-mix(in srgb,var(--gp-up) 70%,#fff)}
+.gp-mu-down small{color:color-mix(in srgb,var(--gp-down) 70%,#fff)}
+.gp-mu-opps{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;margin-top:6px;justify-items:center}
+.gp-mu-avg{margin:6px 0 0;color:var(--gp-faint);font-size:11.5px;font-weight:650}
+.gp-mu-chart:last-child .gp-mu-avg{text-align:right}
+.gp-mu-out-total{margin:6px 0 0;color:var(--gp-muted);font-size:12.5px;font-weight:650}
+.gp-mu-out-total b{color:var(--gp-down);font-weight:850}
+.gp-mu-outs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+.gp-mu-outs ul{display:grid;gap:10px;margin:0;padding:0;list-style:none;align-content:start}
+.gp-mu-outs li{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:9px;animation:gp-rise .4s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 50ms + .1s)}
+.gp-mu-outs ul[data-side="home"] li{grid-template-columns:minmax(0,1fr) 34px;text-align:right}
+.gp-mu-outs ul[data-side="home"] li>:first-child{order:2}
+.gp-mu-outs img,.gp-mu-face{width:34px;height:34px;border-radius:50%;object-fit:cover;background:var(--gp-soft-2)}
+.gp-mu-outs li>span{display:grid;gap:1px;min-width:0}
+.gp-mu-outs b{overflow:hidden;font-size:13px;font-weight:800;white-space:nowrap;text-overflow:ellipsis}
+.gp-mu-outs small{color:var(--gp-faint);font-size:11px;font-weight:650}
+.gp-mu-outs em{font-style:normal;font-weight:800;color:var(--gp-gold)}
+.gp-mu-outs em[data-kind="out"]{color:var(--gp-down)}
+.gp-mu-outs .gp-mu-none{display:block;color:var(--gp-faint);font-size:12px}
+.gp-mu-opps .gp-logo-empty{overflow:hidden;font-size:6.5px}

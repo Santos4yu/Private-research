@@ -401,3 +401,33 @@ test('value picks: where our model sees more than the market',()=>{
  assert.equal(edgeText(-0.03),'−3 pts');
  assert.equal(edgeText(null),'');
 });
+
+test('the matchup card: the teams side by side, the better side marked, their latest games and who is out',async()=>{
+ const {headToHead,matchupRows,outPoints,recentGames}=await import('../src/game-predictor-core.js');
+ const prediction={sport:'nba',home:{abbr:'IND'},away:{abbr:'WSH'},
+  market:{moneyline:{home:-166,away:139},open:{home:-161,away:135}},
+  teams:{home:{ortg:[114.2,21],drtg:[113.0,14],last10:[2,8]},away:{ortg:[110.1,23],drtg:[115.2,17],last10:[3,7]}},
+  homeInfo:{home:{home:{w:0,l:5}},away:{away:{w:2,l:5}}},rest:{home:1,away:2},
+  meetings:[{home:'IND',away:'WSH',hs:100,as:108},{home:'WSH',away:'IND',hs:111,as:104}],
+  recent:{home:[{opponent:'DAL',margin:-16,home:true},{opponent:'BKN',margin:27,home:false}],away:[]},
+  lastFive:{WSH:[{opponent:'TOR',score:'101-111',atVs:'@',date:'2026-11-01'},{opponent:'CHI',score:'118-114',atVs:'vs',date:'2026-11-03'}]}};
+ const rows=matchupRows(prediction);
+ assert.deepEqual(rows.map(row=>row.key),['price','offense','defense','last10','venue','rest','h2h']);
+ const [price,offense,defense,last10,venue,rest,h2h]=rows;
+ assert.equal(price.label,'Open → now');
+ assert.deepEqual([price.away.text,price.away.move,price.home.text,price.home.move],['+135 → +139','down','-161 → -166','up']);
+ // A lower rank is the better side.
+ assert.deepEqual([offense.away.text,offense.home.text,offense.home.better,offense.away.better],['#23','#21',true,false]);
+ assert.equal(defense.home.better,true);
+ assert.equal(last10.away.better,true);
+ assert.deepEqual([venue.away.text,venue.home.text],['2-5 road','0-5 home']);
+ assert.deepEqual([rest.away.text,rest.home.text,rest.away.better],['2 days','1 day',true]);
+ assert.deepEqual(headToHead(prediction),{away:2,home:0,games:2});
+ assert.deepEqual([h2h.away.text,h2h.home.text,h2h.away.better],['2-0','0-2',true]);
+ // The NBA's last 10 from the season; ESPN's last five otherwise, oldest first, own score first.
+ assert.deepEqual(recentGames(prediction,'home').map(game=>[game.opponent.abbr,game.margin]),[['DAL',-16],['BKN',27]]);
+ assert.equal(recentGames(prediction,'home')[0].opponent.logo,'https://a.espncdn.com/i/teamlogos/nba/500/dal.png');
+ assert.deepEqual(recentGames(prediction,'away').map(game=>[game.opponent.abbr,game.margin,game.home]),[['TOR',-10,false],['CHI',4,true]]);
+ assert.equal(outPoints([{kind:'out',ppg:21.8},{kind:'questionable',ppg:9.4,chance:0.5},{kind:'other',ppg:5}]),26.5);
+ assert.deepEqual(matchupRows(null),[]);
+});

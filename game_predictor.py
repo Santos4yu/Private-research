@@ -1162,7 +1162,12 @@ def nba_context(payload, prior, today) -> dict:
     for g in past:
         results[g["home"]].append(g["hs"] > g["as"])
         results[g["away"]].append(g["as"] > g["hs"])
-    return {"rt": predictor_nba.rate(games, today, params, prior),
+    # This season's meetings of each pair of teams, oldest first (the matchup card's head to head).
+    meetings = defaultdict(list)
+    for g in past:
+        meetings["|".join(sorted((g["home"], g["away"])))].append({"date": g["date"].isoformat(), "home": g["home"], "away": g["away"],
+                                                                  "hs": g["hs"], "as": g["as"]})
+    return {"rt": predictor_nba.rate(games, today, params, prior), "meetings": dict(meetings),
             "seasonTable": season_numbers([(g["home"], g["away"], g["hs"], g["as"], g["poss"]) for g in past], per_100=True),
             "profiles": team_profiles(past),
             "states": predictor_nba.team_states(games, index, today, params, players),
@@ -1271,6 +1276,9 @@ def nba_model_v2(game, context) -> dict | None:
                                       f"counted as {round(scenario['chance'] * 100)}% to sit: if he sits, about "
                                       f"{scenario['impact'] * (1 - scenario['chance']):.1f} more points swing to {other}."))
     built.update({"rest": {side: (rest[side] or {}).get("days") for side in rest}, "restInfo": rest,
+                  # The matchup card: each side's last 10 margins and this season's meetings.
+                  "recent": {side: (states.get(game[side]["abbr"]) or {}).get("recent") or [] for side in ("home", "away")},
+                  "meetings": (context.get("meetings") or {}).get("|".join(sorted((home, away)))) or [],
                   "teams": {"home": profile("home"), "away": profile("away")}, "leaguePace": rt["pace_mu"],
                   "sigma": _staged_sigma(fewest, params["sigma_by_games"]), "model": "v2", "warnings": warnings})
     # For the analysis: each team's profile, the model's own (schedule-adjusted) ratings and how fresh the box scores are.
@@ -2112,6 +2120,7 @@ def prediction(sport, game, built, players=None, now=None) -> dict:
             "starters": (built or {}).get("starters"),
             "profiles": (built or {}).get("profiles"), "adjusted": (built or {}).get("adjusted"), "homeInfo": (built or {}).get("homeInfo"),
             "boxScoresThrough": (built or {}).get("boxScoresThrough"), "possessions": (built or {}).get("poss"),
+            "recent": (built or {}).get("recent"), "meetings": (built or {}).get("meetings"),
             "lastFive": game.get("lastFive") or {}, "madeAt": (now or datetime.now(timezone.utc)).isoformat()}
     try:
         made["story"] = story(made, built)

@@ -24,7 +24,8 @@ import {useIsAdmin} from './admin-notice.js';
 import {useInk,inkStyle} from './use-ink.js';
 import {ChipMenu,Empty,Section,Segmented,Shimmer} from './gp-parts.jsx';
 import {GameRecord} from './GameRecord.jsx';
-import {SPORTS,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {CountUp} from './count-up.jsx';
+import {SPORTS,matchupRows,outPoints,recentGames,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import {PropGenerator} from './PropGenerator.jsx';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
@@ -238,11 +239,11 @@ function chancesNow(prediction,chart){
  return home==null?null:{home,away:1-home};
 }
 
-const GAME_TABS=[['chance','Chance'],['odds','Odds'],['why','Why'],['players','Players']];
+const GAME_TABS=[['matchup','Matchup'],['chance','Chance'],['odds','Odds'],['why','Why'],['players','Players']];
 // In a game and after it, a tab for the game itself: the score by quarter,
 // the top players, the plays that swung it, and every player's props.
 const gameTabs=chart=>{const on=['in','post'].includes(chart?.state)&&(chart?.feed||chart?.props?.length);
- return on?[GAME_TABS[0],['live',chart.state==='in'?'Live':'Recap'],...GAME_TABS.slice(1)]:GAME_TABS;};
+ return on?[...GAME_TABS.slice(0,2),['live',chart.state==='in'?'Live':'Recap'],...GAME_TABS.slice(2)]:GAME_TABS;};
 // One game's page: the two teams and their chance now, then four tabs.
 //  - Chance: both teams' chance over time (the market's from ESPN's lines,
 //    in a game ESPN's win probability), our pick, and a button each.
@@ -257,13 +258,13 @@ const gameTabs=chart=>{const on=['in','post'].includes(chart?.state)&&(chart?.fe
 // it's not just transparent"): the site's dark with each team's color in its
 // top corner, and both teams always in colors that don't look alike.
 function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
- const [tab,setTab]=useState('chance');
+ const [tab,setTab]=useState(()=>game.state==='pre'?'matchup':'chance');
  const chart=useNbaLive(useChart(sport,game.id));
  // Two columns: the chance always on the left, the other tabs on the right
  // (the game itself first once it's on, else why).
  const split=useMedia(WIDER)&&embedded;
  const sideTabs=gameTabs(chart).filter(([key])=>key!=='chance');
- const right=split&&tab==='chance'?(sideTabs.some(([key])=>key==='live')?'live':'why'):tab;
+ const right=split&&tab==='chance'?(sideTabs.some(([key])=>key==='live')?'live':'matchup'):tab;
  const analysis=useAnalysis(sport,game.id,right==='why');
  const raw=result?.data;
  const colors=pairColors(raw?.home||game.home,raw?.away||game.away);
@@ -283,6 +284,7 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  const tint=hex=>/^[0-9a-f]{6}$/i.test(hex||'')?`#${hex}`:'transparent';
  const shown=key=>prediction&&<>
   {key==='chance'&&<ChanceTab prediction={prediction} chart={chart} onPick={onPick}/>}
+  {key==='matchup'&&<MatchupTab prediction={prediction} chart={chart}/>}
   {key==='live'&&<LiveTab prediction={prediction} chart={chart}/>}
   {key==='odds'&&<OddsTab prediction={prediction} chart={chart} onPick={onPick}/>}
   {key==='why'&&<><Analysis state={analysis} prediction={prediction}/><Warnings prediction={prediction}/><WhosOut prediction={prediction}/>
@@ -461,6 +463,79 @@ function ChanceTab({prediction,chart,onPick}){
    {prediction.score&&<p className="gp-ourpick-score">{status&&!status.final?'Our projected final':'Final score'} <b>{prediction.away.abbr} {prediction.score.away} – {prediction.score.home} {prediction.home.abbr}</b></p>}
   </section>
  </>;
+}
+
+// The matchup (Nov 11, the owner, with PickFinder's moneyline card: "i like
+// what pickfinder does with moneylines look"; its layout a reference, not
+// copied): our win chance split between the two, each side's moneyline,
+// the teams side by side, their latest games as margins and who's out.
+function MatchupTab({prediction,chart}){
+ const {home,away}=prediction;
+ const color=side=>teamColor(prediction[side])||(side==='home'?'#3d7bff':'#f5c66a');
+ const now=chancesNow(prediction,chart)||prediction.chance;
+ const prices=prediction.market?.moneyline||{};
+ const rows=matchupRows(prediction);
+ const book=prediction.market?.provider||'Moneyline';
+ const impliedOf=price=>price==null?null:price<0?-price/(-price+100):100/(price+100);
+ return <div className="gp-mu" style={{'--away':color('away'),'--home':color('home')}}>
+  <section className="gp-mu-split">
+   <div className="gp-mu-split-top"><b>{away.abbr} <CountUp value={Math.round(now.away*100)} ms={800}/>%</b><small>Our win chance</small><b><CountUp value={Math.round(now.home*100)} ms={800}/>% {home.abbr}</b></div>
+   <div className="gp-mu-bar"><i className="is-away" style={{'--w':now.away}}/><i className="is-home" style={{'--w':now.home}}/></div>
+  </section>
+  {(prices.away!=null||prices.home!=null)&&<section className="gp-mu-prices">{['away','home'].map((side,index)=><div key={side} className="gp-mu-price" data-side={side} style={{'--i':index}}>
+   <span><small>{book}</small><small>{impliedOf(prices[side])!=null?`${Math.round(impliedOf(prices[side])*100)}% implied`:''}</small></span>
+   <b>{odds(prices[side])}</b>
+  </div>)}</section>}
+  {rows.length>0&&<section className="gp-mu-table">
+   <div className="gp-mu-head"><span><Logo team={away} size={18}/>{away.abbr}</span><span/><span>{home.abbr}<Logo team={home} size={18}/></span></div>
+   {rows.map((row,index)=><div key={row.key} className="gp-mu-row" style={{'--i':index}}>
+    <span className="gp-mu-cell" data-better={row.away.better||undefined} data-move={row.away.move}>{row.away.text}{row.away.small&&<small>{row.away.small}</small>}</span>
+    <span className="gp-mu-label">{row.label}</span>
+    <span className="gp-mu-cell" data-better={row.home.better||undefined} data-move={row.home.move}>{row.home.text}{row.home.small&&<small>{row.home.small}</small>}</span>
+   </div>)}
+  </section>}
+  <MarginCharts prediction={prediction}/>
+  <OutCard prediction={prediction}/>
+ </div>;
+}
+
+// Each side's latest games as margins: up and green when it won, down and red when it lost, the opponent under each.
+function MarginCharts({prediction}){
+ const sides=['away','home'].map(side=>({side,team:prediction[side],games:recentGames(prediction,side)}));
+ if(!sides.some(item=>item.games.length))return null;
+ const reach=Math.max(8,...sides.flatMap(item=>item.games.map(game=>Math.abs(game.margin))));
+ const avg=list=>list.length?Math.round(list.reduce((sum,game)=>sum+game.margin,0)/list.length*10)/10:null;
+ const signed=value=>value==null?'—':`${value>0?'+':''}${value}`;
+ return <section className="gp-mu-block"><h4>Last {Math.max(...sides.map(item=>item.games.length))} games<small>Margin each game, oldest first</small></h4>
+  <div className="gp-mu-charts">{sides.map(({side,team,games})=>{
+   const won=games.filter(game=>game.margin>0).length;
+   return <div key={side} className="gp-mu-chart">
+    <p className="gp-mu-chart-top"><b>{won}-{games.length-won}</b><span>{team.abbr}</span></p>
+    <div className="gp-mu-bars">{games.map((game,index)=><span key={index} className="gp-mu-col" data-won={game.margin>0||undefined} style={{'--i':index,'--h':Math.abs(game.margin)/reach}}>
+     <span className="gp-mu-up">{game.margin>0&&<><small>{game.margin}</small><i/></>}</span>
+     <span className="gp-mu-down">{game.margin<=0&&<><i/><small>{Math.abs(game.margin)}</small></>}</span>
+    </span>)}</div>
+    <div className="gp-mu-opps">{games.map((game,index)=><span key={index} title={`${game.home?'vs':'@'} ${game.opponent.abbr}`}><Logo team={game.opponent} size={18}/></span>)}</div>
+    <p className="gp-mu-avg">Avg {games.length>=5?<>L5 <b data-tone={avg(games.slice(-5))>0?'up':'down'}>{signed(avg(games.slice(-5)))}</b></>:null}{games.length>=10?<> · L10 <b data-tone={avg(games)>0?'up':'down'}>{signed(avg(games))}</b></>:null}</p>
+   </div>;
+  })}</div>
+ </section>;
+}
+
+// Who's out on each side, the biggest first: what he scores, his status, how long he's been out.
+function OutCard({prediction}){
+ const list=side=>(prediction.out?.[side]||[]).filter(entry=>entry.kind==='out'||entry.kind==='questionable').slice(0,4);
+ const sides=['away','home'];
+ if(!sides.some(side=>list(side).length))return null;
+ const total=sides.reduce((sum,side)=>sum+outPoints(list(side)),0);
+ return <section className="gp-mu-block"><h4>Who's out<small>Biggest first</small></h4>
+  {total>0&&<p className="gp-mu-out-total"><b>{Math.round(total*10)/10}</b> points a game likely out</p>}
+  <div className="gp-mu-outs">{sides.map(side=><ul key={side} data-side={side}>{list(side).map((entry,index)=><li key={entry.name} style={{'--i':index}}>
+   {entry.headshot?<img src={entry.headshot} alt="" width={34} height={34} loading="lazy" onError={event=>{event.currentTarget.style.visibility='hidden';}}/>:<span className="gp-mu-face"/>}
+   <span><b>{entry.name}</b><small><em data-kind={entry.kind}>{entry.kind==='out'?'Out':entry.status||'Questionable'}</em>{Number.isFinite(entry.ppg)?` · ${entry.ppg} ppg`:''}</small>
+    {entry.missed>0&&<small>Missed {entry.missed} {entry.missed===1?'game':'games'}</small>}</span>
+  </li>)}{!list(side).length&&<li className="gp-mu-none">Nobody listed</li>}</ul>)}</div>
+ </section>;
 }
 
 // The game itself (Nov 8): the score by quarter, each team's top players,

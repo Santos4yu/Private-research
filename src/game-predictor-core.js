@@ -569,3 +569,91 @@ export function pickScoreText(live){
  if(live.state==='post')return {text:margin>0?'Won':margin<0?'Lost':'Tied',tone};
  return {text:margin>0?`Up ${margin}`:margin<0?`Down ${-margin}`:'Tied',tone};
 }
+
+// ------------------------------------------------------------------ the matchup card
+// (Nov 11, the owner, with PickFinder's moneyline card: "i like what
+// pickfinder does with moneylines look". Its layout as a reference only:
+// the win chance split, each side's price, the two teams side by side, their
+// last games and who's out.)
+
+const espnLogo=(sport,abbr)=>abbr?`https://a.espncdn.com/i/teamlogos/${sport}/500/${String(abbr).toLowerCase()}.png`:null;
+const rankText=cell=>Array.isArray(cell)&&Number.isFinite(cell[1])?`#${cell[1]}`:'—';
+const recordOf=spot=>spot&&Number.isFinite(spot.w)?`${spot.w}-${spot.l}`:null;
+const daysText=days=>!Number.isFinite(days)?'—':days<=1?(days===1?'1 day':'Back-to-back'):`${days} days`;
+
+/** This season's meetings: each side's wins, {away, home, games}, or null. */
+export function headToHead(prediction){
+ const games=prediction?.meetings||[];
+ if(!games.length)return null;
+ const abbr={home:prediction.home?.abbr,away:prediction.away?.abbr};
+ const wins=side=>games.filter(game=>(game.home===abbr[side]&&game.hs>game.as)||(game.away===abbr[side]&&game.as>game.hs)).length;
+ return {away:wins('away'),home:wins('home'),games:games.length};
+}
+
+/**
+ * The two teams side by side: [{key, label, away: {text, small, better},
+ * home: {...}}]. Open → now (the moneyline where it opened and now), the
+ * offense and defense ranks, the last 10, home and road, rest, head to head.
+ * `better` marks the side ahead on a row (a lower rank, more rest...).
+ */
+export function matchupRows(prediction){
+ if(!prediction)return [];
+ const rows=[],teams=prediction.teams||{},nfl=prediction.sport==='nfl';
+ const market=prediction.market||{},prices=market.moneyline||{},open=market.open;
+ const pair=(key,label,away,home,better=null)=>rows.push({key,label,away:{...away,better:better==='away'},home:{...home,better:better==='home'}});
+ if(prices.home!=null||prices.away!=null){
+  if(open&&open.home!=null&&open.away!=null)pair('price','Open → now',{text:`${americanText(open.away)} → ${americanText(prices.away)}`,move:moveOf(open.away,prices.away)},
+   {text:`${americanText(open.home)} → ${americanText(prices.home)}`,move:moveOf(open.home,prices.home)});
+  else pair('price','Moneyline',{text:americanText(prices.away)},{text:americanText(prices.home)});
+ }
+ const off=nfl?'pf':'ortg',def=nfl?'pa':'drtg';
+ const ranked=(key,label,field,unit)=>{
+  const a=teams.away?.[field],h=teams.home?.[field];
+  if(!a&&!h)return;
+  const better=Number.isFinite(a?.[1])&&Number.isFinite(h?.[1])&&a[1]!==h[1]?(a[1]<h[1]?'away':'home'):null;
+  pair(key,label,{text:rankText(a),small:Number.isFinite(a?.[0])?`${a[0]} ${unit}`:null},{text:rankText(h),small:Number.isFinite(h?.[0])?`${h[0]} ${unit}`:null},better);
+ };
+ ranked('offense','Offense',off,nfl?'pts':'per 100');
+ ranked('defense','Defense',def,nfl?'allowed':'per 100');
+ const l10=side=>teams[side]?.last10;
+ if(l10('away')||l10('home')){
+  const won=side=>l10(side)?l10(side)[0]/Math.max(1,l10(side)[0]+l10(side)[1]):null;
+  pair('last10','Last 10',{text:l10('away')?l10('away').join('-'):'—'},{text:l10('home')?l10('home').join('-'):'—'},
+   won('away')!=null&&won('home')!=null&&won('away')!==won('home')?(won('away')>won('home')?'away':'home'):null);
+ }
+ const info=prediction.homeInfo||{};
+ const road=recordOf(info.away?.away),home=recordOf(info.home?.home);
+ if(road||home)pair('venue','Home / road',{text:road?`${road} road`:'—'},{text:home?`${home} home`:'—'});
+ const rest=prediction.rest||{};
+ if(Number.isFinite(rest.home)||Number.isFinite(rest.away))pair('rest','Rest',{text:daysText(rest.away)},{text:daysText(rest.home)},
+  Number.isFinite(rest.home)&&Number.isFinite(rest.away)&&rest.home!==rest.away?(rest.away>rest.home?'away':'home'):null);
+ const meet=headToHead(prediction);
+ if(meet)pair('h2h','Head to head',{text:`${meet.away}-${meet.home}`},{text:`${meet.home}-${meet.away}`},meet.away!==meet.home?(meet.away>meet.home?'away':'home'):null);
+ return rows;
+}
+const americanText=price=>price==null||!Number.isFinite(price)?'—':price>0?`+${Math.round(price)}`:`${Math.round(price)}`;
+// Which way a moneyline moved for its team: 'up' when it got likelier (shorter), 'down' when longer.
+const implied=price=>price<0?-price/(-price+100):100/(price+100);
+const moveOf=(from,to)=>!Number.isFinite(from)||!Number.isFinite(to)||from===to?null:implied(to)>implied(from)?'up':'down';
+
+/**
+ * A team's latest games, oldest first: [{opponent: {abbr, logo}, margin,
+ * home}]. The NBA's last 10 from the stored season (prediction.recent);
+ * otherwise ESPN's last five (lastFive, "W 27-20" own score first).
+ */
+export function recentGames(prediction,side){
+ const sport=prediction?.sport||'nba';
+ const listed=prediction?.recent?.[side];
+ if(Array.isArray(listed)&&listed.length)return listed.map(game=>({opponent:{abbr:game.opponent,logo:espnLogo(sport,game.opponent)},margin:game.margin,home:game.home}));
+ const abbr=prediction?.[side]?.abbr;
+ const five=(prediction?.lastFive||{})[abbr]||[];
+ return five.map(game=>{
+  const [own,their]=String(game.score||'').split('-').map(Number);
+  return Number.isFinite(own)&&Number.isFinite(their)?{opponent:{abbr:game.opponent,logo:game.opponentLogo||espnLogo(sport,game.opponent)},margin:own-their,home:game.atVs!=='@',date:game.date}:null;
+ }).filter(Boolean).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+}
+
+/** What a side has out tonight in points a game: the out ones fully, a questionable one at his chance to sit. */
+export function outPoints(entries){
+ return Math.round((entries||[]).reduce((sum,entry)=>sum+(Number.isFinite(entry.ppg)?entry.ppg*(entry.kind==='out'?1:entry.kind==='questionable'?(entry.chance??0.35):0):0),0)*10)/10;
+}

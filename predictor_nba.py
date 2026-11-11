@@ -159,11 +159,16 @@ def team_states(games, index, today, params, players) -> dict:
                 "recentGames": len(last10), "recentMin": sum(line[1] for line in last10),
                 "recent": {k: sum(line[i] for line in last10) for k, i in (("pts", 3), ("reb", 4), ("ast", 5))},
                 "season": {"games": s[0], "min": s[1], "pts": s[2], "reb": s[3], "ast": s[4]},
+                # His latest game in the window and the team's games since (the matchup card's injuries).
+                "lastDate": lines[-1][0].isoformat(), "missed": sum(1 for g in hist if g["date"] > lines[-1][0]),
                 "playedLast": hist[-1] is not None and any(str(r[0]) == pid and (r[index["min"]] or 0) > 0 for r in hist[-1]["lines"].get(team) or []),
             }
         last = hist[-1]
+        # Its last 10: each game's margin from its side, the opponent, home or away (the matchup card).
+        recent_games = [{"date": g["date"].isoformat(), "opponent": g["away"] if g["home"] == team else g["home"], "home": g["home"] == team,
+                         "margin": (g["hs"] - g["as"]) if g["home"] == team else (g["as"] - g["hs"])} for g in hist[-10:]]
         states[team] = {"games": len(hist), "lastDate": last["date"], "lastVenue": last["home"],
-                        "dates": [g["date"] for g in hist[-6:]], "regulars": regulars}
+                        "dates": [g["date"] for g in hist[-6:]], "regulars": regulars, "recent": recent_games}
     return states
 
 
@@ -281,7 +286,11 @@ def predict(game, rt, states, params, key):
             entry = {"name": item.get("name"), "position": item.get("position"), "status": item.get("status"), "kind": kind,
                      "injury": item.get("injury"), "impact": round(cost, 1) if kind != "other" else 0.0,
                      "minutes": round(player["minutes"], 1) if player else None,
-                     "inRatings": round(player["reflect"] * 100) if player else None}
+                     "inRatings": round(player["reflect"] * 100) if player else None,
+                     # What he scores and how long he's been out (the matchup card's injuries).
+                     "ppg": round(player["season"]["pts"] / player["season"]["games"], 1) if player and player["season"]["games"] else None,
+                     "missed": player.get("missed") if player else None, "since": player.get("lastDate") if player else None,
+                     "headshot": player.get("headshot") if player else None}
             if kind == "out" and counted:
                 lost[side] += player["value"] * player["reflect"]
             # Nov 9, the owner, on TOR at 74% with Barnes and Quickley day-to-day:

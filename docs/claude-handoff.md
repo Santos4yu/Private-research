@@ -1,6 +1,6 @@
 # Handoff for the next Claude session
 
-Last updated 2026-11-11 (live NBA games after midnight Eastern stay in the games list. Before that, the moneyline Generator's NBA + NFL parlays: a leg from each league, a league with no games that day bringing its next ones. Before that, the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
+Last updated 2026-11-11 (a Matchup tab on every game, after PickFinder's moneyline card. Before that, live NBA games after midnight Eastern stay in the games list. Before that, the moneyline Generator's NBA + NFL parlays: a leg from each league, a league with no games that day bringing its next ones. Before that, the Game Predictor on a laptop: the games list and the picked game side by side, the game in two columns. Before that, the admin's record in History: every moneyline the model picks, kept and settled on its own, the season so far replayed; the prop generator's plays and the Props tab's top picks. Before that, the NBA prop generator reads each pick's game in full and makes the call: who's out and back with his splits, minutes, the game line, blowout chances, pace, defense, rest; plays and passes. Before that, Game Predictor live games: a game on its own clock, then the feed, live props, our pick live, swings, stretches, alerts and live games first in the list; before that, Game Predictor: each game its own page with tabs, the pick full screen; picks only when saved, Kalshi-style markets, swipe up to save, live charts; redesigned as one full page with a day-by-day moneyline generator; best picks and parlay builder; v2 live: two predictions, warnings, EV, daily snapshots; the Game Predictor: NBA and NFL winners, final scores, edges and a settled history, a new section that starts off; before that the News card, the parlay builder and slip fixes, and Defense vs position). Read this, then CLAUDE.md's rules, before starting.
 
 ## Working with the owner
 
@@ -57,6 +57,29 @@ Last updated 2026-11-11 (live NBA games after midnight Eastern stay in the games
   minutes. Scores are worked out on the phone, so without this a phone kept
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
+
+### Nov 11 (b): a Matchup tab on every game (PickFinder's moneyline card as the reference)
+
+- The owner, with PickFinder's moneyline game card: "i like what pickfinder
+  does with moneylines look". Its layout taken as a reference only (no
+  wording or branding copied); framed soft panels are fine here since the
+  owner asked for PickFinder's look.
+- Game page tabs: Matchup, Chance, (Live / Recap), Odds, Why, Players.
+  Matchup is the first tab before a game; once it's on, Chance. On a
+  laptop the right column defaults to Matchup before the game.
+- `MatchupTab` (GamePredictor.jsx): our win chance split as a two-color
+  bar (counts up), each side's moneyline with its implied chance, the
+  teams side by side (`matchupRows`: Open → now with the move colored,
+  offense and defense ranks, last 10, home / road records, rest, head to
+  head this season; the better side bold), their last games as margin bars
+  up and down with opponent logos and L5 / L10 averages (`recentGames`: the
+  NBA's last 10 from the stored season, else ESPN's last five), and who's
+  out (ppg, Out / Questionable, games missed; `outPoints` totals the points
+  likely out, a questionable one at his chance to sit).
+- Server: `predictor_nba` regulars carry `lastDate` / `missed`, team states
+  a `recent` list (last 10 margins), injury entries `ppg`, `missed`,
+  `since`, `headshot`; `nba_context` keeps this season's `meetings` per
+  pair; `prediction()` passes `recent` and `meetings`. Styles `gp-mu-*`.
 
 ### Nov 11: live games disappeared from the list after midnight Eastern
 
