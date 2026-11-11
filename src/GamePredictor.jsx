@@ -291,11 +291,7 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
  return <>
  <div className="gp-page-bg" style={{'--home':tint(colors.home),'--away':tint(colors.away)}} aria-hidden="true"/>
  <div className={`gp-page${embedded?' is-embedded':''}${split?' is-split':''}`}>
-  {/* The back button beside the header, not a row of its own (Nov 11, the owner on the gap above it: "I don't want that"). */}
-  <div className="gp-page-head">
-   {onBack&&<button type="button" className="gp-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={20}/></button>}
-   <GameHeader game={game} prediction={prediction} chart={chart} colors={colors} status={status} live={live}/>
-  </div>
+  <GameHeader game={game} prediction={prediction} chart={chart} colors={colors} status={status} live={live} onBack={onBack}/>
   {split?<div className="gp-page-cols">
    <div className="gp-page-body gp-page-left">{waiting||shown('chance')}</div>
    <div className="gp-page-right">{tabs(sideTabs)}<div className="gp-page-body" key={right}>{waiting||shown(right)}</div></div>
@@ -312,7 +308,7 @@ function GamePage({game,sport,result,admin,onBack,onPick,embedded}){
 // its logo, record and home or road record, the time or the score in the
 // middle with the line. The win chance is the Matchup card's and the
 // chart's. On a phone each logo sits over the team's short name.
-function GameHeader({game,prediction,chart,colors,status,live}){
+function GameHeader({game,prediction,chart,colors,status,live,onBack}){
  const final=(chart?.state||game.state)==='post';
  const info=prediction?.homeInfo||{};
  const venue=side=>{const spot=side==='home'?info.home?.home:info.away?.away;return spot&&Number.isFinite(spot.w)?`${spot.w}-${spot.l} ${side==='home'?'at home':'on the road'}`:null;};
@@ -327,7 +323,9 @@ function GameHeader({game,prediction,chart,colors,status,live}){
    {(live||final)&&score!=null&&<strong className="gp-gh-score" key={score}>{score}</strong>}
   </div>;
  };
- return <header className="gp-gh" data-live={live||undefined}>
+ // The back button in the card's corner (Nov 11, the owner: no row of its own above it, and not beside the card either: "This looks super weird").
+ return <header className="gp-gh" data-live={live||undefined} data-back={onBack?true:undefined}>
+  {onBack&&<button type="button" className="gp-back gp-gh-back" onClick={onBack} aria-label="Back to the games"><ArrowLeft size={18}/></button>}
   {team('away')}
   <div className="gp-gh-mid"><span className="gp-gh-status">{status}</span>{line&&<small>{line}</small>}{prediction?.market?.provider&&!live&&!final&&<small>{prediction.market.provider}</small>}</div>
   {team('home')}
@@ -1275,7 +1273,7 @@ export function GamePredictor(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
  },[wide,view,openedGame,firstGame]);
  const sideBySide=wide&&view==='predict';
- if(openedGame&&!wide)return <div className="game-predictor">
+ if(openedGame&&!wide)return <div className="game-predictor is-game">
   <GamePage game={openedGame} sport={sport} result={results[open]} admin={admin} onBack={closeGame}
    onPick={(side,now)=>results[open]?.data&&setSheet({prediction:results[open].data,side,now})}/>
   {sheet&&<PickScreen pick={sheet} onClose={()=>setSheet(null)} onSaved={()=>loadHistory()}/>}

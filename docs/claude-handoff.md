@@ -84,6 +84,15 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   top gap I don't want that". The back button sits beside the header card
   (`gp-page-head`, a flex row), not on a row of its own; on a phone the
   line wraps and the sportsbook line is left out to fit.
+- Then, with a phone screenshot of that: "This looks super weird" (the
+  button outside the card, the card narrower than the tabs under it).
+  `gp-page-head` is gone: `GameHeader` takes `onBack` and puts the button
+  (`gp-gh-back`) in the card's top-left corner (28px on a phone, 34px with
+  room made for it on a tablet), so the card is full width again. A game
+  open on a phone (`.game-predictor.is-game`) starts 10px under the safe
+  area instead of the site's full clear band (`--site-status-inset`, which
+  also clears iOS's blur band); the card's own top padding keeps its logos
+  clear. Computers never get the button (no `onBack` beside the list).
 
 ### Nov 11 (b): a Matchup tab on every game (PickFinder's moneyline card as the reference)
 
