@@ -205,6 +205,9 @@ export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
    {canAnalyze&&!slots?.tools&&<AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>}
   </div>;
   return <header ref={ref} className={`fpb fp2-head${slots?' fpb-merged':''}`}>
+   {/* The team's logo, blurred behind the header: its colors as a glow (finder-player-app.css). */}
+   {row.teamLogo&&<span className="fp2-glow" aria-hidden="true"><img src={row.teamLogo} alt="" onError={e=>{e.currentTarget.hidden=true;}}/></span>}
+   {row.teamLogo&&<img className="fp2-mark" src={row.teamLogo} alt="" aria-hidden="true" onError={e=>{e.currentTarget.hidden=true;}}/>}
    <div className="fp2-top">
     <button type="button" className="fp2-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={19} aria-hidden="true"/></button>
     <span className="fp2-who">

@@ -960,17 +960,11 @@ function Players({prediction}){
 }
 
 // For the admin only: where the offense and defense ranks come from (Nov 11, the owner comparing them with PickFinder's).
-function ranksNote(from,prediction){
+function ranksNote(from){
  if(!from)return null;
  if(from.source==='nba'){
   const when=from.at&&!Number.isNaN(Date.parse(from.at))?new Date(from.at).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):null;
-  // The other ways NBA.com's table can be ranked (offense / defense), to hold against another site's.
-  const way=(key,label)=>{
-   const cells=['away','home'].map(side=>{const pair=from.alt?.[side]?.[key];return Array.isArray(pair)?`${prediction[side].abbr} ${pair[0]} / ${pair[1]}`:null;});
-   return cells.every(Boolean)?` ${label}: ${cells.join(', ')}.`:'';
-  };
-  return `Admin: the offense and defense ranks are NBA.com's own ratings${when?`, sent by your phone ${when}`:''}.`
-   +way('listed','NBA.com\'s own rank columns')+way('rounded','Ranking its rounded ratings')+way('estimated','Ranking its estimated ratings');
+  return `Admin: the offense and defense ranks are NBA.com's own ratings${when?`, sent by your phone ${when}`:''}.`;
  }
  if(from.source==='counted')return 'Admin: the offense and defense ranks are from PBPStats (every possession counted). NBA.com\'s own table hasn\'t come from your phone in the last 36 hours.';
  return 'Admin: the offense and defense ranks are our box-score estimate. Neither NBA.com\'s table (your phone) nor PBPStats answered.';
@@ -979,7 +973,7 @@ function ranksNote(from,prediction){
 function Compare({prediction,admin}){
  const teams=prediction.teams;
  if(!teams)return null;
- const note=admin&&prediction.sport==='nba'?ranksNote(prediction.ranksFrom,prediction):null;
+ const note=admin&&prediction.sport==='nba'?ranksNote(prediction.ranksFrom):null;
  const rank=value=>value?.[1]?<small>{value[1]}{['th','st','nd','rd'][value[1]%10>3||[11,12,13].includes(value[1]%100)?0:value[1]%10]}</small>:null;
  const cell=value=>value?.[0]==null?'—':<>{value[0]} {rank(value)}</>;
  const rest=days=>restText(days,prediction.sport==='nfl');

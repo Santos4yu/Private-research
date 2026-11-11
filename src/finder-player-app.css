@@ -1,0 +1,167 @@
+/* The player page, finished like an app (Nov 11, the owner with PickFinder's
+   player page beside ours: "make our design and layout like pickfinder make
+   it nice and mobile friendly and make it look like a real app not just a
+   generic website"). The layout was already after its page (Nov 9:
+   finder-player-v2.css); what read as a website was the finish: a bare
+   header, cards barely off the page, thin bars with wide gaps, a row of
+   words for tabs on a phone. Here, in our own black and white (its page
+   is the layout's reference only, never its colors or words):
+
+     header    a panel of its own, lit from behind by the team's logo
+               (blurred, so the glow is the team's colors without a color
+               table), the photo larger with a ring
+     panels    every card a shade off the page with a lit top edge, a faint
+               sheen and a shadow under it; the cards on the right carry
+               their title on a strip
+     chart     bars as wide as their column, glossy (light at the top, a
+               glow under), the gaps small
+     windows   L5 ... Season in a sunken box, the picked one raised
+     tiles     the research tabs as icon tiles: a grid on a computer, one
+               row to swipe on a phone (his own sections among them)
+
+   Loaded after finder-player-v2.css (FinderPlayerLayout.jsx), with its
+   selectors and !important where it has them, so this is the last word. */
+
+html:root .fp2 {
+  --fp2-panel: #151517;
+  --fp2-line: rgba(255, 255, 255, .09);
+  --fp2-well: #0C0C0E;
+  --fp2-sheen: linear-gradient(180deg, rgba(255, 255, 255, .09) 0, rgba(255, 255, 255, .09) 1px, rgba(255, 255, 255, .04) 1px, rgba(255, 255, 255, 0) 110px);
+  --fp2-lit: linear-gradient(180deg, rgba(255, 255, 255, .17), rgba(255, 255, 255, .07));
+  --fp2-depth: 0 26px 46px -30px rgba(0, 0, 0, .95);
+  --fp2-card-pad: 18px;
+}
+
+/* ------------------------------------------------------------ the header */
+
+html:root .fp2 .fp2-head {
+  position: relative; isolation: isolate; overflow: hidden; margin: 0 0 18px; padding: 16px 18px;
+  border-radius: 22px; background: var(--fp2-sheen), var(--fp2-panel); box-shadow: inset 0 0 0 1px var(--fp2-line), var(--fp2-depth);
+}
+.fp2 .fp2-glow { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.fp2 .fp2-glow img { position: absolute; top: 50%; left: -70px; width: 460px; height: 460px; object-fit: contain; transform: translateY(-50%); filter: blur(56px) saturate(1.9); opacity: .6; }
+.fp2 .fp2-glow::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(21, 21, 23, .1) 0%, rgba(21, 21, 23, .62) 46%, var(--fp2-panel) 78%); }
+/* The logo itself, faint, on the far side (a computer and a tablet). */
+.fp2 .fp2-mark { position: absolute; z-index: -1; top: 50%; right: 34px; width: 150px; height: 150px; object-fit: contain; transform: translateY(-50%) rotate(-8deg); opacity: .13; pointer-events: none; }
+html:root .fp2 .fp2-head .fp2-top { gap: 14px; padding: 0; }
+html:root .fp2 .fp2-back { background: rgba(255, 255, 255, .1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12); }
+html:root .fp2 .fp2-back:hover { background: rgba(255, 255, 255, .16); }
+html:root .fp2 .fp2-who { gap: 14px; }
+html:root .fp2 .fp2-avatar { width: 60px; height: 60px; background: #1C1C1F; box-shadow: 0 0 0 2px rgba(255, 255, 255, .16), 0 12px 26px -12px #000; }
+html:root .fp2 .fp2-name { gap: 5px; }
+html:root .fp2 .fp2-name h1 { font: 800 24px/1.1 var(--font-sans); letter-spacing: -.03em; }
+html:root .fp2 .fp2-name small { font-size: 13.5px; }
+html:root .fp2 .fp2-name small img { width: 16px; height: 16px; }
+
+/* ------------------------------------------------------------ the chart panel */
+
+/* Bars as wide as their column, the gaps small; glossy. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track:not([data-scroll="true"]) { gap: min(10px, var(--gl-gap, 10px)) !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track:not([data-scroll="true"]) > .gl-col { max-width: 92px !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track:not([data-scroll="true"]) .gl-bar-shell { max-width: none !important; }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar {
+  border-radius: 10px 10px 4px 4px !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--te-mint) 76%, #fff) 0%, var(--te-mint) 40%, color-mix(in srgb, var(--te-mint) 84%, #000) 100%) !important;
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .5), inset 0 0 0 1px rgba(255, 255, 255, .07), 0 0 26px -8px color-mix(in srgb, var(--te-mint) 80%, transparent) !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar::before { background: linear-gradient(180deg, color-mix(in srgb, var(--te-mint-low) 90%, #fff), var(--te-mint-low)); }
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--te-miss) 80%, #fff) 0%, var(--te-miss) 42%, var(--te-miss-low) 100%) !important;
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, .42), inset 0 0 0 1px rgba(255, 255, 255, .06), 0 0 26px -8px color-mix(in srgb, var(--te-miss) 80%, transparent) !important;
+}
+
+/* The windows: a sunken box, the picked one raised. */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs {
+  background: var(--fp2-well) !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), inset 0 2px 6px rgba(0, 0, 0, .6) !important;
+}
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button.active {
+  background: var(--fp2-lit) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 6px 14px -8px #000 !important;
+}
+
+/* A window's rate and average each on one line (a two-figure average wrapped under "Avg" on a computer). */
+html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs :is(.gl-window-pct, .gl-window-avg) { white-space: nowrap; }
+@media (min-width: 761px) {
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button { padding: 9px 7px !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs :is(.gl-window-pct, .gl-window-avg) { font-size: 12.5px !important; letter-spacing: -.01em; }
+}
+
+@media (min-width: 761px) {
+  /* The chart's card, the stats' rail and his games: lit from the top, a shadow under. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal::before { background: var(--fp2-sheen), var(--fp2-panel); box-shadow: var(--fp2-depth); }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs { background: var(--fp2-sheen), var(--fp2-panel) !important; box-shadow: var(--fp2-depth) !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { background: var(--fp2-lit) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 6px 14px -8px #000 !important; }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .fpb-odds .fpb-card { background: var(--fp2-sheen), var(--fp2-panel) !important; box-shadow: var(--fp2-depth) !important; }
+  html:root .fp2 .fp2-his { padding-top: 0; background: var(--fp2-sheen), var(--fp2-panel); box-shadow: var(--fp2-depth); }
+  html:root .fp2 .fp2-his .fp2-tabs { margin: 0 -16px 14px; padding: 2px 10px 0; border-radius: 17px 17px 0 0; background: rgba(255, 255, 255, .03); box-shadow: inset 0 -1px var(--fp2-line); }
+}
+
+/* ------------------------------------------------------------ the cards on the right */
+
+html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) {
+  padding: var(--fp2-card-pad); background-color: var(--fp2-panel) !important; background-image: var(--fp2-sheen) !important;
+  box-shadow: inset 0 0 0 1px var(--fp2-line), var(--fp2-depth) !important;
+}
+/* Its title on a strip along the top. */
+html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) > header {
+  margin: calc(var(--fp2-card-pad) * -1) calc(var(--fp2-card-pad) * -1) 14px; padding: 13px var(--fp2-card-pad);
+  border-radius: 17px 17px 0 0; background: rgba(255, 255, 255, .032) !important; box-shadow: inset 0 -1px var(--fp2-line) !important;
+}
+html:root .fp2 .fp2-research :is(.mlb-context-card, .mp-card) > header h2 { font-weight: 700; }
+html:root .fp2 .fp2-research :is(.mlb-average-grid, .wnba-season-grid) > * { background: var(--fp2-well) !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05) !important; }
+
+/* The research tabs as tiles on a computer: the picked one raised. */
+@media (min-width: 1181px) {
+  html:root .fp2 .fp2-tabs.fp2-tabs-research { gap: 8px; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button { min-height: 70px; border-radius: 14px !important; background: var(--fp2-sheen), var(--fp2-panel) !important; box-shadow: var(--fp2-depth); }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button[aria-pressed=true] {
+    border-color: rgba(255, 255, 255, .3) !important; background: var(--fp2-lit), #1A1A1D !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 14px 26px -18px rgba(255, 255, 255, .35);
+  }
+}
+
+/* A tablet's one row of tabs: the icon beside the word. */
+@media (min-width: 761px) and (max-width: 1050px) {
+  html:root .fp2 .fp2-tabs.fp2-tabs-all > button { display: inline-flex; align-items: center; gap: 7px; }
+  html:root .fp2 .fp2-research .fp2-tabs-all { margin-top: 38px; }
+}
+
+/* ------------------------------------------------------------ a phone */
+
+@media (max-width: 760px) {
+  html:root .fp2 { --fp2-panel: #161618; --fp2-card-pad: 16px; }
+  /* Every panel the same width: 6px off the screen's edges, as the chart's. */
+  html:root .fp2 .fp2-head { margin: 0 -8px 14px; padding: 11px 10px; border-radius: 20px; }
+  html:root .fp2 .fp2-research .mlb-finder-context { margin-inline: -8px; }
+  .fp2 .fp2-glow img { left: -90px; width: 380px; height: 380px; }
+  .fp2 .fp2-mark { display: none; }
+  html:root .fp2 .fp2-head .fp2-top { gap: 9px; }
+  html:root .fp2 .fp2-back { width: 34px; height: 34px; }
+  html:root .fp2 .fp2-who { gap: 10px; }
+  html:root .fp2 .fp2-avatar { width: 46px; height: 46px; }
+  html:root .fp2 .fp2-name { gap: 4px; }
+  html:root .fp2 .fp2-name h1 { font-size: 18.5px; }
+  html:root .fp2 .fp2-name small { gap: 5px; font-size: 12px; }
+  html:root .fp2 .fp2-account { width: 34px; height: 34px; }
+  html:root .fp2 .fp2-account { background: rgba(255, 255, 255, .1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12); }
+
+  /* The chart's panel: lit from the top, an edge, a shadow; the stats on a sunken strip. */
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal::before { background: var(--fp2-sheen), var(--fp2-panel); box-shadow: inset 0 0 0 1px var(--fp2-line), var(--fp2-depth); }
+  html:root .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs { background: var(--fp2-well) !important; box-shadow: inset 0 0 0 1px var(--fp2-line), inset 0 -1px rgba(255, 255, 255, .05) !important; }
+
+  /* Every section's tab as an icon tile, one row to swipe. */
+  html:root .fp2 .fp2-tabs.fp2-tabs-all { gap: 8px; margin: 22px -14px 14px; padding: 2px 6px 4px; box-shadow: none; scroll-padding-inline: 6px; scroll-snap-type: x proximity; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-all > button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; flex: 0 0 78px; height: 64px; padding: 0 4px;
+    border-radius: 15px; background: var(--fp2-sheen), var(--fp2-panel) !important; box-shadow: inset 0 0 0 1px var(--fp2-line);
+    color: var(--fp-muted); font: 650 11.5px/1 var(--font-sans); scroll-snap-align: start;
+  }
+  html:root .fp2 .fp2-tabs.fp2-tabs-all > button[aria-pressed=true] {
+    background: var(--fp2-lit), #1B1B1E !important; color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28), inset 0 1px 0 rgba(255, 255, 255, .2), 0 12px 22px -16px rgba(255, 255, 255, .4);
+  }
+  html:root .fp2 .fp2-tabs.fp2-tabs-all > button svg { width: 18px; height: 18px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:root .fp2 .fp2-head { animation: fp2-in .32s var(--fp-ease) both; }
+}

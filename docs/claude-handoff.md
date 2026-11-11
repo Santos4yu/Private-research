@@ -58,6 +58,39 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 11 (i): the Finder's player page finished like an app
+
+- The owner, with PickFinder's player page beside ours: "can you make our
+  design and layout like pickfinder make it nice and mobile friendly and
+  make it look like a real app not just a generic website". The layout was
+  already after its page (Nov 9); what read as a website was the finish.
+  `src/finder-player-app.css` (new, loaded after finder-player-v2.css in
+  FinderPlayerLayout.jsx, same selectors and `!important` where v2 has
+  them), in our black and white (its page is the layout's reference only):
+  - The header is a panel of its own, lit from behind by the team's logo
+    blurred (`fp2-glow` in FinderPlayerBanner's v2 header: the team's
+    colors as a glow, no color table needed), the logo faint on the far
+    side (`fp2-mark`, not on a phone), the photo larger with a ring.
+  - Panels: `--fp2-panel` #151517 with `--fp2-sheen` (a lit top edge fading
+    down) and `--fp2-depth` (a shadow under); the cards on the right carry
+    their title on a strip (`> header`); sunken boxes are `--fp2-well`.
+  - Chart: bars as wide as their column (`.gl-col` up to 92px, the shell's
+    50px cap off, gaps up to 10px), glossy gradients with a glow in their
+    color; no grain. The two tones at the line are kept.
+  - The windows (L5 ... Season): a sunken box, the picked one raised; each
+    line kept on one row (a two-figure average wrapped under "Avg" on a
+    computer before this).
+  - Tabs: on a phone every section's tab is an icon tile in one row to
+    swipe (`fp2-tabs-all` now gets `icons`; his own sections have icons:
+    `log`, `stats`, `depth` in `TAB_ICONS`); the picked one raised. On a
+    computer the tiles are glass, the picked one lit.
+  - A phone: every panel the same width, 6px off the screen's edges.
+- Every sport's player page shares the layout, so all of them get it.
+  Checked in a browser at 390, 900, 1120 and 1600 wide with a made-up NBA
+  player; not seen with real data or other sports.
+- The admin's ranks note on the Game Predictor is back to one line (the
+  source); `ranksFrom.alt` is still sent, unused.
+
 ### Nov 11 (h): the ranks' automatic source (PBPStats), and what PickFinder's numbers are
 
 - The owner, with both cards again (defense still 16 / 15 against 17 / 14,
