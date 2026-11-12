@@ -58,6 +58,26 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (e): the finish on the other pages
+
+- "also add the finish on other pages": went through Props, Cheat Sheets,
+  Research, My Bets, Parlay, Slip Analyzer and Slip to PrizePicks with a
+  probe for bright lines (borders and inset shadows over .16 white). They
+  were already in the glossy look; what still read as "white lines" is
+  gone via `src/finish.css` (imported last in main.jsx, after gloss.css):
+  - gloss.css's `--gloss-edge` (.2 lit top border on every glossed card)
+    is .07 and `--gloss-sheen` loses its 1px light line — site-wide;
+  - the Cheat Sheet cards' white 4px edge down the left (`.lb-hub-card`
+    inset shadow) is off;
+  - My Bets' picked segment (Day/Week/Month, Chart/Calendar, Win/Loss) is
+    filled instead of ringed in white;
+  - primary buttons (`.mb-primary`, `.ss-next`, `.ace-primary`,
+    `.main-menu-primary`, `.sa-upload-main`) lose the white top highlight;
+  - Research's player cards and icon boxes and the Slip Analyzer's tags and
+    step icons have faint outlines.
+- The site-wide gloss is still there (sheen, shadow); only its white edges
+  and highlights went, as the owner asked for the Finder.
+
 ### Nov 12 (d): free additions — NBA alerts, ruled out, Spread filter, kept answers
 
 - The owner: "I want things that can be added for free and also add the

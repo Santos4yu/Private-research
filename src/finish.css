@@ -1,0 +1,38 @@
+/* The finish everywhere (Nov 12, the owner: "add the finish on other
+   pages"), the same one the Finder was given (finder-board-app.css,
+   finder-player-app.css): no white lines. Loaded last (main.jsx, after
+   gloss.css).
+
+   - The site-wide gloss keeps its soft sheen and shadow but loses its lit
+     top edge and the 1px light line along the top of each card: the edge
+     is now a faint hairline like every other.
+   - The white edge down the left of each Cheat Sheet card goes.
+   - Picked buttons in segmented controls (My Bets' Day / Week / Month,
+     Chart / Calendar) are filled instead of ringed in white.
+   - Primary buttons lose the white highlight along their top.
+   - Research's player cards and icon boxes, the Slip Analyzer's tags and
+     step icons get faint outlines instead of bright ones. */
+
+:root,
+:root[data-theme] {
+  --gloss-sheen: linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(255, 255, 255, 0) 66%);
+  --gloss-edge: rgba(255, 255, 255, .07);
+}
+
+/* Cheat Sheets: the card, no white edge. */
+:root[data-theme] body .lb-hub-card { box-shadow: var(--gloss-depth); }
+
+/* Segmented controls: the picked one filled. */
+:root[data-theme] body .mb-seg button:is([aria-selected="true"], [aria-checked="true"]) { background: #232326; box-shadow: none; color: #fff; }
+:root[data-theme] body .mb-results button[data-result="win"][aria-checked="true"] { background: rgba(18, 224, 154, .12); box-shadow: none; }
+:root[data-theme] body .mb-results button[data-result="loss"][aria-checked="true"] { background: rgba(255, 90, 106, .12); box-shadow: none; }
+
+/* Primary buttons: their own color, no light along the top. */
+:root[data-theme] body :is(.mb-primary, .ss-next, .ace-primary, .main-menu-primary, .sa-upload-main, #gloss#gloss) {
+  box-shadow: 0 10px 22px -14px rgba(255, 255, 255, .28);
+}
+
+/* Faint outlines instead of bright ones. */
+:root[data-theme] body :is(.lab-player, .lab-board-button) { border-color: rgba(255, 255, 255, .09); }
+:root[data-theme] body :is(.lab-icon-box, .lab-board-icon) { border-color: rgba(255, 255, 255, .1); }
+:root[data-theme] body :is(.sa-stage-tag, .sa-step-icon) { border-color: rgba(255, 255, 255, .1); }
