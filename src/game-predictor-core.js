@@ -194,8 +194,13 @@ export function likeliest(board,count=5){
  * `mixed` (Nov 9, the owner: "a parlay between the 2 sports"): only
  * parlays with a leg from every league on the board, none with one league. */
 export function parlays(board,{legs=null,payout=null,sort='likely',most=4,top=3,mixed=false}={}){
- const pool=boardLegs(board);
  const gameKey=leg=>`${leg.sport||''}:${leg.game}`;
+ // Only sides our model is on (Nov 12, the owner on a parlay with an
+ // underdog our model gave 28%: "I hate it"): most likely takes each
+ // game's pick, best value each side our model sees more in than the market.
+ const all=boardLegs(board),pool=sort==='value'
+  ?all.filter(leg=>leg.edge!=null&&leg.edge>0.005&&leg.ev>0)
+  :all.filter(leg=>!all.some(other=>gameKey(other)===gameKey(leg)&&other!==leg&&other.chance>leg.chance));
  const byGame=[...new Set(pool.map(gameKey))].map(id=>pool.filter(leg=>gameKey(leg)===id));
  const leagues=new Set(pool.map(leg=>leg.sport||''));
  if(mixed&&leagues.size<2)return [];

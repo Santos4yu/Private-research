@@ -1039,14 +1039,32 @@ function Leg({leg,mixed,value}){
  </li>;
 }
 
-// A parlay's legs as small chips: the team, its price; with both leagues,
-// its league too, and its day when the legs aren't all on one.
+// A parlay as a bet slip (Nov 12, the owner on the old meter-and-chips row:
+// "I hate it"): its legs stacked (the team, where and when, its price and
+// our chance), then what it pays, its chance to hit and its value. With both
+// leagues each leg says its league, and its day when they aren't all on one.
 const dayOf=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toLocaleDateString('en-US',{weekday:'short'}):'';};
-const LegChips=({legs,mixed})=>{
- const days=new Set(legs.map(leg=>dayOf(leg.startsAt)));
- return <ul className="gp-legchips">{legs.map(leg=><li key={`${leg.sport}:${leg.game}`}><Logo team={leg.team} size={18}/><b>{leg.team.abbr}</b><small>{odds(leg.price)}</small>
-  {mixed&&<em className="gp-legchip-tag">{[leg.sport?.toUpperCase(),days.size>1?dayOf(leg.startsAt):null].filter(Boolean).join(' · ')}</em>}</li>)}</ul>;
-};
+function ParlaySlip({combo,index,mixed,tag}){
+ const days=new Set(combo.legs.map(leg=>dayOf(leg.startsAt)));
+ return <li className="gp-slip" data-top={tag?'':undefined} style={{'--i':index}}>
+  <div className="gp-slip-top">
+   <span className="gp-slip-name">{combo.legs.length}-pick parlay</span>
+   {tag&&<span className="gp-slip-tag">{tag}</span>}
+   <ShareButton legs={combo.legs} icon className="gp-share gp-slip-share" label={`Share this ${combo.legs.length}-pick parlay as a picture`}/>
+  </div>
+  <ul className="gp-slip-legs">{combo.legs.map(leg=><li key={`${leg.sport}:${leg.game}`} className="gp-slip-leg">
+   <Logo team={leg.team} size={32}/>
+   <span className="gp-slip-who"><b>{leg.team.short||leg.team.abbr}</b>
+    <small>{[mixed&&leg.sport?leg.sport.toUpperCase():null,`${leg.home?'vs':'@'} ${leg.opponent.abbr}`,days.size>1?`${dayOf(leg.startsAt)} ${clockText(leg.startsAt)}`:clockText(leg.startsAt)].filter(Boolean).join(' · ')}</small></span>
+   <span className="gp-slip-num"><b>{odds(leg.price)}</b><small>{pct(leg.chance)} to win</small></span>
+  </li>)}</ul>
+  <dl className="gp-slip-foot">
+   <div><dt>Pays</dt><dd>{paysText(combo.dec)}<small>{odds(americanOf(combo.dec))}</small></dd></div>
+   <div><dt>To hit</dt><dd>{pct(combo.chance)}</dd></div>
+   <div><dt>Value</dt><dd data-tone={combo.ev>0?'up':'down'}>{evText(combo.ev)}</dd></div>
+  </dl>
+ </li>;
+}
 
 // The Generator: moneylines (by day, NBA / NFL) or tonight's NBA props
 // (Nov 8, the owner: "a prop generator that does a full analysis ... like
@@ -1140,17 +1158,12 @@ function MoneylineGenerator({league,admin}){
     :<Section title={`Every game ${when}`}><ul className="gp-legs">{lead.map(leg=><Leg key={`${leg.sport}:${leg.game}`} leg={leg} mixed={which==='both'}/>)}</ul></Section>}
    <Section title={`${mixed?'NBA + NFL parlays':'Parlays'}${mode==='payout'?` paying ${payout}x or more`:`, ${legs} legs`}`} icon={Layers}>
     {mixed&&state.next?.length>0&&<p className="gp-note gp-mixed-note">No {state.next.map(sport=>sport.toUpperCase()).join(' or ')} games {when}: {state.next.length===1?'its':'their'} legs are from {state.next.length===1?'its':'their'} next games.</p>}
-    {combos.length?<ol className="gp-parlays">{combos.map((combo,index)=><li key={combo.legs.map(leg=>leg.game+leg.side).join()} style={{'--i':index}}>
-     <div className="gp-parlay-head">
-      <span className="gp-parlay-pays"><b>{paysText(combo.dec)}</b><small>{odds(americanOf(combo.dec))}</small></span>
-      <span className="gp-parlay-hit"><span className="gp-meter" style={{'--w':combo.chance}}/><small>{pct(combo.chance)} to hit</small></span>
-      <strong data-tone={combo.ev>0?'up':'down'}>{evText(combo.ev)}<small>value</small></strong>
-      <ShareButton legs={combo.legs} label={`Share this ${combo.legs.length}-pick parlay as a picture`}/>
-     </div>
-     <LegChips legs={combo.legs} mixed={mixed}/>
-    </li>)}</ol>:<p className="gp-note">{mixed&&leagues.size<2?'Only one league has games with moneylines right now, so there\'s no parlay with both.'
-     :mode==='payout'?`No mix of these games pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}
-    {held>0&&<p className="gp-note">{held} {held===1?'game':'games'} left out: no moneyline yet, or data to check.</p>}
+    {combos.length?<ol className="gp-slips">{combos.map((combo,index)=><ParlaySlip key={combo.legs.map(leg=>`${leg.sport}:${leg.game}:${leg.side}`).join()}
+     combo={combo} index={index} mixed={mixed} tag={index===0?(sort==='value'?'Best value':'Most likely'):null}/>)}</ol>
+     :<p className="gp-note">{mixed&&leagues.size<2?'Only one league has games with moneylines right now, so there\'s no parlay with both.'
+     :sort==='value'?`Not enough value picks ${when} for ${mode==='payout'?`a parlay paying ${payout}x`:`${legs} legs`}. Switch the order to Most likely for our picks.`
+     :mode==='payout'?`No mix of our picks ${when} pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}
+    {admin&&held>0&&<p className="gp-note">Admin: {held} {held===1?'game':'games'} left out: no moneyline yet, or data to check.</p>}
     {state.partial&&<p className="gp-note">One league couldn't load; these are the other's games.</p>}
    </Section>
   </div>}

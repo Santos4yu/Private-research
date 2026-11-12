@@ -64,7 +64,7 @@
 @keyframes gp-grow{from{transform:scaleX(0)}}
 @keyframes gp-shine{from{background-position:100% 0}to{background-position:-100% 0}}
 .gp-view{animation:gp-rise .45s var(--gp-ease) both}
-.gp-game,.gp-sec,.gp-hero,.gp-pick,.gp-parlays>li,.gp-pickrow,.gp-hstats>div{animation:gp-rise .5s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 40ms)}
+.gp-game,.gp-sec,.gp-hero,.gp-pick,.gp-slip,.gp-pickrow,.gp-hstats>div{animation:gp-rise .5s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 40ms)}
 
 .gp-shimmer{display:grid;gap:10px;padding:18px 0}
 .gp-shimmer span{height:60px;border-radius:16px;background:linear-gradient(90deg,var(--gp-soft) 0%,rgba(255,255,255,.09) 50%,var(--gp-soft) 100%);background-size:200% 100%;
@@ -226,24 +226,12 @@
 .gp-leg small{display:block;margin-top:2px;color:var(--gp-muted);font-size:12px;font-weight:600}
 .gp-leg-num{display:grid;justify-items:end;font-variant-numeric:tabular-nums}
 .gp-leg-num b{font-size:16px;font-weight:850}
-.gp-parlays{margin:0;padding:0;list-style:none}
-.gp-parlays>li{padding:14px 0 6px}
-.gp-parlays>li+li{border-top:1px solid var(--gp-rule)}
-.gp-parlay-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:16px;margin-bottom:4px}
 /* Share: a quiet pill with an icon; "Copied" for a moment after. */
 .gp-share{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border:0;border-radius:999px;background:var(--gp-soft-2);
  color:var(--gp-text);font-size:13px;font-weight:750;cursor:pointer;transition:background-color .2s,transform .15s var(--gp-ease)}
 .gp-share:hover{background:rgba(255,255,255,.12)}
 .gp-share:active{transform:scale(.95)}
 .gp-share:disabled{opacity:.6;cursor:default}
-.gp-parlay-pays b{font-size:26px;font-weight:850;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.gp-parlay-pays small{margin-left:7px;color:var(--gp-muted);font-size:13px;font-weight:700}
-.gp-parlay-hit{display:grid;gap:6px}
-.gp-parlay-hit small{color:var(--gp-muted);font-size:12.5px;font-weight:650}
-.gp-meter{position:relative;height:6px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.1)}
-.gp-meter::after{content:"";position:absolute;top:0;bottom:0;left:0;width:calc(var(--w) * 100%);border-radius:inherit;background:var(--gp-accent);transform-origin:left;animation:gp-grow .9s var(--gp-ease) .15s both}
-.gp-parlay-head strong{display:grid;justify-items:end;font-size:17px;font-weight:850;font-variant-numeric:tabular-nums}
-.gp-parlay-head strong small{color:var(--gp-faint);font-size:11.5px;font-weight:650}
 
 
 /* A game's page: the two teams and their chance now, then its tabs. */
@@ -616,10 +604,6 @@ button.gp-pickrow-x:active{transform:scale(.9)}
  .gp-control-row .gp-seg button{flex:1;padding:0 10px}
  .gp-pick-main b{font-size:19px}
  .gp-pick-num b{font-size:26px}
- .gp-parlay-head{gap:12px}
- .gp-parlay-head .gp-share{width:34px;padding:0;justify-content:center}
- .gp-parlay-head .gp-share span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
- .gp-parlay-pays b{font-size:22px}
 }
 
 /* Best value (Nov 8): our model's chance against the market's under the top pick. */
@@ -652,13 +636,61 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 .gp-pick-versus small b{margin-left:4px;color:var(--gp-text);font-weight:800}
 .gp-leg .gp-versus{margin-top:7px;max-width:180px;height:4px}
 .gp-leg .gp-versus b{top:-3px;bottom:-3px}
-/* A parlay's legs as chips. */
-.gp-legchips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px;padding:0;list-style:none}
-.gp-legchips li{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px 0 7px;border-radius:999px;background:var(--gp-soft);
- animation:gp-rise .4s var(--gp-ease) both}
-.gp-legchips li:not(:has(img,.gp-logo)){padding-left:11px}
-.gp-legchips b{font-size:12.5px;font-weight:800}
-.gp-legchips small{color:var(--gp-muted);font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
+/* A thin bar (the prop generator's "reading tonight's games"). */
+.gp-meter{position:relative;height:6px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.1)}
+.gp-meter::after{content:"";position:absolute;top:0;bottom:0;left:0;width:calc(var(--w) * 100%);border-radius:inherit;background:var(--gp-accent);transform-origin:left;animation:gp-grow .9s var(--gp-ease) .15s both}
+
+/* Parlays and prop slips as bet slips (Nov 12, the owner on the old row of a
+   meter and chips: "I hate it"): side by side on a wide screen, stacked on a
+   phone; the legs in a list, then Pays / To hit / Value along the bottom. */
+.gp-slips{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px;margin:0;padding:0;list-style:none}
+.gp-slips+.gp-note{margin-top:12px}
+.gp-slip{position:relative;isolation:isolate;display:flex;flex-direction:column;overflow:hidden;border-radius:20px;
+ background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));box-shadow:0 0 0 1px rgba(255,255,255,.05),0 10px 26px rgba(0,0,0,.22);
+ transition:transform .25s var(--gp-ease),background-color .25s,box-shadow .25s}
+.gp-slip[data-top]{background:linear-gradient(160deg,color-mix(in srgb,var(--gp-accent) 14%,rgba(255,255,255,.05)),rgba(255,255,255,.02) 65%)}
+.gp-slip[data-top]::after{content:"";position:absolute;z-index:-1;top:-70px;right:-50px;width:200px;height:200px;border-radius:50%;
+ background:radial-gradient(closest-side,color-mix(in srgb,var(--gp-accent) 16%,transparent),transparent)}
+@media (hover:hover){.gp-slip:hover{transform:translateY(-2px);box-shadow:0 0 0 1px rgba(255,255,255,.07),0 16px 34px rgba(0,0,0,.3)}}
+.gp-slip-top{display:flex;align-items:center;gap:8px;min-height:52px;padding:10px 10px 4px 16px}
+.gp-slip-name{font-size:14px;font-weight:800;letter-spacing:-.01em}
+.gp-slip-tag{padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.07);color:var(--gp-muted);font-size:11.5px;font-weight:750}
+.gp-slip[data-top] .gp-slip-tag{background:color-mix(in srgb,var(--gp-accent) 22%,rgba(255,255,255,.04));color:var(--gp-text)}
+.gp-slip-share{width:36px;min-height:36px;margin-left:auto;padding:0;justify-content:center;background:rgba(255,255,255,.06)}
+.gp-slip-legs{flex:1;margin:0;padding:0 16px;list-style:none}
+.gp-slip-leg{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 0;
+ animation:gp-rise .45s var(--gp-ease) both;animation-delay:calc(var(--i,0) * 40ms + 80ms)}
+.gp-slip-leg+.gp-slip-leg{border-top:1px solid var(--gp-rule)}
+.gp-slip-leg .sa-face{--size:36px}
+.gp-slip-who{min-width:0}
+.gp-slip-who b{display:block;overflow:hidden;font-size:14.5px;font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.gp-slip-who small{display:block;margin-top:2px;overflow:hidden;color:var(--gp-muted);font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.gp-slip-num{display:grid;justify-items:end;font-variant-numeric:tabular-nums}
+.gp-slip-num b{font-size:15.5px;font-weight:850}
+.gp-slip-num small{margin-top:2px;color:var(--gp-muted);font-size:11.5px;font-weight:650;white-space:nowrap}
+.gp-slip-foot{display:grid;grid-template-columns:1.3fr 1fr 1fr;margin:6px 0 0;padding:12px 16px 14px;background:rgba(0,0,0,.18)}
+.gp-slip-foot>div{min-width:0}
+.gp-slip-foot>div+div{padding-left:12px}
+.gp-slip-foot>div:last-child{text-align:right}
+.gp-slip-foot dt{color:var(--gp-faint);font-size:11.5px;font-weight:700}
+.gp-slip-foot dd{margin:3px 0 0;font-size:20px;font-weight:850;letter-spacing:-.02em;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gp-slip-foot dd small{margin-left:6px;color:var(--gp-muted);font-size:12.5px;font-weight:700;letter-spacing:0}
+.gp-slip{container:gp-slip/inline-size}
+/* Three across on a laptop: a narrow card tightens up instead of cutting the times off. */
+@container gp-slip (max-width:300px){
+ .gp-slip-top{padding-left:14px}
+ .gp-slip-legs{padding:0 14px}
+ .gp-slip-leg{gap:10px}
+ .gp-slip-leg .gp-logo{width:28px!important;height:28px!important}
+ .gp-slip-leg .sa-face{--size:32px}
+ .gp-slip-who b{font-size:14px}
+ .gp-slip-who small{font-size:11.5px}
+ .gp-slip-num b{font-size:15px}
+ .gp-slip-num small{font-size:11px}
+ .gp-slip-foot{grid-template-columns:auto auto auto;justify-content:space-between;padding:12px 14px 14px}
+ .gp-slip-foot dd{font-size:18px}
+ .gp-slip-foot dd small{display:none}
+}
 
 
 /* A laptop or bigger (Nov 9, the owner: "we need to make this better for
@@ -739,9 +771,8 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 /* The last play: a quote card. */
 .gp-chance-sec .gp-lastplay,.gp-lastplay{border-radius:14px}
 
-/* Both leagues in one parlay (Nov 9): each chip says its league, and its day when the legs aren't on one. */
+/* Both leagues in one parlay (Nov 9). */
 .gp-gen-body>.gp-controls>.gp-seg{margin-bottom:2px}
-.gp-legchip-tag{margin-left:2px;padding:1px 6px;border-radius:6px;background:rgba(255,255,255,.08);color:var(--gp-muted);font-size:10.5px;font-style:normal;font-weight:800;letter-spacing:.02em}
 .gp-mixed-note{margin:0 0 10px}
 
 /* The matchup (Nov 11, the owner with PickFinder's moneyline card as a

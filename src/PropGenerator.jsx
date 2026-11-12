@@ -381,13 +381,18 @@ export function PropGenerator({admin}){
    {showPasses||!top?<Rows key={`x|${stat}|${picked}`} items={passes} saved={saved} open={open} setOpen={setOpen}/>
     :<button type="button" className="gp-soft pg-more" onClick={()=>setShowPasses(true)}>See {passes.length} {passes.length===1?'pass':'passes'} and why<ChevronDown size={15} aria-hidden="true"/></button>}
   </Section>}
-  {stat==='all'&&picked==='all'&&(slips.length>0?<Section title="Best slips tonight" icon={Layers}><ol className="gp-parlays">{slips.map((slip,index)=><li key={slip.size} style={{'--i':index}}>
-   <div className="gp-parlay-head">
-    <span className="gp-parlay-pays"><b>{slip.payout}x</b><small>{slip.size} picks</small></span>
-    <span className="gp-parlay-hit"><span className="gp-meter" style={{'--w':slip.chance}}/><small>{pct(slip.chance)} to hit</small></span>
-    <strong data-tone="up">{`+${(slip.value*100).toFixed(1)}%`}<small>value</small></strong>
-   </div>
-   <ul className="gp-legchips">{slip.legs.map(item=><li key={item.row.id}><b>{item.row.player.split(' ').slice(-1)[0]}</b><small>{item.row.line} {SHORT[item.row.marketKey]||''}</small></li>)}</ul>
+  {stat==='all'&&picked==='all'&&(slips.length>0?<Section title="Best slips tonight" icon={Layers}><ol className="gp-slips">{slips.map((slip,index)=><li key={slip.size} className="gp-slip" data-top={index===0?'':undefined} style={{'--i':index}}>
+   <div className="gp-slip-top"><span className="gp-slip-name">{slip.size}-pick slip</span>{index===0&&<span className="gp-slip-tag">Best value</span>}</div>
+   <ul className="gp-slip-legs">{slip.legs.map(item=><li key={item.row.id} className="gp-slip-leg">
+    <Face row={item.row}/>
+    <span className="gp-slip-who"><b>{item.row.player}</b><small>Over {item.row.line} {SHORT[item.row.marketKey]||statWords(item.row)}{item.row.opponent?` · ${homeAway(item.row)} ${item.row.opponent}`:''}</small></span>
+    <span className="gp-slip-num"><b>{pct(item.grade.chance)}</b><small>to hit</small></span>
+   </li>)}</ul>
+   <dl className="gp-slip-foot">
+    <div><dt>Pays</dt><dd>{slip.payout}x</dd></div>
+    <div><dt>To hit</dt><dd>{pct(slip.chance)}</dd></div>
+    <div><dt>Value</dt><dd data-tone="up">{`+${(slip.value*100).toFixed(1)}%`}</dd></div>
+   </dl>
   </li>)}</ol></Section>
   :plays.length>1&&<Section title="Best slips tonight" icon={Layers}><p className="gp-note">No slip pays for itself tonight: PrizePicks needs about 58% a pick on a 2-pick. Play the strongest on their own.</p></Section>)}
  </div>;

@@ -58,6 +58,31 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (g): parlays as bet slips, only on our side
+
+- The owner, with the Generator's "Parlays paying 2x or more" on a phone:
+  "I don't like how the parlays are I hate it". The old rows were a big
+  payout, a meter, a value number and chips. They had a red −18% parlay with
+  DAL +184 in it, a side our model gave 28%.
+- Each parlay is now a bet-slip card (`ParlaySlip` in GamePredictor.jsx,
+  `.gp-slip*` in game-predictor.css). It shows "2-pick parlay", plus a
+  "Most likely" / "Best value" tag on the first card, and Share as an icon.
+  The legs are stacked: the logo, the team, where and when, the price, and
+  our chance "to win". Along the bottom are Pays (2.08x +108), To hit and
+  Value.
+  - Cards sit three across on a laptop and stack on a phone.
+  - A narrow card tightens up through a container query, so times aren't
+    cut off.
+  - The first card has the soft accent glow.
+- The prop generator's "Best slips tonight" uses the same cards, with the
+  player's face, "Over 6.5 AST · @ MIA" and the chance to hit.
+- `parlays()` (game-predictor-core.js) now only uses sides our model is on:
+  - Most likely: each game's pick.
+  - Best value: sides with an edge over the market (over .005) and a
+    positive return, an underdog included.
+  - When nothing fits, the note says so (and points value to Most likely).
+- "1 game left out: no moneyline yet, or data to check" is admin only now.
+
 ### Nov 12 (f): the record by date (Game Predictor → History)
 
 - The owner: "organize these and add dates and use a date chart to show

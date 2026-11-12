@@ -118,6 +118,21 @@ test('parlays: paying at least 2x, two to four legs, never two sides of one game
  assert.deepEqual(parlays(board,{payout:1000}),[]);
 });
 
+test('parlays use only our side: each game\'s pick for most likely, value sides for best value',()=>{
+ // Our picks are BOS, DEN and MIA; an underdog our model gives 15-48% is never a leg.
+ const picks=new Set(['BOS','DEN','MIA']);
+ for(const combo of parlays(board,{payout:2,top:50}))for(const leg of combo.legs)assert.ok(picks.has(leg.team.abbr),leg.team.abbr);
+ for(const combo of parlays(board,{legs:2,top:50}))for(const leg of combo.legs)assert.ok(picks.has(leg.team.abbr),leg.team.abbr);
+ // Best value: a side our model has above the market and that returns more than it costs, even an underdog.
+ const priced={games:[
+  {id:'1',home:{abbr:'BOS'},away:{abbr:'WSH'},chance:{home:0.85,away:0.15},market:{home:0.84,away:0.16},prices:{home:-600,away:450}},
+  {id:'2',home:{abbr:'DEN'},away:{abbr:'UTAH'},chance:{home:0.58,away:0.42},market:{home:0.65,away:0.35},prices:{home:-200,away:170}},
+  {id:'3',home:{abbr:'MIA'},away:{abbr:'NY'},chance:{home:0.6,away:0.4},market:{home:0.52,away:0.48},prices:{home:-115,away:-105}}]};
+ const value=parlays(priced,{legs:2,sort:'value',top:50});
+ assert.deepEqual(value.map(combo=>combo.legs.map(leg=>leg.team.abbr)),[['UTAH','MIA']]);
+ assert.ok(value[0].ev>0);
+});
+
 test('the generator\'s days and the slate by day',()=>{
  const now=new Date(2026,10,6,15,0);
  const days=dayOptions(now,4);
