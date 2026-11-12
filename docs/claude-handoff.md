@@ -58,6 +58,37 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (f): the record by date (Game Predictor → History)
+
+- The owner: "organize these and add dates and use a date chart to show
+  the props and record for that day whether it's for nfl or nba or both"
+  (with PickFinder's month calendar as the layout reference).
+- `src/GameRecord.jsx` now has, under Moneylines / Props:
+  - an NBA / NFL / Both switch. Both merges the two sports' moneylines, and
+    each pick says its league;
+  - a date button that opens a month calendar (`DatePick`). Days we have
+    picks for show a dot: green for a winning day, red for a losing one,
+    gray for an even or unfinished day. The calendar also has All dates and
+    Today, and with a day picked there are ‹ › arrows for the day before or
+    after;
+  - All dates: the overall headline, then the picks grouped by day (Today,
+    Yesterday, "Tue, Nov 10"), each day with its record and units; 5 days
+    show, then "Show N more dates";
+  - one day: that day's record, units and every pick.
+- Props: the prop generator stays NBA only (NFL says there's no generator).
+  The Props tab top picks follow the league switch and the day.
+- Server: `game_record.read(..., day=)` returns every item of that day.
+  The usual read is capped at 60, so old days need their own read.
+  `slip_ledger.generator_day(day)` does the same for the generator, and
+  `board_record` adds `daily` (the hits and misses per day, by sport).
+  `api/prediction.py` takes `day=YYYY-MM-DD` (regex-checked) on
+  game-record and game-prop-record.
+- Helpers in `src/game-record-core.js`: `monthGrid`, `dayTallies`, `dayTone`,
+  `byDay`, `longDay`; tested in tests/game-record.test.mjs and
+  tests/test_site_record.py.
+- Still admin / Admin badge only, as before (`record={full}`). A public
+  record page was offered to the owner for selling Pro; there's no answer yet.
+
 ### Nov 12 (e): the finish on the other pages
 
 - "also add the finish on other pages": went through Props, Cheat Sheets,

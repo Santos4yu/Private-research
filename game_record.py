@@ -344,9 +344,11 @@ def from_history(sport, held, member=None, store=None) -> list:
     return added
 
 
-def read(sport, now=None, store=None, finals=None, remaining=None, member=None) -> dict:
+def read(sport, now=None, store=None, finals=None, remaining=None, member=None, day=None) -> dict:
     """The admin's record for a league: {sport, season, record, items (newest
-    first), remaining (past games still to fill in)}. Settles what's due."""
+    first), remaining (past games still to fill in)}. Settles what's due.
+    `day` ("2026-11-11"): every pick of that day in `items` (Nov 12, the
+    owner: a calendar to see the record for one day), not just the newest."""
     now, store = _now(now), _store(store)
     season = season_of(sport, now)
     held = entries(sport, season, store)
@@ -364,7 +366,10 @@ def read(sport, now=None, store=None, finals=None, remaining=None, member=None) 
         except Exception:  # noqa: BLE001 -- unknown, the page doesn't fill
             remaining = 0
     items = sorted((entry for entry in held.values() if not entry.get("skipped") and not entry.get("filled")), key=lambda entry: entry.get("startsAt") or "", reverse=True)
-    return {"sport": sport, "season": season, "record": summary_of([e for e in held.values() if not e.get("skipped")], now), "items": items[:SHOWN], "remaining": remaining}
+    if day:
+        items = [entry for entry in items if entry.get("day") == day]
+    return {"sport": sport, "season": season, "record": summary_of([e for e in held.values() if not e.get("skipped")], now),
+            "items": items if day else items[:SHOWN], "remaining": remaining, **({"day": day} if day else {})}
 
 
 def timer(sport, now=None, store=None) -> dict:

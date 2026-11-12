@@ -104,6 +104,10 @@ class MoneylineRecord(unittest.TestCase):
         self.assertEqual((record["favorites"]["wins"], record["underdogs"]["losses"]), (1, 1))
         self.assertEqual(record["confidence"]["Medium"]["wins"], 1)
         self.assertEqual(record["days"][0]["day"], "2026-11-09")
+        # One day asked for: every pick of that day; another day, none.
+        shown = game_record.read("nba", later, self.store, finals=lambda sport, ids: {}, remaining=0, day="2026-11-09")
+        self.assertEqual((shown["day"], sorted(entry["id"] for entry in shown["items"])), ("2026-11-09", ["401", "402"]))
+        self.assertEqual(game_record.read("nba", later, self.store, finals=lambda sport, ids: {}, remaining=0, day="2026-11-01")["items"], [])
 
     def test_the_season_so_far_filled_in_a_date_at_a_time_oldest_first(self):
         day = lambda n: datetime(2026, 10, 21 + n, 23, 30, tzinfo=timezone.utc)
@@ -178,6 +182,15 @@ class PropRecord(unittest.TestCase):
         self.assertEqual(record["stats"]["Points"]["hits"], 1)
         self.assertNotIn("D", [play["player"] for play in record["latest"]])
 
+    def test_one_days_generator_plays_for_the_calendar(self):
+        day = "2026-11-09"
+        self.store.data[slip_ledger.PREFIX + slip_ledger.GEN + day] = {
+            "a": json.dumps({**gen_play(), "result": "hit"}), "b": json.dumps({**gen_play("B"), "result": "miss"}),
+            "c": json.dumps({**gen_play("C"), "result": None}), "d": json.dumps({**gen_play("D"), "result": "hit", "dropped": True})}
+        out = slip_ledger.generator_day(day)
+        self.assertEqual((out["day"], out["tally"]["hits"], out["tally"]["misses"], out["pending"]), (day, 1, 1, 1))
+        self.assertEqual(sorted(play["player"] for play in out["plays"]), ["B", "C", "Jalen Brunson"])
+
     def test_the_props_tab_picks_summed_up_a_day_at_a_time(self):
         def ledger_pick(sport, tier, result, source="board", side="OVER"):
             return json.dumps({"sport": sport, "tier": tier, "result": result, "source": source, "side": side, "modifier": "standard", "late": False})
@@ -195,6 +208,8 @@ class PropRecord(unittest.TestCase):
         self.assertEqual((record["all"]["hits"], record["all"]["misses"]), (3, 1))
         self.assertEqual(record["tiers"]["elite"]["rate"], 0.5)
         self.assertEqual(record["sports"]["mlb"]["all"]["hits"], 1)
+        # Day by day for the calendar, each sport's hits and misses.
+        self.assertEqual(record["daily"], [{"day": day, "hits": 3, "misses": 1, "sports": {"mlb": {"hits": 1, "misses": 0}, "nba": {"hits": 2, "misses": 1}}}])
 
 
 if __name__ == "__main__":

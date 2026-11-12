@@ -101,3 +101,54 @@
 .gr-pick-call{display:flex;align-items:center;gap:6px;font-size:15.5px;font-weight:800}
 .gr-pick-call i{color:var(--gp-faint,#767676);font-size:12.5px;font-weight:650;font-style:normal}
 .gr-pick-call em{margin-left:4px;color:var(--gp-muted,#a9a9a9);font-size:12.5px;font-weight:700;font-style:normal}
+
+/* ---- By date (Nov 12): NBA / NFL / Both, a calendar, picks under their dates. */
+.gr-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px}
+.gr-controls .gp-seg{min-width:200px}
+.gr-date{position:relative;display:flex;align-items:center;gap:6px}
+.gr-date-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 12px 0 13px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:#151517;color:#F2F3F5;
+ font:700 13.5px/1 var(--font-sans);cursor:pointer;transition:background-color .15s,border-color .15s}
+.gr-date-btn:hover,.gr-date-btn[aria-expanded=true]{border-color:rgba(255,255,255,.16);background:#1B1B1E}
+.gr-date-btn svg{color:var(--gp-muted)}
+.gr-date-step{display:grid;place-items:center;width:34px;height:40px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:#151517;color:#DADDE2;cursor:pointer}
+.gr-date-step:disabled{opacity:.35;cursor:default}
+.gr-cal{position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:min(340px,calc(100vw - 32px));padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:18px;
+ background:#121214;box-shadow:0 24px 50px -18px rgba(0,0,0,.9);animation:gp-rise .22s var(--gp-ease) both}
+.gr-cal-head{display:grid;grid-template-columns:36px 1fr 36px;align-items:center;margin-bottom:10px}
+.gr-cal-head b{text-align:center;font-size:16px;font-weight:800;letter-spacing:-.01em}
+.gr-cal-head button{display:grid;place-items:center;width:36px;height:36px;border:1px solid rgba(255,255,255,.08);border-radius:11px;background:none;color:#DADDE2;cursor:pointer}
+.gr-cal-week,.gr-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+.gr-cal-week span{padding:6px 0;color:var(--gp-faint);font-size:12px;font-weight:700;text-align:center}
+.gr-cal-grid button{position:relative;display:grid;place-items:center;height:42px;padding:0;border:0;border-radius:11px;background:none;color:#B7BAC0;font:650 14px/1 var(--font-sans);cursor:pointer;font-variant-numeric:tabular-nums}
+.gr-cal-grid button[data-has]{color:#fff;font-weight:800}
+.gr-cal-grid button[data-out]{color:#4A4D53}
+.gr-cal-grid button:hover{background:rgba(255,255,255,.06)}
+.gr-cal-grid button[data-today]{box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.gr-cal-grid button[aria-pressed=true]{background:#F2F2F2;color:#0B0B0B;box-shadow:none}
+.gr-cal-grid button i{position:absolute;bottom:5px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#7C8088}
+.gr-cal-grid button i[data-tone=up]{background:#18DE96}
+.gr-cal-grid button i[data-tone=down]{background:#F4606E}
+.gr-cal-grid button i[data-tone=even]{background:#F5A524}
+.gr-cal-foot{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.gr-cal-foot button{height:36px;border:1px solid rgba(255,255,255,.08);border-radius:11px;background:#18181B;color:#DADDE2;font:700 13px/1 var(--font-sans);cursor:pointer}
+.gr-cal-foot button[aria-pressed=true]{background:#232326;color:#fff}
+
+/* Picks under their date, each date with its own record. */
+.gr-dates{display:grid;gap:16px}
+.gr-date-group+.gr-date-group{padding-top:14px;border-top:1px solid var(--gp-rule)}
+.gr-day-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0}
+.gr-day-head button{padding:0;border:0;background:none;color:#F2F3F5;font:800 14px/1.2 var(--font-sans);cursor:pointer}
+.gr-day-head button:hover{text-decoration:underline;text-underline-offset:3px}
+.gr-day-head small{display:inline-flex;align-items:baseline;gap:8px;color:var(--gp-faint);font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.gr-day-head small b{color:#DADDE2;font-weight:800}
+.gr-day-head small b[data-tone=up],.gr-day-head small em[data-tone=up]{color:#18DE96}
+.gr-day-head small b[data-tone=down],.gr-day-head small em[data-tone=down]{color:#F4606E}
+.gr-day-head small em{font-style:normal;font-weight:800}
+.gr-date-group .gr-games{margin-top:6px}
+@media(max-width:560px){
+ .gr-controls{align-items:stretch}
+ .gr-controls .gp-seg{flex:1 1 100%;min-width:0}
+ .gr-date{flex:1 1 100%}
+ .gr-date-btn{flex:1;justify-content:center}
+ .gr-cal{left:0;right:auto;width:100%}
+}

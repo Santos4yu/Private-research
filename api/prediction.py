@@ -286,10 +286,15 @@ class handler(BaseHTTPRequestHandler):
                 from site_controls import member_full_access
                 if not (admin_auth.is_admin_request(self.headers) or member_full_access(self.headers)):
                     return self._send(403, {"error": "Admins only."})
+                # ?day=2026-11-11: every pick of that day (the record's calendar).
+                day = arg("day")
+                day = day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day or "") else None
                 if action == "game-record":
                     import game_record
-                    return self._send(200, game_record.read(sport, member=_member_id(self.headers, session_with_live_access(self.headers))))
+                    return self._send(200, game_record.read(sport, member=_member_id(self.headers, session_with_live_access(self.headers)), day=day))
                 import slip_ledger
+                if day:
+                    return self._send(200, {"day": slip_ledger.generator_day(day)})
                 return self._send(200, {"generator": slip_ledger.generator_record(), "board": slip_ledger.board_record(),
                                         "posted": slip_ledger.record()})
             if action == "game-chart":

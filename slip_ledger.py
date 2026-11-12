@@ -1164,6 +1164,15 @@ def archive_board_days(now=None, most=3):
     return missing
 
 
+def generator_day(day):
+    """The generator's plays of one day ("2026-11-11") and their tally, for
+    the record's calendar: {day, plays: [...], tally}."""
+    plays = [pick for _, _, pick in _ledger([day], GEN) if not pick.get("dropped")]
+    plays.sort(key=lambda pick: (pick.get("startsAt") or "", pick.get("confidence") or 0), reverse=True)
+    return {"day": day, "plays": [{**{field: pick.get(field) for field in GEN_FIELDS}, "day": day} for pick in plays],
+            "tally": _tally([pick for pick in plays if pick.get("result")]), "pending": sum(1 for pick in plays if not pick.get("result"))}
+
+
 def board_record(now=None):
     """The Props tab's top picks over the days summed up so far: each sport
     and tier, and overall, {sports, tiers, all, days, since, through}."""
@@ -1186,6 +1195,11 @@ def board_record(now=None):
            "sports": {sport: {"all": rate(count([cell for _, s, _, cell in cells if s == sport])),
                               **{tier: rate(count([cell for _, s, t, cell in cells if s == sport and t == tier])) for tier in BOARD_TIERS}}
                       for sport in sports},
-           "since": min((day for day, _ in kept), default=None), "through": max((day for day, _ in kept), default=None), "days": len(kept)}
+           "since": min((day for day, _ in kept), default=None), "through": max((day for day, _ in kept), default=None), "days": len(kept),
+           # Day by day, newest first, each sport's hits and misses (the record's calendar).
+           "daily": [{"day": day, **count([cell for d, _, _, cell in cells if d == day]),
+                      "sports": {sport: count([cell for d, s, _, cell in cells if d == day and s == sport]) for sport in sports
+                                 if any(d == day and s == sport for d, s, _, _ in cells)}}
+                     for day in sorted({d for d, _, _, _ in cells}, reverse=True)]}
     _memory["board"] = (time.time(), out)
     return out
