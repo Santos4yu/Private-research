@@ -13,13 +13,16 @@ import {useTrendPanel} from '../../trend-panel.js';
 import PlayerNews,{useNewsAllowed,withNews} from '../../PlayerNews';
 import {depthRows,injuryCode} from './depth';
 import {RESEARCH_TABS} from '../../FinderResearchSections';
+import PropTrail from './PropTrail';
 
 
 // The NBA / WNBA player page off the Finder, on the shared layout
 // (FinderPlayerLayout.jsx; Oct 30 the owner rebuilt this page first, then
 // had every sport take it): the shared trend chart with his Game log, Stats
 // and Depth under it, the matchup panel's six tabs beside it.
-const HIS=[['log','Game log'],['stats','Stats'],['depth','Depth']];
+// The trail (Line Movement / Prop History, PropTrail.jsx) is the phone's: a
+// computer keeps the full game log in its place (finder-player-app.css).
+const HIS=[['log','Game log'],['stats','Stats'],['depth','Depth'],['trail','Line movement']];
 const RESEARCH_LIST=RESEARCH_TABS.map(([key,label])=>[key,label]);
 
 // The known stats in their usual order, then any other market PrizePicks
@@ -153,7 +156,8 @@ export function WNBAPlayerPage({row,playerRows,onBack}){
  const chipsNote=filters.length?`${shown} ${shown===1?'game':'games'}`:'';
  const loading=trend.state==='loading';
  const sections={log:<PlayerGameLog row={selected} logs={trend.rows} loading={loading} error={trend.state==='error'} onRetry={()=>setRetry(n=>n+1)}/>,
-  stats:<SupportingStats logs={trend.rows} loading={loading}/>,depth:<DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/>};
+  stats:<SupportingStats logs={trend.rows} loading={loading}/>,depth:<DepthChart row={selected} matchup={matchup.data} filters={filters} onToggleFilter={toggleFilter}/>,
+  trail:<PropTrail row={selected} logs={trend.rows}/>};
  return <FinderPlayerLayout row={selected} playerRows={playerRows} onBack={onBack} blocked={!row.playerId}
   notice={!row.playerId?<div className="wnba-board-message" role="status"><Database size={22} aria-hidden="true"/><strong>Player history unavailable</strong><span>This player could not be matched to ESPN's roster yet, so trends and matchup research are not available.</span></div>
    :trend.state==='error'&&<div className="wnba-board-message" role="alert"><span>{trend.error}</span><button type="button" className="wnba-trend-back" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={16} aria-hidden="true"/>Retry</button></div>}

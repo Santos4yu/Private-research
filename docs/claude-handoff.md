@@ -58,6 +58,28 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (b): the player page on a phone after PickFinder's
+
+- The owner, with PickFinder's phone page: "look how its set up for mobile i
+  want it like this make sure we have the linemovment to and the depth
+  seperate and the supporting stats just how they have it set up".
+- Narrower than 1051px (finder-player-app.css): the chart, then his
+  sections each a card of their own and always shown (Supporting stats,
+  Depth charts, then the Line Movement / Prop History card in the full game
+  log's place), then the research tabs as tiles (five to a row, the last
+  row's stretching to share it; `.fp2-tabs-research`, the old swiped row
+  `.fp2-tabs-all` is off), then the research picked. A computer is
+  unchanged (the trail card is hidden there; the full game log stays).
+- FinderPlayerLayout tags his sections `data-his`. WNBAPlayerPage adds
+  `['trail','Line movement']` → PropTrail.jsx: Line Movement = this line's
+  PrizePicks moves tonight newest first, then where it opened ("No moves
+  yet" otherwise; goblin/demon lines show as they stand), from
+  resource=line-history (the NBA's; rows in prop-trail.js `lineTrail`,
+  tests/prop-trail.test.mjs); Prop History = his last 15 games in this stat
+  against tonight's line, each Hit / Miss / Push.
+- Other sports' phone pages also stack their own sections now (no trail
+  card for them, so their game log stays).
+
 ### Nov 12 (a): the board's Defense rank is the player page's; brighter cells
 
 - The owner: Trevon Brazile's Points line showed Defense 24th on the board,

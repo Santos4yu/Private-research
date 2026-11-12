@@ -11,7 +11,9 @@
 //   research  the sport's matchup panel, one tab row over it
 //
 // On a computer the chart and his sections take the left and the research
-// the right; narrower, one column with a single row of every tab. Every
+// the right. Narrower (Nov 12, the owner with PickFinder's phone page: "i
+// want it like this"): one column, the chart, then each of his sections as
+// its own card, then the research tabs as tiles over the research. Every
 // section stays mounted and is hidden when not picked, so a tab opens at
 // once and keeps where it was.
 import React,{useCallback,useState} from 'react';
@@ -60,7 +62,7 @@ export function FinderPlayerLayout({row,playerRows,onBack,className='',style,not
     {chart}
     {his.length>0&&<div className="fp2-his">
      <Tabs className="fp2-tabs-his" label="His games" list={hisList} picked={HIS+hisTab} onPick={pick}/>
-     {his.map(([key,,node])=><div className="fp2-section" key={key} hidden={hisTab!==key}>{node}</div>)}
+     {his.map(([key,,node])=><div className="fp2-section" key={key} data-his={key} hidden={hisTab!==key}>{node}</div>)}
     </div>}
    </div>
    <div className="fp2-research">

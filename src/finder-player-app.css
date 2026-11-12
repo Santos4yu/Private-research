@@ -336,3 +336,77 @@ html:root .fp2 .fp2-section:not([hidden]),
 html:root .fp2 .fp2-head,
 html:root .fp2.finder-trend-view .mlb-context-card,
 html:root .fp2.finder-trend-view .mlb-support-track > div { animation: none !important; }
+
+/* ------------------------------------------------------------ narrower: PickFinder's phone page (Nov 12)
+
+   The owner, with PickFinder's phone page: "look how its set up for mobile
+   i want it like this make sure we have the linemovment to and the depth
+   seperate and the supporting stats just how they have it set up". One
+   column: the chart; his sections each a card of their own, always shown
+   (Stats, Depth, then the Line Movement / Prop History card in the full
+   game log's place); then the research tabs as tiles, five to a row with
+   the rest sharing the last; then the research picked. */
+@media (max-width: 1050px) {
+  html:root .fp2 .fp2-grid[data-group] .fp2-his { display: flex !important; flex-direction: column; gap: 14px; order: 2; margin-top: 14px; padding: 0; background: none; box-shadow: none; }
+  html:root .fp2 .fp2-his > .fp2-tabs { display: none !important; }
+  html:root .fp2 .fp2-his > .fp2-section,
+  html:root .fp2 .fp2-his > .fp2-section[hidden] { display: block !important; margin: 0; animation: none; }
+  html:root .fp2 .fp2-his:has(> [data-his=trail]) > .fp2-section[data-his=log] { display: none !important; }
+  html:root .fp2 .fp2-his > .fp2-section > .mlb-context-card {
+    margin: 0; padding: var(--fp2-card-pad) !important; border: 0 !important; border-radius: 18px !important;
+    background-color: var(--fp2-panel) !important; background-image: var(--fp2-sheen) !important;
+    box-shadow: inset 0 0 0 1px var(--fp2-line), var(--fp2-depth) !important;
+  }
+  html:root .fp2 .fp2-his > .fp2-section > .mlb-context-card > header {
+    margin: calc(var(--fp2-card-pad) * -1) calc(var(--fp2-card-pad) * -1) 14px !important; padding: 13px var(--fp2-card-pad) !important;
+    border-radius: 17px 17px 0 0; background: rgba(255, 255, 255, .032) !important; box-shadow: inset 0 -1px var(--fp2-line) !important;
+  }
+
+  /* The research tabs: tiles, five to a row, the last row's sharing it. */
+  html:root .fp2 .fp2-tabs.fp2-tabs-all { display: none !important; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research {
+    display: flex !important; flex-wrap: wrap; gap: 8px; order: 3; margin: 18px 0 14px; padding: 0;
+    overflow: visible; border: 0; background: none !important; box-shadow: none !important;
+  }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button {
+    display: flex !important; flex: 1 1 calc(20% - 7px); flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    min-width: 0; height: 62px; padding: 0 4px !important; border: 0 !important; border-radius: 14px !important;
+    background: var(--fp2-panel) !important; box-shadow: inset 0 0 0 1px var(--fp2-line) !important;
+    color: var(--fp-muted); font: 650 11.5px/1 var(--font-sans);
+  }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button svg { width: 18px; height: 18px; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button::after { content: none !important; }
+  html:root .fp2 .fp2-tabs.fp2-tabs-research > button[aria-pressed=true] { background: #222226 !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16) !important; color: #fff; }
+  html:root .fp2 .fp2-grid[data-group] .fp2-matchup { display: block !important; order: 4; }
+}
+/* A computer keeps the full game log; the trail card is the phone's. */
+@media (min-width: 1051px) {
+  html:root .fp2 .fp2-his > .fp2-section[data-his=trail],
+  html:root .fp2 .fp2-his > .fp2-section[data-his=trail][hidden] { display: none !important; }
+}
+
+/* The Line Movement / Prop History card (PropTrail.jsx). */
+html:root .fp2 .fp2-trail { padding-top: 6px !important; }
+html:root .fp2 .fp2-trail-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 0 10px; padding: 4px; border-radius: 12px; background: var(--fp2-well); box-shadow: inset 0 0 0 1px var(--fp2-line); }
+html:root .fp2 .fp2-trail-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; margin: 0; padding: 0 10px; border: 0; border-radius: 9px; background: none; color: var(--fp-muted); font: 650 13px/1 var(--font-sans); cursor: pointer; }
+html:root .fp2 .fp2-trail-tabs button[aria-selected=true] { background: #222226; color: #fff; box-shadow: 0 8px 18px -12px #000; }
+html:root .fp2 .fp2-trail-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+html:root .fp2 .fp2-trail-table th { padding: 8px 8px 9px; border-bottom: 1px solid var(--fp2-line); color: var(--fp-faint); font: 650 11px/1 var(--font-sans); text-align: left; }
+html:root .fp2 .fp2-trail-table th:last-child, html:root .fp2 .fp2-trail-table td:last-child { text-align: right; }
+html:root .fp2 .fp2-trail-table td { padding: 10px 8px; border-bottom: 1px solid var(--fp2-line); color: #C9CCD1; font: 500 12.5px/1.2 var(--font-sans); vertical-align: middle; }
+html:root .fp2 .fp2-trail-table tr:last-child td { border-bottom: 0; }
+html:root .fp2 .fp2-trail-table td b { color: #fff; font: 700 14px/1 var(--font-sans); }
+html:root .fp2 .fp2-trail-table td small { display: block; margin-top: 3px; color: var(--fp-faint); font-size: 10.5px; }
+html:root .fp2 .fp2-trail-table tr[data-tone=up] td:first-child b { color: #18DE96; }
+html:root .fp2 .fp2-trail-table tr[data-tone=down] td:first-child b { color: #F4606E; }
+html:root .fp2 .fp2-trail-table tr[data-tone=pulled] td:first-child b { color: var(--fp-faint); text-decoration: line-through; }
+html:root .fp2 .fp2-trail-app { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 8px; background: rgba(255, 255, 255, .06); }
+html:root .fp2 .fp2-trail-app img { display: block; object-fit: contain; }
+html:root .fp2 .fp2-trail-table time { display: inline-block; padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, .06); color: #DADDE2; font: 600 11.5px/1 var(--font-sans); white-space: nowrap; }
+html:root .fp2 .fp2-trail-note { color: var(--fp-muted); font-size: 12px; }
+html:root .fp2 .fp2-trail-none { margin: 4px 0; padding: 14px 8px; color: var(--fp-muted); font-size: 12.5px; text-align: center; }
+html:root .fp2 .fp2-trail-mark { display: inline-block; min-width: 42px; padding: 4px 8px; border-radius: 7px; font: 700 11px/1 var(--font-sans); text-align: center; }
+html:root .fp2 .fp2-trail-mark[data-tone=hit] { background: rgba(24, 222, 150, .14); color: #3FE9AE; }
+html:root .fp2 .fp2-trail-mark[data-tone=miss] { background: rgba(244, 96, 110, .14); color: #FF8592; }
+html:root .fp2 .fp2-trail-mark[data-tone=push] { background: rgba(255, 255, 255, .08); color: var(--fp-muted); }
