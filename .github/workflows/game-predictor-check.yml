@@ -91,6 +91,36 @@ jobs:
                   found = gp.dk_match(game, events)
                   print("   ", game["away"]["short"], "@", game["home"]["short"], "| DraftKings", found, "| page", (game["line"] or {}).get("moneyline"),
                         (game["line"] or {}).get("source", "espn"), "| opened", (game["line"] or {}).get("open"))
+      - name: DraftKings' NBA player props (book_props.py, the Props tab's DK chance)
+        shell: python
+        run: |
+          import collections, json, sys, requests
+          sys.path.insert(0, ".")
+          import book_props as bp
+          league = bp._get(bp.BASE)
+          if league is None:
+              print("league feed: no answer")
+          else:
+              print("league keys:", sorted(league)[:20])
+              print("categories:", [(c.get("id"), c.get("name")) for c in league.get("categories") or []][:40])
+              print("subcategories:", [(s.get("id"), s.get("categoryId"), s.get("name")) for s in league.get("subcategories") or []][:60])
+          print("player categories used:", bp._player_categories(league))
+          for cat, _ in bp._player_categories(league)[:3]:
+              payload = bp._get(f"{bp.BASE}/categories/{cat}")
+              if not payload:
+                  print(f"category {cat}: no answer")
+                  continue
+              print(f"category {cat}: keys {sorted(payload)[:20]} | markets {len(payload.get('markets') or [])} selections {len(payload.get('selections') or [])}")
+              print("  subcategories:", [(s.get("id"), s.get("categoryId"), s.get("name")) for s in payload.get("subcategories") or []][:20])
+              for key in ("markets", "selections"):
+                  if payload.get(key):
+                      print(f"  a {key[:-1]}:", json.dumps(payload[key][0])[:700])
+          rows = bp.read()
+          print(len(rows), "over/under props read;", collections.Counter(row["stat"] for row in rows).most_common())
+          for row in rows[:12]:
+              print("  ", row["player"], row["stat"], row["line"], row["over"], row["under"], round(bp.fair(row["over"], row["under"]), 3))
+          players = bp.collect(rows)
+          print(len(players), "players")
       - name: v2's NFL model on this week's games
         shell: python
         run: |

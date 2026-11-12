@@ -6,14 +6,16 @@ const SENT = 'props-record:sent';
 // A report goes again after this, or sooner when many more props are scored.
 const EVERY = 10 * 60 * 1000;
 
-/** The report for these rows: [{id, market, line, start, score, chance, tier, modifier, needs}]. */
-export function reportRows(rows, scores, grades, now = Date.now()) {
+/** The report for these rows: [{id, market, line, start, score, chance, tier, modifier, needs, book}],
+ * `book` DraftKings' chance he goes over (book-props.js), when it has him. */
+export function reportRows(rows, scores, grades, now = Date.now(), books = null) {
   const out = [];
   for (const row of rows || []) {
-    const read = scores?.get(row.id), prop = grades?.get(row.id);
+    const read = scores?.get(row.id), prop = grades?.get(row.id), book = books?.get(row.id);
     if (!read || !row.playerId || !Number.isFinite(Number(row.line)) || !(Date.parse(row.startsAt || '') > now)) continue;
     out.push({id: String(row.playerId), market: row.marketKey, line: Number(row.line), start: row.startsAt, score: read.score,
-      chance: prop?.chance ?? null, tier: prop?.tier ?? null, modifier: String(row.modifier || 'standard').toLowerCase(), needs: prop?.needs ?? null});
+      chance: prop?.chance ?? null, tier: prop?.tier ?? null, modifier: String(row.modifier || 'standard').toLowerCase(), needs: prop?.needs ?? null,
+      book: Number.isFinite(book?.chance) ? Math.round(book.chance * 1000) / 1000 : null});
   }
   return out;
 }

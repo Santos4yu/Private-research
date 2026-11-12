@@ -58,6 +58,51 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (h): DraftKings' chance on the Props tab (hit rate)
+
+- The owner, with the Props tab's track record open: "I want better props
+  higher hit rate".
+  - The record read 90+ went over 42%, 75-89 40%, 60-74 40%, 40-59 42% and
+    under 40 42% (about 7,700 props over 10 nights).
+  - So the matchup score has no edge over PrizePicks' lines, which already
+    price the matchup. About 42% is just how often overs go over.
+- New signal: DraftKings' own over/under on the same player and stat.
+  - `book_props.py` reads DraftKings' public NBA feed: the league's
+    player-prop categories (fallback ids 1215-1218, 583, 1219), then each
+    category's O/U subcategories.
+  - It keeps a player's main line per stat (the one priced nearest even)
+    and takes the book's cut out (`fair`).
+  - Cached 5 minutes in memory and in KV (`krazy_data:book-props:v1:nba`).
+    The API is `api/wnba.py` `resource=book-props`. A dead feed gives empty
+    players, so nothing new shows on the site.
+- `src/book-props.js` `bookChance(row, players)`: DraftKings' chance at
+  PrizePicks' line.
+  - When the lines differ, it slides the chance along a normal curve with
+    spread `SPREAD[stat]` × √line.
+  - Over on a whole-number line means one more than it.
+- Props list (`MatchupList.jsx`):
+  - With prices in, a DraftKings column sits before Matchup ("DK 58%" on a
+    phone; on a computer, the % with DraftKings' price or line under it),
+    green at 56%+ and red under 46%.
+  - DraftKings is the default sort (Sort: DraftKings / Matchup / Last 10).
+  - Why and the preview start with a sentence on DraftKings' line and
+    prices.
+- Track record: the report sends `book` (kept as the 6th item;
+  props_record.py `BOOK_BANDS` 60%+ / 55-59 / 50-54 / under 50). The record
+  returns `books`, and the panel leads with a DraftKings table once a band
+  has 20 props.
+  - Watch whether 55%+ really goes over 55%+ of the time.
+  - PrizePicks needs about 54-58% a pick, depending on the slip.
+- Not checked against the real feed yet: this container can't reach
+  DraftKings.
+  - The owner approved a "Private-research" environment with
+    sportsbook-nash.draftkings.com allowed, for future sessions (this one
+    couldn't move to it).
+  - The "Game predictor check" workflow has a step that prints the feed's
+    categories and what `book_props.read()` finds. Run it after a deploy;
+    if DraftKings' shape differs, fix `parse`, `_player_categories` and
+    `read`.
+
 ### Nov 12 (g): parlays as bet slips, only on our side
 
 - The owner, with the Generator's "Parlays paying 2x or more" on a phone:

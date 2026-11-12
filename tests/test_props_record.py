@@ -50,7 +50,10 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(props_record.remember(rows, kv, now=now), 1)
         # A 7:30 pm Eastern tip on the 3rd is the 3rd's game (00:30 UTC on the 4th).
         kept = kv.hashes['krazy:props-record:v1:nba:2026-11-03']
-        self.assertEqual(json.loads(kept['3975|player_points|24.5']), [81, 0.561, 'strong', 'standard', 0.5])
+        self.assertEqual(json.loads(kept['3975|player_points|24.5']), [81, 0.561, 'strong', 'standard', 0.5, None])
+        rows[0]['book'] = 0.5874
+        props_record.remember(rows, kv, now=now)
+        self.assertEqual(json.loads(kept['3975|player_points|24.5'])[5], 0.587)
         rows[0]['score'] = 77
         props_record.remember(rows, kv, now=now)
         self.assertEqual(json.loads(kept['3975|player_points|24.5'])[0], 77)
@@ -58,8 +61,8 @@ class RecordTests(unittest.TestCase):
     def test_record_by_band_and_tier(self):
         kv = FakeKV()
         kv.hashes['krazy:props-record:v1:nba:2026-11-03'] = {
-            '1|player_points|20.5': json.dumps([92, 0.6, 'elite', 'standard', 0.5]),      # 25: over
-            '2|player_points|18.5': json.dumps([80, 0.55, 'strong', 'standard', 0.5]),    # 15: under
+            '1|player_points|20.5': json.dumps([92, 0.6, 'elite', 'standard', 0.5, 0.62]),      # 25: over
+            '2|player_points|18.5': json.dumps([80, 0.55, 'strong', 'standard', 0.5, 0.48]),    # 15: under
             '3|player_rebounds|8': json.dumps([45, 0.5, 'lean', 'standard', 0.5]),        # 8: push
             '4|player_points_rebounds|30.5': json.dumps([30, 0.4, 'fade', 'standard', 0.5]),  # 20 + 12: over
             '5|player_points|10.5': json.dumps([70, 0.5, None, 'demon', 0.35]),            # didn't play: not counted
@@ -77,6 +80,9 @@ class RecordTests(unittest.TestCase):
         # A push counts as a prop, not in the rate.
         self.assertEqual((bands['40-59']['push'], bands['40-59']['props'], bands['40-59']['overRate']), (1, 1, None))
         self.assertEqual(bands['Under 40']['over'], 1)
+        # DraftKings' chance (kept from Nov 12; older reports have none).
+        books = {item['band']: item for item in found['books']}
+        self.assertEqual((books['60%+']['over'], books['Under 50%']['under'], books['55-59%']['props']), (1, 1, 0))
         tiers = {item['tier']: item for item in found['tiers']}
         self.assertEqual((tiers['elite']['over'], tiers['fade']['over'], tiers['strong']['under']), (1, 1, 1))
         # Against what each needed: the three decided, all regular lines (50%).

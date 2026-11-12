@@ -23,6 +23,8 @@ DAY_SHIFT = 6 * 3600
 MAX_ROWS = 1000
 # Matchup score bands and Prop grade tiers the record is told in.
 BANDS = ((90, '90+'), (75, '75-89'), (60, '60-74'), (40, '40-59'), (0, 'Under 40'))
+# DraftKings' chance he goes over (book_props.py, Nov 12), in bands of its own.
+BOOK_BANDS = ((0.6, '60%+'), (0.55, '55-59%'), (0.5, '50-54%'), (0, 'Under 50%'))
 TIERS = ('elite', 'strong', 'lean', 'risky', 'fade')
 # The stats the list grades (src/nba-props-data.js PROPS_MARKETS).
 MARKETS = {'player_points': 'pts', 'player_rebounds': 'reb', 'player_assists': 'ast', 'player_threes': 'tpm',
@@ -56,7 +58,7 @@ def _start(value):
 
 def remember(rows, pipeline, now=None):
     """Keep the list's report (rows of {id, market, line, start, score, chance,
-    tier, modifier, needs}) for games not yet started. Returns how many were
+    tier, modifier, needs, book}) for games not yet started. Returns how many were
     written."""
     now = time.time() if now is None else now
     by_day = defaultdict(dict)
@@ -69,9 +71,11 @@ def remember(rows, pipeline, now=None):
             continue
         tier = row.get('tier') if row.get('tier') in TIERS else None
         modifier = row.get('modifier') if row.get('modifier') in ('standard', 'demon', 'goblin') else 'standard'
-        needs = _number(row.get('needs'))
+        needs, book = _number(row.get('needs')), _number(row.get('book'))
+        book = book if book is not None and 0 < book < 1 else None
         by_day[day_of(start)][f'{pid}|{market}|{format(line, "g")}'] = json.dumps(
-            [round(score), None if chance is None else round(chance, 3), tier, modifier, None if needs is None else round(needs, 3)],
+            [round(score), None if chance is None else round(chance, 3), tier, modifier, None if needs is None else round(needs, 3),
+             None if book is None else round(book, 3)],
             separators=(',', ':'))
     commands = []
     for day, fields in by_day.items():
@@ -83,7 +87,8 @@ def remember(rows, pipeline, now=None):
 
 
 def reports(days, pipeline):
-    """{day: {field: [score, chance, tier, modifier, needs]}} for the days asked."""
+    """{day: {field: [score, chance, tier, modifier, needs, book]}} for the days asked
+    (`book` missing from reports kept before Nov 12)."""
     if not days:
         return {}
     replies = pipeline([['HGETALL', key(day)] for day in days]) or []
@@ -154,9 +159,11 @@ def record(days, pipeline, payloads, stat_value, today=None):
     asked = sorted(day for day in days if day < today)
     kept = reports(asked, pipeline)
     found = results(payloads, stat_value) if kept else {}
-    bands, tiers, overall, nights = defaultdict(_tally), defaultdict(_tally), _tally(), set()
+    bands, tiers, books, overall, nights = defaultdict(_tally), defaultdict(_tally), defaultdict(_tally), _tally(), set()
     for day, fields in kept.items():
-        for field, (score, chance, tier, modifier, needs) in fields.items():
+        for field, kept_row in fields.items():
+            score, chance, tier, modifier, needs = kept_row[:5]
+            book = _number(kept_row[5]) if len(kept_row) > 5 else None
             pid, market, line = field.split('|')
             value = (found.get((pid, day)) or {}).get(MARKETS.get(market))
             if value is None:
@@ -169,7 +176,10 @@ def record(days, pipeline, payloads, stat_value, today=None):
             _count(bands[next(label for floor, label in BANDS if score >= floor)], outcome, needs)
             if tier:
                 _count(tiers[tier], outcome, needs)
+            if book is not None:
+                _count(books[next(label for floor, label in BOOK_BANDS if book >= floor)], outcome, needs)
     return {'days': len(asked), 'nights': len(nights), 'from': asked[0] if asked else None, 'to': asked[-1] if asked else None,
             'bands': [{'band': label, **_rate(bands[label])} for _, label in BANDS],
             'tiers': [{'tier': tier, **_rate(tiers[tier])} for tier in TIERS],
+            'books': [{'band': label, **_rate(books[label])} for _, label in BOOK_BANDS],
             'all': _rate(overall)}

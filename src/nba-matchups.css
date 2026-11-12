@@ -427,3 +427,27 @@ button.nm-why:hover,.nm-why[aria-expanded=true]{background:rgba(255,255,255,.07)
  .nm-row,.nm-spark i::after,.nm-reads,.nm-spots,.nba-matchups .nm-record,.nm-rate i,.nm-bar i,.nm-active button,.nm-filters,.nm-pv-card,.nm-pv-bars>span::after,.nm-pv-rates i::after{animation:none}
  .nm-pv-open svg{transition:none}
 }
+
+/* DraftKings' chance he goes over (Nov 12, book-props.js): a column before
+   the matchup when its prices are in. A phone shows "DK 58%" at the end of
+   the line's row; wider, the column has its heading and the price under. */
+.nm-record-body table+table{margin-top:18px}
+.nm-book{grid-area:book;display:flex;align-items:baseline;justify-content:flex-end;gap:4px;min-width:0;color:var(--m-muted);white-space:nowrap}
+.nm-book em{color:var(--m-faint);font-size:11px;font-style:normal;font-weight:600}
+.nm-book b{font-size:13px;font-weight:700}
+.nm-book small{display:none;color:var(--m-faint);font-size:11px;font-weight:500}
+.nm-book[data-tone=good] b{color:var(--m-good)}
+.nm-book[data-tone=poor] b{color:var(--m-poor)}
+.nm-table[data-book] .nm-main{grid-template-areas:'face name name grade' 'face line book grade' 'face l10 when grade'}
+@container (min-width:640px){
+ .nm-table[data-book] :is(.nm-thead,.nm-main){--nm-cols:22px 38px minmax(0,1fr) 132px 58px 52px 104px}
+ .nm-table[data-book] .nm-main{grid-template-areas:'rank face name line book grade l10' 'rank face when line book grade l10'}
+ .nm-book{flex-direction:column;align-items:center;justify-content:center;gap:1px}
+ .nm-book em{display:none}
+ .nm-book b{font-size:14.5px}
+ .nm-book small{display:block}
+}
+@container (min-width:920px){
+ .nm-table[data-book] :is(.nm-thead,.nm-main){--nm-cols:22px 38px minmax(0,1fr) 132px 58px 52px 112px 46px 46px 46px}
+ .nm-table[data-book] .nm-main{grid-template-areas:'rank face name line book grade l10 l5 l20 season' 'rank face when line book grade l10 l5 l20 season'}
+}

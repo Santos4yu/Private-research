@@ -22,6 +22,7 @@ import {propGrades} from './props-grade';
 import {loadLearning} from './learning';
 import {lineupRole} from './lineup-role';
 import {ENOUGH,loadRecord,reportProps,reportRows} from './props-record';
+import {bookChance,loadBookProps,priceText} from './book-props';
 import {mainLines,tierOf} from './props-lines';
 import {CountUp} from './count-up';
 import {useWide} from './use-wide';
@@ -31,6 +32,9 @@ import {SlipToggle,useSlipIds} from './SlipToggle';
 import './nba-matchups.css';
 
 const SORTS=[['matchup','Matchup'],['hit','Last 10']];
+// With DraftKings' prices in (the NBA's, book-props.js), its chance he goes
+// over sorts first (Nov 12, the owner: "I want better props higher hit rate").
+const BOOK_SORTS=[['book','DraftKings'],...SORTS];
 // Which lines and players show (Oct 25, the owner: only regular lines and
 // starters, or only Goblins, or only Demons). Kept on the device per league.
 const KINDS=[['standard','Regular'],['goblin','Goblins'],['demon','Demons'],['all','All']];
@@ -40,7 +44,7 @@ const remember=(key,value)=>{try{localStorage.setItem(key,value);}catch{/* this 
 const PICS={demon:['/prizepicks/demon-64.png','Demon','PrizePicks Demon: a higher line that pays more'],
  goblin:['/prizepicks/goblin.png','Goblin','PrizePicks Goblin: a lower line that pays less']};
 // The table's headings for the sorted columns: full, and on a phone.
-const HEADS={matchup:['Matchup','Match'],hit:['Last 10','L10']};
+const HEADS={book:['DraftKings','DK'],matchup:['Matchup','Match'],hit:['Last 10','L10']};
 // His other hit rates, beside Last 10 where the list has the room.
 const EXTRA=[['l5','L5'],['l20','L20'],['season','SZN']];
 const READS={teammates:'His teammates out',back:'Teammates back',missing:'Their players out',recent:'Their last 10 games',defense:'Their defense',pace:'Their pace',position:'vs his position',attempts:'Threes they allow',rebounds:'Rebounds they allow',assists:'Assists they allow',turnovers:'Their turnovers',meetings:'His games vs them',
@@ -82,8 +86,9 @@ const blowoutText=found=>`his team is a ${figure(Math.abs(found.spread))}-point 
 // The first rows in view ease in one after another and count their scores up.
 const FIRST=14;
 // What made the scores (a row's Why, and the preview beside the list).
-function Reads({read,prop,role,hit,brief}){
+function Reads({read,prop,role,hit,brief,book}){
  return <ul className="nm-reads">{!brief&&<li className="nm-read-note">{read.score} matchup, {read.label.toLowerCase()}{hit?`. Over his line in ${hit.hits} of his last ${hit.games}`:''}.</li>}
+  {book&&<li className="nm-read-note">DraftKings: {bookWords(book)}.</li>}
   {prop?.blowout&&<li className="nm-read-note">{prop.blowout.role==='starter'?'Blowout risk':'Blowout boost'}: {blowoutText(prop.blowout)}.</li>}
   {role&&<li className="nm-read-note">{role.label}: {role.sat?`he started ${role.starts} of his last ${role.games} and sat out his team’s last game`:`${role.starter?'he started his team’s last game':'he didn’t start his team’s last game'} and ${role.starts} of his last ${role.games}`}. Tonight’s lineup is announced about half an hour before tip-off.</li>}
   <li className="nm-read-note">An even matchup is 50. Each part adds or takes away points.</li>{read.reads.map(item=><li key={item.key} data-sign={item.points>0.5?'up':item.points<-0.5?'down':undefined}>
@@ -93,16 +98,26 @@ function Reads({read,prop,role,hit,brief}){
  </li>)}</ul>;
 }
 
+// DraftKings' price in words: its line and prices, and the chance after its cut.
+const pct=chance=>`${Math.round(chance*100)}%`;
+const bookWords=book=>`over ${figure(book.line)} at ${priceText(book.over)}, under at ${priceText(book.under)}. With the book’s cut taken out, `
+ +(book.moved?`that’s about ${pct(book.chance)} that he goes over PrizePicks’ line`:`that’s ${pct(book.chance)} that he goes over`);
+const bookTone=book=>book?(book.chance>=0.56?'good':book.chance<0.46?'poor':undefined):undefined;
+function BookCell({book}){
+ return <span className="nm-book" data-tone={bookTone(book)} title={book?`DraftKings: ${bookWords(book)}`:'DraftKings has no line for him in this stat'}>
+  {book?<><em>DK</em><b>{pct(book.chance)}</b><small>{book.moved?`DK ${figure(book.line)}`:priceText(book.over)}</small></>:<b>—</b>}</span>;
+}
+
 // On a big screen (`picking`) a click picks the prop shown beside the list
 // and a double-click opens his page (the owner, Oct 27: "when i double click
 // it opens the prop"); no Why arrow there: the preview says why.
-function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,color,picking,selected,onSelect,saved}){
+function PropRow({row,read,hit,prop,role,book,books,open,onToggle,onOpen,short,index=0,color,picking,selected,onSelect,saved}){
  const rank=index+1;
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const kind=tierOf(row),pic=PICS[kind];
  const stat=short[row.marketKey]||row.market;
  const waiting=row.historyStatus==='pending'||row.historyRefresh;
- const said=[read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
+ const said=[book&&`DraftKings ${pct(book.chance)}`,read&&`matchup ${read.score}, ${read.label.toLowerCase()}`,hit&&`last 10 ${hit.hits} of ${hit.games}`].filter(Boolean).join(', ');
  return <li className="nm-row" data-open={open||undefined} data-selected={selected||undefined} data-saved={saved.has(finderSlipId(row))||undefined}
   style={{'--i':Math.min(index,FIRST),...(color?{'--team':color}:{})}}>
   <button type="button" className="nm-main" onClick={()=>picking?onSelect(row.id):onOpen(row)} onDoubleClick={picking?()=>onOpen(row):undefined} aria-pressed={picking?Boolean(selected):undefined}
@@ -113,13 +128,14 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,colo
    <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}
     {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&` · ${when(row.startsAt)}`}</small>
    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img className="nm-demon" src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span>
+   {books&&<BookCell book={book}/>}
    <span className="nm-grade" data-tone={read?.tone||undefined}><b>{read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'}</b></span>
    <span className="nm-l10"><Spark row={row}/><b data-tone={rateTone(hit)}>{hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}</b></span>
    {EXTRA.map(([key])=>{const item=rateOf(row,key);return <span className="nm-rate-cell" key={key} style={{gridArea:key}} data-tone={rateTone(item)}>{item?`${item.hits}/${item.games}`:'—'}</span>;})}
   </button>
   {picking?null:read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span className="nm-why" aria-hidden="true"/>}
   <SlipToggle row={row} saved={saved} stat={stat} className="nm-save"/>
-  {!picking&&open&&read&&<Reads read={read} prop={prop} role={role} hit={hit}/>}
+  {!picking&&open&&read&&<Reads read={read} prop={prop} role={role} hit={hit} book={book}/>}
  </li>;
 }
 
@@ -130,7 +146,7 @@ function PropRow({row,read,hit,prop,role,open,onToggle,onOpen,short,index=0,colo
 const POS_NAMES={G:'Guard',F:'Forward',C:'Center'};
 const WINDOWS=[['l5','L5'],['l10','L10'],['l20','L20'],['season','Season']];
 function Preview({item,others,league,short,color,onOpen,onPick,saved}){
- const {row,read,hit,prop,role}=item;
+ const {row,read,hit,prop,role,book}=item;
  const home=row.teamAbbr&&row.teamAbbr===row.homeTeamAbbr;
  const team=league?.teams?.[row.teamAbbr],opponent=league?.teams?.[row.opponent];
  const pic=PICS[tierOf(row)],stat=short[row.marketKey]||row.market;
@@ -164,7 +180,7 @@ function Preview({item,others,league,short,color,onOpen,onPick,saved}){
      </div>
      <div className="nm-pv-opps" aria-hidden="true">{games.map((game,index)=><small key={index}>{game.opponent||''}</small>)}</div>
     </div></section>}
-   {read&&<section className="nm-pv-part nm-pv-why"><h3>What makes the {read.score}</h3><Reads read={read} prop={prop} role={role} hit={hit} brief/></section>}
+   {read&&<section className="nm-pv-part nm-pv-why"><h3>What makes the {read.score}</h3><Reads read={read} prop={prop} role={role} hit={hit} book={book} brief/></section>}
    {others.length>0&&<section className="nm-pv-part"><h3>His other lines tonight</h3><ul className="nm-pv-others">{others.map(other=>
     <li key={other.row.id}><button type="button" onClick={()=>onPick(other.row.id)}><small>{short[other.row.marketKey]||other.row.market}</small><b>{figure(other.row.line)}</b>
      {other.read&&<em data-tone={other.read.tone}>{other.read.score}</em>}</button>
@@ -177,20 +193,30 @@ function Preview({item,others,league,short,color,onOpen,onPick,saved}){
 // band, over each one's line, once enough have been played. The NBA's
 // only. `recordOf` says it in a few words for its fold; RecordTable is the
 // fold opened.
+// DraftKings' bands (Nov 12) lead once they have enough props: they're the
+// test of whether its chance picks the overs that hit.
 function recordOf(record){
  const bands=(record?.bands||[]).filter(item=>item.props>=ENOUGH);
- if(!record||!bands.length)return record?.nights>0?{bands:[],line:`${record.all.props} props so far`}:null;
+ const books=(record?.books||[]).filter(item=>item.props>=ENOUGH);
+ if(!record||!bands.length&&!books.length)return record?.nights>0?{bands:[],books:[],line:`${record.all.props} props so far`}:null;
+ const nights=`Last ${record.nights} ${record.nights===1?'night':'nights'}`;
+ if(books.length){const top=books[0];
+  return {bands,books,line:`DK ${top.band} went over ${Math.round(top.overRate)}%`,long:`${nights}: DraftKings ${top.band} went over ${Math.round(top.overRate)}% of ${top.props}`};}
  const top=bands[0];
- return {bands,line:`${top.band} went over ${Math.round(top.overRate)}%`,
-  long:`Last ${record.nights} ${record.nights===1?'night':'nights'}: matchup ${top.band} went over ${Math.round(top.overRate)}% of ${top.props}`};
+ return {bands,books,line:`${top.band} went over ${Math.round(top.overRate)}%`,
+  long:`${nights}: matchup ${top.band} went over ${Math.round(top.overRate)}% of ${top.props}`};
 }
+const RateRows=({items})=>items.map(item=><tr key={item.band}><th scope="row">{item.band}</th>
+ <td><span className="nm-rate"><i style={{width:`${Math.min(100,item.overRate)}%`}}/></span>{Math.round(item.overRate)}%</td><td>{item.props}</td></tr>);
 function RecordTable({record,summary}){
- if(!summary.bands.length)return <p className="nm-record-note">{record.all.props} props over {record.nights} {record.nights===1?'night':'nights'} so far. Rates show once each band has {ENOUGH}.</p>;
+ if(!summary.bands.length&&!summary.books.length)return <p className="nm-record-note">{record.all.props} props over {record.nights} {record.nights===1?'night':'nights'} so far. Rates show once each band has {ENOUGH}.</p>;
  return <div className="nm-record-body">
-  <table><caption>{summary.long}</caption>
+  {summary.books.length>0&&<table><caption>{summary.long}</caption>
+   <thead><tr><th scope="col">DraftKings</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
+   <tbody><RateRows items={summary.books}/></tbody></table>}
+  {summary.bands.length>0&&<table>{!summary.books.length&&<caption>{summary.long}</caption>}
    <thead><tr><th scope="col">Matchup</th><th scope="col">Over</th><th scope="col">Props</th></tr></thead>
-   <tbody>{summary.bands.map(item=><tr key={item.band}><th scope="row">{item.band}</th>
-    <td><span className="nm-rate"><i style={{width:`${Math.min(100,item.overRate)}%`}}/></span>{Math.round(item.overRate)}%</td><td>{item.props}</td></tr>)}</tbody></table>
+   <tbody><RateRows items={summary.bands}/></tbody></table>}
  </div>;
 }
 
@@ -231,12 +257,12 @@ function GameStrip({games,value,onChange}){
 }
 
 // Sort, lines and players: each a small row of buttons with its name.
-function Filters({id,sort,onSort,kind,onKind,roles,role,onRole}){
+function Filters({id,sort,sorts=SORTS,onSort,kind,onKind,roles,role,onRole}){
  const group=(label,options,value,onChange)=><div className="nm-filter-row"><span>{label}</span><div className="nm-chips" role="group" aria-label={label}>
   {options.map(([key,text])=><button type="button" key={key} aria-pressed={value===key} onClick={()=>onChange(key)}>
    {label==='Lines'&&PICS[key]&&<img src={PICS[key][0]} alt="" width="14" height="14"/>}{text}</button>)}</div></div>;
  return <div className="nm-filters" id={id}>
-  {group('Sort',SORTS,sort,onSort)}
+  {group('Sort',sorts,sort,onSort)}
   {group('Lines',KINDS,kind,onKind)}
   {roles&&group('Players',ROLES,role,onRole)}
  </div>;
@@ -255,7 +281,8 @@ export function MatchupList({config}){
  const [facing,setFacing]=useState('');
  const setGame=value=>{setGameNow(value);setFacing('');};
  const [query,setQuery]=useState('');
- const [sort,setSort]=useState('matchup');
+ // null: the list's usual order (DraftKings' chance when its prices are in, else the matchup).
+ const [sortPicked,setSort]=useState(null);
  const [kind,setKindNow]=useState(()=>remembered(`props-kind:${config.key}`,'standard',KINDS));
  const [roleShown,setRoleNow]=useState(()=>remembered(`props-role:${config.key}`,'all',ROLES));
  const setKind=value=>{setKindNow(value);remember(`props-kind:${config.key}`,value);};
@@ -292,12 +319,29 @@ export function MatchupList({config}){
  const [learned,setLearned]=useState(0);
  useEffect(()=>{let live=true;Promise.resolve().then(()=>loadLearning()).then(()=>{if(live)setLearned(Date.now());}).catch(()=>{});return()=>{live=false;};},[]);
  const grades=useMemo(()=>propGrades(rows,league),[rows,league,learned]);
+ // DraftKings' prices on the same props (the NBA's), asked again every few minutes.
+ const [bookPlayers,setBookPlayers]=useState(null);
+ useEffect(()=>{
+  if(config.key!=='nba')return undefined;
+  let live=true;const ask=()=>loadBookProps().then(found=>{if(live)setBookPlayers(found);});
+  ask();const again=setInterval(ask,3*60*1000);
+  return()=>{live=false;clearInterval(again);};
+ },[config.key]);
+ const books=useMemo(()=>{
+  const out=new Map();if(!bookPlayers)return out;
+  for(const row of rows){const found=bookChance(row,bookPlayers);if(found)out.set(row.id,found);}
+  return out;
+ },[rows,bookPlayers]);
+ const hasBooks=books.size>0;
+ const sorts=hasBooks?BOOK_SORTS:SORTS;
+ const usual=hasBooks?'book':'matchup';
+ const sort=sortPicked&&sorts.some(([key])=>key===sortPicked)?sortPicked:usual;
  // The NBA list reports what it shows for the track record (props-record.js).
  useEffect(()=>{
   if(config.key!=='nba'||!scores.size)return undefined;
-  const wait=setTimeout(()=>reportProps(reportRows(mainLines(rows),scores,grades)),4000);
+  const wait=setTimeout(()=>reportProps(reportRows(mainLines(rows),scores,grades,Date.now(),books)),4000);
   return()=>clearTimeout(wait);
- },[config.key,rows,scores,grades]);
+ },[config.key,rows,scores,grades,books]);
  // How the props it showed went (the NBA's): the record above the list.
  const [record,setRecord]=useState(null);
  useEffect(()=>{if(config.key!=='nba')return undefined;let live=true;loadRecord(14).then(found=>{if(live)setRecord(found);}).catch(()=>{});return()=>{live=false;};},[config.key]);
@@ -319,17 +363,18 @@ export function MatchupList({config}){
  // What's set away from the usual (Regular lines, everyone, by matchup), shown as chips.
  const changed=[kind!=='standard'&&{key:'kind',label:KINDS.find(([key])=>key===kind)?.[1]+(kind==='all'?' lines':''),pic:PICS[kind]?.[0],clear:()=>setKind('standard')},
   roles&&roleShown!=='all'&&{key:'role',label:ROLES.find(([key])=>key===roleShown)?.[1],clear:()=>setRole('all')},
-  sort!=='matchup'&&{key:'sort',label:`By ${SORTS.find(([key])=>key===sort)?.[1]}`,clear:()=>setSort('matchup')}].filter(Boolean);
+  sort!==usual&&{key:'sort',label:`By ${sorts.find(([key])=>key===sort)?.[1]}`,clear:()=>setSort(null)}].filter(Boolean);
  const shown=useMemo(()=>ofKind
   .filter(row=>(stat==='all'||row.marketKey===stat)&&(picked==='all'||gameOf(row)===picked)&&(!facing||row.opponent===facing)&&(!needle||row.player.toLowerCase().includes(needle)))
-  .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league)}))
+  .map(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league),book:books.get(row.id)||null}))
   // Starters or bench: a player the rotation doesn't list yet shows under neither.
   .filter(item=>!roles||roleShown==='all'||(item.role&&item.role.starter===(roleShown==='starter')))
-  .sort((a,b)=>sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
+  .sort((a,b)=>sort==='book'?(b.book?.chance??-1)-(a.book?.chance??-1)||(b.read?.score??-1)-(a.read?.score??-1)
+   :sort==='hit'?(b.hit?.rate??-1)-(a.hit?.rate??-1)||(b.read?.score??-1)-(a.read?.score??-1)
    :(b.read?.score??-1)-(a.read?.score??-1)||(b.hit?.rate??-1)-(a.hit?.rate??-1))
   // All stats: each player once, at his best line by the sort; a stat chip lists that stat's line.
   .filter((item,index,list)=>stat!=='all'||list.findIndex(other=>other.row.player===item.row.player&&other.row.teamAbbr===item.row.teamAbbr)===index),
-  [ofKind,scores,grades,stat,picked,facing,needle,sort,league,roles,roleShown]);
+  [ofKind,scores,grades,stat,picked,facing,needle,sort,league,roles,roleShown,books]);
  // The soft-spots map reads the whole board of the picked kind.
  const spots=useMemo(()=>{
   const teams=new Map();
@@ -357,7 +402,7 @@ export function MatchupList({config}){
  // The prop beside the list: the one picked, else the list's first. One of
  // his other lines can be picked from the preview even when the list shows
  // another stat. His other lines are each stat's line of the picked kind.
- const itemOf=useCallback(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league)}),[scores,grades,league]);
+ const itemOf=useCallback(row=>({row,read:scores.get(row.id)||null,hit:hitOf(row),prop:grades.get(row.id)||null,role:lineupRole(row,league),book:books.get(row.id)||null}),[scores,grades,league,books]);
  const chosen=useMemo(()=>{
   if(!picking)return null;
   const found=shown.find(item=>item.row.id===selectedId);
@@ -409,7 +454,7 @@ export function MatchupList({config}){
  },[page]);
  if(page)return <Page key={page.id} row={page} lines={rows.filter(item=>item.player===page.player&&item.teamAbbr===page.teamAbbr)} league={league} onBack={closePage}/>;
 
- const filters=<Filters id={`${config.key}-filters`} sort={sort} onSort={setSort} kind={kind} onKind={setKind} roles={roles} role={roleShown} onRole={setRole}/>;
+ const filters=<Filters id={`${config.key}-filters`} sort={sort} sorts={sorts} onSort={setSort} kind={kind} onKind={setKind} roles={roles} role={roleShown} onRole={setRole}/>;
  const folds=(spots.teams.length>0||recordSummary)&&<div className="nm-folds">
   {spots.teams.length>0&&<button type="button" className="nm-fold" data-kind="spots" aria-expanded={fold==='spots'} onClick={()=>setFold(fold==='spots'?'':'spots')}>
    <LayoutGrid size={16} aria-hidden="true"/><span><b>Soft spots</b><small>{spots.best?`${spots.best.team} ${SHORT[spots.best.key]} · ${Math.round(spots.best.value)}`:'By defense'}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
@@ -457,12 +502,12 @@ export function MatchupList({config}){
 
   <div className="nm-work">
    <div className="nm-workmain">
-    {shown.length>0&&<div className="nm-table" ref={tableRef} data-picking={picking||undefined}>
+    {shown.length>0&&<div className="nm-table" ref={tableRef} data-picking={picking||undefined} data-book={hasBooks||undefined}>
      <div className="nm-thead"><span className="nm-th-rank">#</span><span className="nm-th-player">Player</span><span className="nm-th-line">Line</span>
-      {SORTS.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
+      {sorts.map(([key])=><button type="button" key={key} className={`nm-th nm-th-${key}`} aria-pressed={sort===key} onClick={()=>setSort(key)}
        aria-label={`Sort by ${HEADS[key][0]}`}><span className="nm-long">{HEADS[key][0]}</span><span className="nm-short">{HEADS[key][1]}</span>{sort===key&&<ArrowDown size={12} aria-hidden="true"/>}</button>)}
       {EXTRA.map(([key,label])=><span className="nm-th-rate" key={key}>{label}</span>)}</div>
-     <ul className="nm-list">{shown.map(({row,read,hit,prop,role},index)=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} index={index} color={teamColor(league,row.teamAbbr)} short={SHORT}
+     <ul className="nm-list">{shown.map(({row,read,hit,prop,role,book},index)=><PropRow key={row.id} row={row} read={read} hit={hit} prop={prop} role={role} book={book} books={hasBooks} index={index} color={teamColor(league,row.teamAbbr)} short={SHORT}
       open={openId===row.id} onToggle={()=>setOpenId(id=>id===row.id?null:row.id)} onOpen={openPage}
       picking={picking} selected={chosen?.row.id===row.id} onSelect={setSelectedId} saved={saved}/>)}</ul></div>}
     {(status==='ready'||status==='refreshing')&&rows.length>0&&!shown.length&&<div className="nm-empty"><b>Nothing matches</b>

@@ -11,7 +11,10 @@ test('the report: each scored prop still to come, its score, grade and line', ()
   const grades = new Map([['a', {chance: 0.47, tier: 'elite', needs: 0.35}]]);
   // c has no score yet, b has started, d has no player id.
   assert.deepEqual(reportRows(rows, scores, grades, NOW),
-    [{id: '10a', market: 'player_points', line: 20.5, start: '2026-11-04T00:30:00Z', score: 82, chance: 0.47, tier: 'elite', modifier: 'demon', needs: 0.35}]);
+    [{id: '10a', market: 'player_points', line: 20.5, start: '2026-11-04T00:30:00Z', score: 82, chance: 0.47, tier: 'elite', modifier: 'demon', needs: 0.35, book: null}]);
+  // DraftKings' chance rides along when it has him.
+  const [sent] = reportRows(rows, scores, grades, NOW, new Map([['a', {chance: 0.5814}]]));
+  assert.equal(sent.book, 0.581);
 });
 
 test('sent at most every ten minutes, unless many more props are scored', () => {

@@ -1422,6 +1422,18 @@ class handler(BaseHTTPRequestHandler):
                 try: days = int(query.get("days", ["14"])[0])
                 except ValueError: days = 14
                 return _send(self, 200, _props_record(max(1, min(days, 60))))
+            if resource == "book-props":
+                # DraftKings' over/under on each NBA player prop (book_props.py):
+                # the Props tab's "DK" chance. Empty when the feed can't be read.
+                if league != "nba":
+                    return _send(self, 404, {"error": "DraftKings' props are read for the NBA."})
+                import book_props
+                try:
+                    found = book_props.props(kv_get=store.get if store.configured() else None,
+                                             kv_set=store.set if store.configured() else None)
+                except Exception:  # noqa: BLE001 -- the list shows without them
+                    found = {"at": int(time.time()), "players": {}, "count": 0}
+                return _send(self, 200, found)
             if resource == "line-history":
                 # His PrizePicks line moves (the player page's Line movement
                 # card, line_moves.py) and when the NBA's lines were last checked.
