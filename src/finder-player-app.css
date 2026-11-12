@@ -410,3 +410,34 @@ html:root .fp2 .fp2-trail-mark { display: inline-block; min-width: 42px; padding
 html:root .fp2 .fp2-trail-mark[data-tone=hit] { background: rgba(24, 222, 150, .14); color: #3FE9AE; }
 html:root .fp2 .fp2-trail-mark[data-tone=miss] { background: rgba(244, 96, 110, .14); color: #FF8592; }
 html:root .fp2 .fp2-trail-mark[data-tone=push] { background: rgba(255, 255, 255, .08); color: var(--fp-muted); }
+
+/* ------------------------------------------------------------ the last of the finish (Nov 12)
+
+   The owner: "now give it the polish look to the whole finder". What was
+   left plain: each research tab painted its own accent (pink, yellow,
+   orange, green icons and bars), the shot chart's flat cartoon colors, the
+   Injuries team buttons, bare empty messages. Now: one quiet white accent
+   for every tab, the court under a shade deepening toward the top with
+   white lines and glass labels, the team switch a segmented control like
+   the depth chart's, and a calm empty state. */
+html:root .fp2 :is(.wnba-finder-context, .mlb-finder-context),
+html:root .fp2 :is(.wnba-finder-context, .mlb-finder-context)[data-tab] { --research-accent: #E4E5E8; }
+html:root .fp2 .wnba-finder-context tr[data-current=true] { background: rgba(255, 255, 255, .045) !important; }
+html:root .fp2 .wnba-finder-context tr[data-current=true] th { box-shadow: none; }
+html:root .fp2 .mlb-context-card > header h2 svg { color: #C9CCD1; }
+
+/* The court. */
+html:root .fp2 .wnba-court { width: calc(100% - 8px); max-width: 440px; margin: 6px auto 0; border-radius: 14px; box-shadow: 0 18px 30px -22px #000, inset 0 0 0 1px rgba(255, 255, 255, .06); }
+html:root .fp2 .wnba-court-lines { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: 1.4; }
+html:root .fp2 .wnba-zone-label rect { fill: rgba(10, 10, 12, .74); stroke: rgba(255, 255, 255, .14); }
+html:root .fp2 .wnba-zone-label text { fill: #fff; }
+
+/* The Injuries (and any research) team switch: a segmented control. */
+html:root .fp2 .mlb-context-switch { display: inline-flex; gap: 4px; margin: 0 0 12px; padding: 4px; border-radius: 12px; background: var(--fp2-well); box-shadow: inset 0 0 0 1px var(--fp2-line); }
+html:root .fp2 .mlb-context-switch button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 14px; border: 0 !important; border-radius: 9px; background: none !important; color: var(--fp-muted); font: 650 12.5px/1 var(--font-sans); box-shadow: none !important; }
+html:root .fp2 .mlb-context-switch button img { width: 18px; height: 18px; object-fit: contain; }
+html:root .fp2 .mlb-context-switch button[aria-pressed=true] { background: #222226 !important; color: #fff; box-shadow: 0 8px 18px -12px #000 !important; }
+
+/* Calm empty states (members never see why). */
+html:root .fp2 .mlb-context-note.is-quiet { margin: 4px 0; padding: 18px 14px; border-radius: 12px; background: var(--fp2-well); box-shadow: inset 0 0 0 1px var(--fp2-line); color: var(--fp-muted); font-size: 12.5px; text-align: center; }
+html:root .fp2 .wnba-rank-none { color: var(--fp-faint); }

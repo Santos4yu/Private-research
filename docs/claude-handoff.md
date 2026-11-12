@@ -58,6 +58,25 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (c): the last of the Finder's finish
+
+- The owner: "now give it the polish look to the whole finder". Went
+  through every research tab on a computer and a phone; what was left
+  plain is now done (finder-player-app.css, end of file):
+  - one quiet white accent for every research tab inside the player page
+    (`--research-accent` was pink / yellow / orange / green per tab: icons,
+    Prop averages bars, the current row's tint); no left edge on the
+    current row;
+  - the shot chart: the board's colors (BAND_COLORS red, orange, amber,
+    lime, teal-green) under a shade deepening toward the top
+    (`#wnba-court-shade`), white court lines, glass zone labels, rounded;
+  - the Injuries team switch (`.mlb-context-switch`) is a segmented control
+    like the depth chart's;
+  - calm empty states (`.mlb-context-note.is-quiet`) where a member would
+    have seen a bare line; the Win predictor no longer shows its error text
+    to members (it goes through `Failed`, admins still see why);
+  - Team rankings show a plain "—" where a stat has no number (was "—% —").
+
 ### Nov 12 (b): the player page on a phone after PickFinder's
 
 - The owner, with PickFinder's phone page: "look how its set up for mobile i

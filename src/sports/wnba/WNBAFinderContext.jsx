@@ -11,14 +11,14 @@ import {theirDefenders,theirSeasons} from './defenders';
 
 function Empty({children}){return <p className="mlb-context-note">{children}</p>;}
 function Skeleton(){return <div className="mlb-context-skeleton" role="status" aria-label="Loading research"><span/><span/><span/><span/></div>;}
-function Failed({state,label}){const admin=useIsAdmin();return <Empty>{admin?<>{state.error||`${label} is temporarily unavailable.`} <button type="button" onClick={state.retry}><RefreshCw size={13} aria-hidden="true"/> Retry</button></>:QUIET}</Empty>;}
+function Failed({state,label}){const admin=useIsAdmin();return admin?<Empty>{state.error||`${label} is temporarily unavailable.`} <button type="button" onClick={state.retry}><RefreshCw size={13} aria-hidden="true"/> Retry</button></Empty>:<p className="mlb-context-note is-quiet">{QUIET}</p>;}
 function Logo({src,size=22}){return src?<img className="wnba-logo" src={src} alt="" width={size} height={size} loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>:null;}
 function Avatar({src}){return <span className="wnba-avatar"><UserRound size={18} aria-hidden="true"/>{src&&<img src={src} alt="" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>;}
 
 // ---------------------------------------------------------------- Matchup
 function WinPredictor({matchup}){
  const m=matchup.data;
- if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{matchup.loading?<Skeleton/>:<Empty>{matchup.error||'Matchup prediction is not available yet.'}</Empty>}</section>;
+ if(!m)return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>Pregame</small></header>{matchup.loading?<Skeleton/>:<Failed state={matchup} label="The matchup prediction"/>}</section>;
  const [away,home]=m.teams;const market=m.odds?.noVig;
  const source=m.predictor?{away:m.predictor.away,home:m.predictor.home,}:market?{away:market.away,home:market.home}:null;
  return <section className="mlb-context-card mlb-win-predictor"><header><h2>Win predictor</h2><small>{m.status?.detail||'Pregame'}</small></header>
@@ -171,7 +171,9 @@ function OffenseVsDefense({league,row}){
 // ---------------------------------------------------------------- Shooting
 const ZONE_LABELS={ra:'Restricted area',paint:'In the paint',mid:'Mid-range',c3l:'Left corner 3',c3r:'Right corner 3',ab3:'Above the break 3'};
 // Five bands of defense rank, toughest (red) to softest (green).
-const BAND_COLORS=['#ef4b5a','#f28a3c','#f4c53f','#a7d94a','#35c77e'];
+// Nov 12: the board's colors (red, orange, amber, lime, teal-green), under a
+// shade that deepens toward the top (the court's gradient).
+const BAND_COLORS=['#EE3F55','#F2793A','#F5A524','#8BD94A','#18D08E'];
 function bandOf(rank,count){if(!finite(rank)||!count)return null;return Math.min(4,Math.floor((rank-1)/(count/5)));}
 function ShotChart({player,league,row}){
  const data=league.data,p=player.data,opponent=opponentOf(row);
@@ -194,6 +196,8 @@ function ShotChart({player,league,row}){
    <path d="M40 220 L40 130 A130.4 130.4 0 0 1 260 130 L260 220 Z" fill={fill('mid')}/>
    <rect x="105" y="110" width="90" height="110" fill={fill('paint')}/>
    <path d="M122 220 L122 200 A28 28 0 0 1 178 200 L178 220 Z" fill={fill('ra')}/>
+   <defs><linearGradient id="wnba-court-shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#000" stopOpacity=".55"/><stop offset=".6" stopColor="#000" stopOpacity=".28"/><stop offset="1" stopColor="#000" stopOpacity=".08"/></linearGradient></defs>
+   <rect className="wnba-court-shade" x="0" y="0" width="300" height="220" fill="url(#wnba-court-shade)"/>
    <g className="wnba-court-lines"><rect x="0" y="0" width="300" height="220"/><path d="M40 220 L40 130 A130.4 130.4 0 0 1 260 130 L260 220"/><rect x="105" y="110" width="90" height="110"/><path d="M122 220 L122 200 A28 28 0 0 1 178 200 L178 220"/></g>
    {label('ab3',150,40)}{label('mid',150,88)}{label('paint',150,140)}{label('ra',150,194)}{label('c3l',20,176)}{label('c3r',280,176)}
   </svg>
@@ -289,7 +293,7 @@ function Rankings({league,row}){
  return <Card title="Team rankings" note={`${data.season} · per game`} icon={ListOrdered} className="wnba-rankings">
   <div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Stat</th>{teams.map(abbr=><th scope="col" key={abbr}><span className="wnba-team-cell wnba-team-cell-end"><Logo src={data.teams[abbr]?.logo} size={18}/>{abbr}</span></th>)}</tr></thead><tbody>
    {['off','def'].map(group=><React.Fragment key={group}><tr className="wnba-rank-group"><th scope="rowgroup" colSpan={teams.length+1}>{group==='off'?'Offense':'Defense'}</th></tr>
-    {RANKINGS.filter(([g])=>g===group).map(([g,key,label])=><tr key={g+key}><th scope="row">{label}</th>{teams.map(abbr=>{const [value,rank]=data.teamStats[abbr][g][key]||[];return <td key={abbr}><span data-tone={rankTone(rank,n)}>{fmt(value)}{key.endsWith('Pct')?'%':''}</span> <small>{ordinal(rank)}</small></td>;})}</tr>)}</React.Fragment>)}
+    {RANKINGS.filter(([g])=>g===group).map(([g,key,label])=><tr key={g+key}><th scope="row">{label}</th>{teams.map(abbr=>{const [value,rank]=data.teamStats[abbr][g][key]||[];return <td key={abbr}>{finite(value)?<><span data-tone={rankTone(rank,n)}>{fmt(value)}{key.endsWith('Pct')?'%':''}</span> <small>{ordinal(rank)}</small></>:<span className="wnba-rank-none">—</span>}</td>;})}</tr>)}</React.Fragment>)}
   </tbody></table></div>
  </Card>;
 }

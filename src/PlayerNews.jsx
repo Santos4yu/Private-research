@@ -61,7 +61,7 @@ export default function PlayerNews({row}){
  const data=state.data,notes=data?.notes||[];
  return <Card title="News" icon={Newspaper} className="player-news" note={data?.items?`${data.items} ${data.items===1?'item':'items'}, last 3 weeks`:null}>
   {state.loading&&!data?<div className="mlb-context-skeleton" role="status" aria-label="Loading news"><span/><span/><span/></div>
-  :state.error&&!data?<p className="mlb-context-note">{admin?<>{state.error} <button type="button" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={13} aria-hidden="true"/> Retry</button></>:QUIET}</p>
+  :state.error&&!data?<p className={admin?'mlb-context-note':'mlb-context-note is-quiet'}>{admin?<>{state.error} <button type="button" onClick={()=>setRetry(n=>n+1)}><RefreshCw size={13} aria-hidden="true"/> Retry</button></>:QUIET}</p>
   :!notes.length?<p className="mlb-context-note">No news on {row.player} in the last three weeks.</p>
   :<>
    {data.read&&<p className="player-news-read">{data.read}</p>}
