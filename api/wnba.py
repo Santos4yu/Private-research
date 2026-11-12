@@ -1449,6 +1449,7 @@ class handler(BaseHTTPRequestHandler):
             # Tip-off day, before a game has finished: the player's page reads last season.
             if resource in ("player-context", "scout") and (not payload or not payload.get("games")):
                 payload, season = _last_season(season, league_name), season - 1
+            own = payload  # this season's games alone, before any blend below
             if resource == "league-context":
                 # The start of a season: defenses ranked, rotations and shot
                 # zones read on a game or two would be noise (or nothing, at
@@ -1474,7 +1475,10 @@ class handler(BaseHTTPRequestHandler):
                 built = (payload.get("builtAt"), tuple(payload.get("blended") or ()), roster_at)
                 memory = _league_memory.get(league_name) or {}
                 if memory.get("key") != (season, built):
-                    memory = {"key": (season, built), "value": context.league_context(payload, rosters=rosters)}
+                    # Defense vs position from this season's games alone, as the
+                    # player page counts it (resource=dvp), blended or not.
+                    memory = {"key": (season, built), "value": context.league_context(payload, rosters=rosters,
+                                                                                      dvp_from=own if own is not payload else None)}
                     _league_memory[league_name] = memory
                 return _send(self, 200, memory["value"])
             player_id, team, opponent = arg("playerId"), team_code(arg("team")), team_code(arg("opponent"))

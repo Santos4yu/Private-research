@@ -58,6 +58,26 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (a): the board's Defense rank is the player page's; brighter cells
+
+- The owner: Trevon Brazile's Points line showed Defense 24th on the board,
+  14th on his page ("it should be the defense for that stat line"). Both
+  count the same way (position_table, total, season), but the league
+  context (the board's) blends last season in early on (opportunity.blend)
+  while the page's card (resource=dvp, season_dvp) is this season alone.
+  `context.league_context(..., dvp_from=own)` (api/wnba.py passes this
+  season's payload when it blended) now ranks Defense vs position from this
+  season's games once every team has played one; before that the blend
+  stands so no team is left unranked. Test:
+  test_wnba_context `test_the_boards_defense_ranks_are_this_seasons_like_the_page`.
+- "the gradient doesnt look nice on ours its like darker and less
+  gradiented": cells (finder-board-app.css, computer and phone) are clear at
+  the top and deepen into a vivid color at the bottom over a 2px bright edge,
+  like PickFinder's: teal-green 70%+, amber 45-69%, red under 45% (by tone
+  now, not the rate's own hue, which went olive), a strong rate (or a very
+  weak one) filling deeper (`--r`); grey-blue when neutral; numbers near
+  white with a touch of their color.
+
 ### Nov 11 (o): the Pick Builder fits in the side bar
 
 - The owner, with the builder filling the whole rail and PickFinder's

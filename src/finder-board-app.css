@@ -196,32 +196,37 @@ html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-a
   /* ------------------------------------------------------------ the hit rates */
 
   /* Flush cells, no gaps, each a gradient like PickFinder's (Nov 11, the
-     owner: "the trend colors should be gradient like pickfinder"): dark at
-     the top, deepening into its color at the bottom. The color follows the
-     rate itself (red under 30%, through orange and yellow, to green and
-     teal at 100%; `--r` from the Heat cell), so a column reads at a glance;
-     the streak by its tone. L10 avg and Diff are cells too, green or red by
+     owner: "the trend colors should be gradient like pickfinder"): clear at
+     the top, deepening into its color at the bottom over a bright edge. Nov
+     12 ("ours ... is darker and less gradiented"): vivid colors by tone
+     (teal-green 70%+, amber 45-69%, red under 45%), a strong rate (or a
+     very weak one) filling deeper (`--r` from the Heat cell); the streak by
+     its tone. L10 avg and Diff are cells too, green or red by
      what they say for the pick. A dark hairline between cells; the number
      in white over its record. */
   html:root body .unified-finder.unified-finder .finder-table tbody td:is(.finder-stat, :nth-child(5), :nth-child(4), .finder-pf-diff) { padding: 0 !important; }
-  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5), td.finder-num:nth-child(4), td.finder-pf-diff) { --hue: 220; --sat: 0%; --deep: .5; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5), td.finder-num:nth-child(4), td.finder-pf-diff) { --hue: 222; --sat: 14%; --lit: 50%; --deep: .5; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=good],
   html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(4):has(small[data-tone=good]),
-  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=good]) { --hue: 152; --sat: 72%; }
-  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=mid] { --hue: 42; --sat: 80%; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=good]) { --hue: 158; --sat: 90%; --lit: 44%; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=mid] { --hue: 36; --sat: 96%; --lit: 52%; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=low],
   html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(4):has(small[data-tone=low]),
-  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=low]) { --hue: 356; --sat: 74%; }
-  html:root body .unified-finder.unified-finder .finder-table .finder-heat[style*="--r"] { --hue: clamp(0, calc((var(--r) - 30) * 2.3), 162); --sat: 74%; }
-  html:root body .unified-finder.unified-finder .finder-table :is(td.finder-num:nth-child(4), td.finder-pf-diff) { --deep: .38; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=low]) { --hue: 354; --sat: 88%; --lit: 56%; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone] { --deep: .64; }
+  /* A strong rate fills deeper, a weak one (in red) the weaker it is. */
+  html:root body .unified-finder.unified-finder .finder-table .finder-heat[data-tone=good][style*="--r"] { --deep: clamp(.52, calc(.52 + (var(--r) - 70) * .0065), .72); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-heat[data-tone=low][style*="--r"] { --deep: clamp(.52, calc(.52 + (45 - var(--r)) * .0045), .72); }
+  html:root body .unified-finder.unified-finder .finder-table :is(td.finder-num:nth-child(4), td.finder-pf-diff) { --deep: .54; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5), td.finder-num:nth-child(4), td.finder-pf-diff) {
     align-self: stretch;
     border-radius: 0 !important;
     background: linear-gradient(180deg,
-      hsl(var(--hue) var(--sat) 46% / .03) 0%,
-      hsl(var(--hue) var(--sat) 46% / calc(var(--deep) * .36)) 48%,
-      hsl(var(--hue) var(--sat) 46% / var(--deep)) 100%) !important;
-    box-shadow: inset 1px 0 rgba(0, 0, 0, .55) !important;
+      hsl(var(--hue) var(--sat) var(--lit) / .02) 0%,
+      hsl(var(--hue) var(--sat) var(--lit) / calc(var(--deep) * .2)) 36%,
+      hsl(var(--hue) var(--sat) var(--lit) / calc(var(--deep) * .68)) 76%,
+      hsl(var(--hue) var(--sat) var(--lit) / var(--deep)) 100%) !important;
+    box-shadow: inset 1px 0 rgba(0, 0, 0, .55), inset 0 -2px 0 hsl(var(--hue) var(--sat) calc(var(--lit) + 8%) / .95) !important;
     transition: filter .15s ease;
   }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5)):not([data-tone]),
@@ -232,14 +237,14 @@ html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-a
   html:root body .unified-finder.unified-finder .finder-table tbody tr:hover :is(.finder-heat, td.finder-num:nth-child(5), td.finder-num:nth-child(4), td.finder-pf-diff) { filter: brightness(1.14); }
   html:root body .unified-finder.unified-finder .finder-table .finder-heat { min-height: 55px; gap: 4px; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat strong, td.finder-num:nth-child(5) b, td.finder-num:nth-child(4) b, td.finder-pf-diff b) {
-    color: #fff !important;
+    color: hsl(var(--hue) 70% 96%) !important;
     font: 700 14px/1 var(--font-sans);
     font-variant-numeric: tabular-nums;
     letter-spacing: -.01em;
     text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
   }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat small, td.finder-num:nth-child(5) small, td.finder-pf-diff small) {
-    color: hsl(var(--hue) var(--sat) 82%) !important;
+    color: hsl(var(--hue) 85% 84%) !important;
     opacity: .8;
     font: 600 10px/1 var(--font-sans);
     font-variant-numeric: tabular-nums;
@@ -531,16 +536,19 @@ html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-a
   html:root body .unified-finder.unified-finder .finder-table td.finder-stat:nth-child(6) .finder-heat { border-radius: 10px 0 0 10px !important; box-shadow: none !important; }
   html:root body .unified-finder.unified-finder .finder-table td.finder-stat:nth-child(10) .finder-heat { border-radius: 0 10px 10px 0 !important; }
 
-  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5), td.finder-num:nth-child(4), td.finder-pf-diff) { --hue: 220; --sat: 0%; --deep: .5; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5), td.finder-num:nth-child(4), td.finder-pf-diff) { --hue: 222; --sat: 14%; --lit: 50%; --deep: .5; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=good],
   html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(4):has(small[data-tone=good]),
-  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=good]) { --hue: 152; --sat: 72%; }
-  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=mid] { --hue: 42; --sat: 80%; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=good]) { --hue: 158; --sat: 90%; --lit: 44%; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=mid] { --hue: 36; --sat: 96%; --lit: 52%; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone=low],
   html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(4):has(small[data-tone=low]),
-  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=low]) { --hue: 356; --sat: 74%; }
-  html:root body .unified-finder.unified-finder .finder-table .finder-heat[style*="--r"] { --hue: clamp(0, calc((var(--r) - 30) * 2.3), 162); --sat: 74%; }
-  html:root body .unified-finder.unified-finder .finder-table :is(td.finder-num:nth-child(4), td.finder-pf-diff) { --deep: .42; }
+  html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff:has(b[data-tone=low]) { --hue: 354; --sat: 88%; --lit: 56%; }
+  html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5))[data-tone] { --deep: .64; }
+  /* A strong rate fills deeper, a weak one (in red) the weaker it is. */
+  html:root body .unified-finder.unified-finder .finder-table .finder-heat[data-tone=good][style*="--r"] { --deep: clamp(.52, calc(.52 + (var(--r) - 70) * .0065), .72); }
+  html:root body .unified-finder.unified-finder .finder-table .finder-heat[data-tone=low][style*="--r"] { --deep: clamp(.52, calc(.52 + (45 - var(--r)) * .0045), .72); }
+  html:root body .unified-finder.unified-finder .finder-table :is(td.finder-num:nth-child(4), td.finder-pf-diff) { --deep: .54; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat, td.finder-num:nth-child(5), td.finder-num:nth-child(4), td.finder-pf-diff) {
     position: relative;
     width: 100%;
@@ -550,10 +558,11 @@ html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-a
     padding: 0 !important;
     border-radius: 0 !important;
     background: linear-gradient(180deg,
-      hsl(var(--hue) var(--sat) 46% / .04) 0%,
-      hsl(var(--hue) var(--sat) 46% / calc(var(--deep) * .36)) 50%,
-      hsl(var(--hue) var(--sat) 46% / var(--deep)) 100%) !important;
-    box-shadow: inset 1px 0 rgba(0, 0, 0, .55) !important;
+      hsl(var(--hue) var(--sat) var(--lit) / .02) 0%,
+      hsl(var(--hue) var(--sat) var(--lit) / calc(var(--deep) * .2)) 36%,
+      hsl(var(--hue) var(--sat) var(--lit) / calc(var(--deep) * .68)) 76%,
+      hsl(var(--hue) var(--sat) var(--lit) / var(--deep)) 100%) !important;
+    box-shadow: inset 1px 0 rgba(0, 0, 0, .55), inset 0 -2px 0 hsl(var(--hue) var(--sat) calc(var(--lit) + 8%) / .95) !important;
   }
   html:root body .unified-finder.unified-finder .finder-table .finder-heat {
     display: flex !important;
@@ -581,7 +590,7 @@ html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-a
   html:root body .unified-finder.unified-finder .finder-table td.finder-num:nth-child(4)::before { content: "Avg"; }
   html:root body .unified-finder.unified-finder .finder-table td.finder-pf-diff::before { content: "Diff"; }
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat strong, td.finder-num:nth-child(5) b, td.finder-num:nth-child(4) b, td.finder-pf-diff b) {
-    color: #fff !important;
+    color: hsl(var(--hue) 70% 96%) !important;
     font: 800 13px/1 var(--font-sans);
     font-variant-numeric: tabular-nums;
     letter-spacing: -.02em;
@@ -590,7 +599,7 @@ html:root body .unified-finder.unified-finder :is(label.finder-search, .finder-a
   html:root body .unified-finder.unified-finder .finder-table :is(.finder-heat small, td.finder-num:nth-child(5) small, td.finder-pf-diff small) {
     display: block;
     margin: 0;
-    color: hsl(var(--hue) var(--sat) 82%) !important;
+    color: hsl(var(--hue) 85% 84%) !important;
     opacity: .82;
     font: 600 9px/1 var(--font-sans);
   }

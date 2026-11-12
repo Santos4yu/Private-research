@@ -522,6 +522,21 @@ class OpportunityTests(unittest.TestCase):
         self.assertEqual(ctx["seasons"], [2025, 2026])
         self.assertIs(self.opportunity.blend(None, self.payload), self.payload)
 
+    def test_the_boards_defense_ranks_are_this_seasons_like_the_page(self):
+        # Early in a season the league context blends last season in, but its
+        # Defense vs position ranks come from this season alone, as the
+        # player page's card counts them (season_dvp), so the two agree.
+        previous = {"season": 2025, "players": {"old": ["Old", "G", None, "BBB"]},
+                    "games": {"0": game("0", "2025-03-01", "BBB", "AAA", [box("old", min=40, pts=60)], [box("opp", min=240)])}}
+        blended = self.opportunity.blend(previous, self.payload)
+        page = context.season_dvp(self.payload)["views"]["total"]
+        board = context.league_context(blended, dvp_from=self.payload)["dvp"]
+        for team in board:
+            for position in context.POSITIONS:
+                self.assertEqual(board[team][position]["stats"]["pts"]["szn"], page[team][position]["stats"]["pts"]["szn"])
+        mixed = context.league_context(blended)["dvp"]
+        self.assertNotEqual(mixed, board)
+
     def test_splits_read_both_seasons_the_chart_shows(self):
         # Past a season's first weeks the page's numbers are this season's,
         # but with / without reads last season's games too (the chart's).

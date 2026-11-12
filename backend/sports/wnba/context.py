@@ -584,10 +584,25 @@ def rest_table(schedule: list, now: datetime | None = None) -> dict:
     return {team: sorted(dates) for team, dates in near.items()}
 
 
-def league_context(payload: dict, rosters: dict | None = None) -> dict:
+def league_context(payload: dict, rosters: dict | None = None, dvp_from: dict | None = None) -> dict:
+    """Every team's numbers for the Finder and the Props tab. `dvp_from`:
+    the payload the Defense vs position ranks come from when it isn't
+    `payload` -- this season's games alone while `payload` has last season's
+    blended in (api/wnba.py), so the board's Defense rank is the player
+    page's (season_dvp, the current season) for the same stat and position
+    (Nov 12, the owner: "why does it show 24th in defense but when i click
+    on it its not"). Until every team has played this season the blend's
+    ranks stand, so no team is left without one."""
     from . import scout
     by_team = team_games(payload)
     players = payload.get("players", {})
+    own_games = team_games(dvp_from) if dvp_from and dvp_from.get("games") else None
+    # Only once every team has played this season: before that, a team with
+    # no game yet would have no rank at all, so the blend stands.
+    if own_games and set(by_team) <= set(own_games):
+        dvp = defense_vs_position(own_games, dvp_from.get("players") or {})
+    else:
+        dvp = defense_vs_position(by_team, players)
     zones, league_zones = zone_defense(by_team)
     return {
         "season": payload.get("season"), "builtAt": payload.get("builtAt"),
@@ -595,7 +610,7 @@ def league_context(payload: dict, rosters: dict | None = None) -> dict:
                   for abbr, team in (payload.get("teams") or {}).items() if abbr in by_team},
         "teamCount": len(by_team),
         "stats": [[key, label] for key, label, _ in STATS],
-        "dvp": defense_vs_position(by_team, players),
+        "dvp": dvp,
         # The same, a player at a time (the Props tab's NBA score and page).
         "dvpEach": defense_vs_each(by_team, players),
         "teamStats": team_stats(by_team),
