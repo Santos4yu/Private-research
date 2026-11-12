@@ -2819,6 +2819,8 @@ let gameLogState = {
   // More filters (the sliders button): minutes played [low, high] (null:
   // every game) and days of rest before the game ("any" or a bucket key).
   minRange: null, restFilter: "any",
+  // How his team's game went (Nov 12, the owner's PickFinder Spread filter): "any", won, lost, by 10+.
+  spreadFilter: "any",
   stat: "", isPitcher: false, fetchToken: 0, gameCount: 10, season: "all",
   // Which window button is selected, kept separately from gameCount because
   // gameCount gets clamped to however many games survive the filters -- pick
@@ -3160,6 +3162,7 @@ function openGameLogModal(p, adapter = MLB_TREND_ADAPTER) {
   gameLogState.extraFilters = {};
   gameLogState.minRange = null;
   gameLogState.restFilter = "any";
+  gameLogState.spreadFilter = "any";
   // A page may start without preseason games (basketball at tip-off: the
   // last five would be preseason minutes, the Finder's aren't).
   gameLogState.seasonKind = (trendAdapter === EXTERNAL_TREND_ADAPTER && externalTrendConfig?.seasonKind) || "all";
@@ -3369,6 +3372,7 @@ function filterGames(games) {
       const bucket = restBucket(restGap(g));
       if (bucket !== gameLogState.restFilter) return false;
     }
+    if (gameLogState.spreadFilter !== "any" && !spreadMatches(g, gameLogState.spreadFilter)) return false;
     return true;
   });
 }
@@ -3415,6 +3419,27 @@ function upcomingRestText() {
   const off = gap - 1;
   return off === 0 ? "tonight: back-to-back" : `tonight: ${off} day${off === 1 ? "" : "s"}`;
 }
+// Game result (the Spread filter): his team won or lost, or by 10 or more.
+// A game's result is "W" / "L" and its score "110-100"; the margin is the
+// gap between the two numbers, whichever side they're listed from.
+const GL_SPREAD = [["any", "Any"], ["won", "Won"], ["lost", "Lost"], ["won10", "Won by 10+"], ["lost10", "Lost by 10+"]];
+const SPREAD_BY = 10;
+function gameOutcome(game) {
+  const result = String(game?.result || "").trim().toUpperCase().charAt(0);
+  const numbers = String(game?.score || "").match(/\d+/g);
+  const margin = numbers && numbers.length >= 2 ? Math.abs(Number(numbers[0]) - Number(numbers[1])) : null;
+  return {won: result === "W" ? true : result === "L" ? false : null, margin};
+}
+function spreadMatches(game, wanted) {
+  const {won, margin} = gameOutcome(game);
+  if (won == null) return false;
+  if (wanted === "won") return won;
+  if (wanted === "lost") return !won;
+  if (wanted === "won10") return won && margin != null && margin >= SPREAD_BY;
+  if (wanted === "lost10") return !won && margin != null && margin >= SPREAD_BY;
+  return true;
+}
+const resultsKnown = () => (gameLogState.chart?.all || recentGameLogSource()).some((game) => gameOutcome(game).won != null);
 const minutesKnown = () => (gameLogState.chart?.all || recentGameLogSource()).some((game) => Number.isFinite(Number(game.details?.min)));
 function renderMoreFilters() {
   const wrap = document.getElementById("gl-more");
@@ -3444,7 +3469,14 @@ function renderMoreFilters() {
   if (!restPairs().some(([key]) => key === gameLogState.restFilter)) gameLogState.restFilter = "any";
   if (chips) chips.innerHTML = restPairs().map(([key, text]) =>
     `<button type="button" data-rest="${key}" aria-pressed="${gameLogState.restFilter === key}">${text}</button>`).join("");
-  const count = (gameLogState.minRange ? 1 : 0) + (gameLogState.restFilter !== "any" ? 1 : 0);
+  const spreadField = document.getElementById("gl-spread-field");
+  const results = resultsKnown();
+  if (spreadField) spreadField.hidden = !results;
+  if (!results) gameLogState.spreadFilter = "any";
+  const spreadChips = document.getElementById("gl-spread-chips");
+  if (spreadChips) spreadChips.innerHTML = GL_SPREAD.map(([key, text]) =>
+    `<button type="button" data-spread="${key}" aria-pressed="${gameLogState.spreadFilter === key}">${text}</button>`).join("");
+  const count = (gameLogState.minRange ? 1 : 0) + (gameLogState.restFilter !== "any" ? 1 : 0) + (gameLogState.spreadFilter !== "any" ? 1 : 0);
   const button = document.getElementById("gl-more-btn");
   if (button) {
     button.dataset.count = count ? String(count) : "";
@@ -3502,9 +3534,16 @@ function wireMoreFilters() {
     gameLogState.restFilter = chip.dataset.rest;
     applyMoreFilters();
   });
+  document.getElementById("gl-spread-chips")?.addEventListener("click", (event) => {
+    const chip = event.target.closest("button[data-spread]");
+    if (!chip) return;
+    gameLogState.spreadFilter = chip.dataset.spread;
+    applyMoreFilters();
+  });
   document.getElementById("gl-more-reset")?.addEventListener("click", () => {
     gameLogState.minRange = null;
     gameLogState.restFilter = "any";
+    gameLogState.spreadFilter = "any";
     applyMoreFilters();
   });
 }

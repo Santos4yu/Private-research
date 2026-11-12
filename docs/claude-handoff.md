@@ -58,6 +58,30 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 12 (d): free additions — NBA alerts, ruled out, Spread filter, kept answers
+
+- The owner: "I want things that can be added for free and also add the
+  finish on other pages". Free ones first:
+- Saved-pick alerts (pick_alerts.py): the NBA and college football were
+  missing from `SPORTS`, so a saved NBA pick never heard of a line move
+  even though NBA lines were checked. Added. New: **ruled out** —
+  `injury_tick()` from the timer (api/v2-admin.py, every 15 min at most,
+  `INJURY_AT_KEY`) reads ESPN's NBA injury report (one free request) and
+  tells each member whose saved NBA pick's player is listed Out, once a
+  day per player (`OUT_KEY`, kept 3 days). Tests: test_pick_alerts
+  `RuledOutTests` (run them with the project's requirements in a venv; the
+  container's system `cryptography` panics).
+- Spread filter (app.js, More filters on the chart): "Game result" — Any,
+  Won, Lost, Won by 10+, Lost by 10+ (`GL_SPREAD`, `gameOutcome` reads the
+  game's W/L and score), counted on the filter button, cleared by Reset and
+  on a new player; hidden when no game has a result.
+- Kept research answers (api/wnba.py `_kept_context`): matchup,
+  league-context, player-context, game-notes, scout and dvp answers are kept
+  in KV a few minutes (`ANSWER_SECONDS`, matchup 4 min, others 10-15;
+  `answer_key` = league + resource + every argument in order; only 200s
+  under 900 KB). `_send` hands the answer back while one is being kept
+  (`handler._capture`). Test: test_nba_scout `KeptAnswerTests`.
+
 ### Nov 12 (c): the last of the Finder's finish
 
 - The owner: "now give it the polish look to the whole finder". Went

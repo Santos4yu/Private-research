@@ -84,8 +84,11 @@ class MatchTests(unittest.TestCase):
                                 'side': 'Over', 'modifier': 'standard'})
         # Older picks from the MLB pages carry no sport.
         self.assertEqual(alerts.pick_view({'player': 'A', 'betType': 'Hits', 'line': 0.5})['sport'], 'mlb')
-        for bad in (None, {}, {'player': 'A', 'betType': 'Hits'}, {'player': 'A', 'line': 1}, {'sport': 'nba', 'player': 'A', 'betType': 'Pts', 'line': 1}):
+        for bad in (None, {}, {'player': 'A', 'betType': 'Hits'}, {'player': 'A', 'line': 1}, {'sport': 'tennis', 'player': 'A', 'betType': 'Aces', 'line': 1}):
             self.assertIsNone(alerts.pick_view(bad))
+
+    def test_nba_picks_are_watched(self):
+        self.assertEqual(alerts.pick_view({'sport': 'NBA', 'player': 'Jalen Brunson', 'betType': 'Points', 'line': 24.5})['sport'], 'nba')
 
     def test_the_message_says_whose_pick_and_where_it_went(self):
         pick = {'sport': 'mlb', 'player': 'Aaron Judge', 'stat': 'Total Bases', 'line': 1.5, 'side': 'Over', 'modifier': 'standard'}
@@ -237,3 +240,24 @@ class RouteTests(Base):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RuledOutTests(Base):
+    def test_a_saved_nba_pick_hears_once_when_its_player_is_ruled_out(self):
+        report = {'injuries': [{'displayName': 'New York Knicks', 'injuries': [
+            {'athlete': {'displayName': 'Jalen Brunson'}, 'status': 'Out', 'shortComment': 'Ankle'},
+            {'athlete': {'displayName': 'Josh Hart'}, 'status': 'Questionable'}]}]}
+        picks = [{'sport': 'nba', 'player': 'Jalen Brunson', 'stat': 'Points', 'line': 24.5, 'side': 'Over', 'modifier': 'standard'},
+                 {'sport': 'nba', 'player': 'Josh Hart', 'stat': 'Rebounds', 'line': 8.5, 'side': 'Over', 'modifier': 'standard'}]
+        self.kv([['HSET', alerts.WATCH_KEY, 'uid-1', json.dumps(picks)]])
+        self.assertEqual(set(alerts.ruled_out(report)), {'jalenbrunson'})
+        with patch.object(push, 'deliver', return_value={'sent': 1, 'removed': 0, 'failed': 0}) as deliver:
+            alerts.injury_tick(now=1_800_000_000, fetch=lambda: report)
+            sent = deliver.call_args[0][0]
+            self.assertEqual(list(sent), ['uid-1'])
+            self.assertEqual(sent['uid-1'][0]['title'], 'Ruled out')
+            self.assertIn('Jalen Brunson', sent['uid-1'][0]['body'])
+            # Within the quiet window nothing is read again; past it, the same day, nobody is told twice.
+            alerts.injury_tick(now=1_800_000_000 + 60, fetch=lambda: report)
+            alerts.injury_tick(now=1_800_000_000 + alerts.INJURY_EVERY + 1, fetch=lambda: report)
+            self.assertEqual(deliver.call_count, 1)

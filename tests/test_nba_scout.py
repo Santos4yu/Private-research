@@ -155,3 +155,43 @@ class LeagueContextTests(unittest.TestCase):
         status, body = self.call(opening, payload())
         self.assertEqual(status, 200)
         self.assertEqual(sorted(body["dvp"]), ["AAA", "BBB", "CCC"])
+
+
+class KeptAnswerTests(unittest.TestCase):
+    """Research answers kept in KV a few minutes (api/wnba.py _kept_context)."""
+
+    class Handler:
+        def __init__(self, answer):
+            import io
+            self.answer, self.calls, self.wfile, self.status = answer, 0, io.BytesIO(), None
+        def send_response(self, status):
+            self.status = status
+        def send_header(self, *args):
+            pass
+        def end_headers(self):
+            pass
+        def _context(self, resource, query, league):
+            self.calls += 1
+            return wnba_api._send(self, *self.answer)
+
+    def test_a_good_answer_is_kept_and_sent_again_without_working_it_out(self):
+        import json
+        from unittest.mock import patch
+        from v2.board import store
+        kept = {}
+        with patch.object(store, "get", side_effect=lambda key, **_: kept.get(key)), \
+                patch.object(store, "set", side_effect=lambda key, value, ex=None: kept.__setitem__(key, value) or True):
+            query = {"playerId": ["12"], "team": ["BOS"], "opponent": ["NY"], "market": ["player_points"]}
+            first = self.Handler((200, {"ok": 1}))
+            wnba_api._kept_context(first, "player-context", query, "nba")
+            self.assertEqual((first.status, json.loads(first.wfile.getvalue()), first.calls), (200, {"ok": 1}, 1))
+            second = self.Handler((200, {"ok": 2}))
+            wnba_api._kept_context(second, "player-context", dict(reversed(list(query.items()))), "nba")
+            # The same question in any order: the kept answer, not worked out again.
+            self.assertEqual((json.loads(second.wfile.getvalue()), second.calls), ({"ok": 1}, 0))
+            # A failure is sent but never kept; another league or player is its own question.
+            failed = self.Handler((503, {"error": "x"}))
+            wnba_api._kept_context(failed, "dvp", query, "nba")
+            self.assertEqual(failed.status, 503)
+            self.assertEqual(len(kept), 1)
+            self.assertNotEqual(wnba_api.answer_key("player-context", query, "nba"), wnba_api.answer_key("player-context", query, "wnba"))

@@ -6,6 +6,10 @@ Each account's saved picks (the synced slip, account_profile.py) are kept
 here in one small hash -- written when the slip is saved and when the member
 turns alerts on -- so checking a batch of moves reads a single key.
 line_moves.py calls notify() with each batch it finds.
+
+Ruled out (Nov 12): a saved NBA pick whose player turns up Out on ESPN's
+injury report gets one notification that day (injury_tick, from the timer,
+at most every INJURY_EVERY; OUT_KEY remembers who was told).
 """
 import hashlib
 import json
@@ -17,7 +21,9 @@ import push_notices
 
 WATCH_KEY = 'krazy:alerts:watch'
 MAX_PICKS = 12
-SPORTS = {'mlb', 'wnba', 'nfl', 'nhl', 'soccer'}
+# The NBA and college football joined Nov 12 (the owner: things that can be
+# added for free): their lines were already checked, nobody heard of a move.
+SPORTS = {'mlb', 'wnba', 'nfl', 'nhl', 'soccer', 'nba', 'cfb'}
 # The Finder labels some stats in full where PrizePicks abbreviates them
 # ("Points + Rebounds + Assists" / "Pts+Rebs+Asts"); both read the same here.
 WORDS = {'points': 'pts', 'point': 'pts', 'score': 'pts', 'rebounds': 'rebs', 'rebound': 'rebs', 'assists': 'asts',
@@ -114,4 +120,78 @@ def notify(moves):
             for move in moves:
                 if isinstance(pick, dict) and pick.get('sport') and matches(pick, move):
                     messages.setdefault(uid, []).append(message(pick, move))
+    return push_notices.deliver(messages) if messages else {}
+
+
+# ---------------------------------------------------------------- ruled out
+
+INJURY_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries'
+INJURY_AT_KEY = 'krazy:alerts:injury-at'
+OUT_KEY = 'krazy:alerts:out'
+INJURY_EVERY = 15 * 60
+OUT_KEEP = 3 * 24 * 3600
+
+
+def ruled_out(payload):
+    """{player name (line_moves.norm): ESPN's short comment} for every NBA
+    player listed Out on ESPN's injury report (not questionable or doubtful)."""
+    out = {}
+    for team in (payload or {}).get('injuries') or []:
+        for item in (team or {}).get('injuries') or []:
+            status = str(item.get('status') or (item.get('type') or {}).get('description') or '').strip().lower()
+            name = str(((item.get('athlete') or {}).get('displayName')) or '').strip()
+            if name and status in ('out', 'out for season'):
+                out[line_moves.norm(name)] = str(item.get('shortComment') or '')
+    return out
+
+
+def out_message(pick):
+    """What a member sees when their saved pick's player is ruled out."""
+    who = pick['player']
+    return {'title': 'Ruled out',
+            'body': f"{who} is listed Out on the injury report. Your {_figure(pick['line'])} {pick['stat']} pick may not play."[:push_notices.BODY_MAX],
+            'url': '/finder?' + urlencode({'sport': pick['sport'], 'player': who, 'stat': pick['stat']}),
+            'tag': 'out-' + hashlib.sha1(f"{pick['sport']}|{line_moves.norm(who)}".encode()).hexdigest()[:12]}
+
+
+def injury_tick(now=None, fetch=None):
+    """Tell each member whose saved NBA picks include a player now listed Out,
+    once a day per player. {sent, removed, failed}, {} when nothing to do or
+    it isn't time yet (INJURY_EVERY)."""
+    import time
+    from datetime import datetime, timezone
+    now = now or time.time()
+    if not line_moves.enabled():
+        return {}
+    at, flat = (push_notices._pipeline([['GET', INJURY_AT_KEY], ['HGETALL', WATCH_KEY]]) or [None, []])[:2]
+    try:
+        if at and now - float(at) < INJURY_EVERY:
+            return {}
+    except (TypeError, ValueError):
+        pass
+    watched = []
+    for uid, raw in zip((flat or [])[0::2], (flat or [])[1::2]):
+        try:
+            picks = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        watched += [(uid, pick) for pick in picks if isinstance(pick, dict) and pick.get('sport') == 'nba' and pick.get('player')]
+    push_notices._pipeline([['SET', INJURY_AT_KEY, str(now)]])
+    if not watched:
+        return {}
+    if fetch is None:
+        import requests
+        fetch = lambda: requests.get(INJURY_URL, timeout=8).json()
+    out = ruled_out(fetch())
+    day = datetime.fromtimestamp(now, timezone.utc).strftime('%Y-%m-%d')
+    hits = [(uid, pick, f"{uid}|{line_moves.norm(pick['player'])}|{day}") for uid, pick in watched if line_moves.norm(pick['player']) in out]
+    if not hits:
+        return {}
+    told = push_notices._pipeline([['HSETNX', OUT_KEY, key, '1'] for _, _, key in hits] + [['EXPIRE', OUT_KEY, OUT_KEEP]])
+    messages = {}
+    seen = set()
+    for (uid, pick, key), fresh in zip(hits, told):
+        if fresh and key not in seen:
+            seen.add(key)
+            messages.setdefault(uid, []).append(out_message(pick))
     return push_notices.deliver(messages) if messages else {}

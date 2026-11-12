@@ -443,6 +443,11 @@ def _find(name, team="", league="wnba"):
 
 
 def _send(handler, status, payload):
+    # A research answer being kept (_kept_context) is caught here first.
+    capture = getattr(handler, "_capture", None)
+    if capture is not None:
+        capture.append((status, payload))
+        return None
     body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
@@ -450,6 +455,60 @@ def _send(handler, status, payload):
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
+
+
+# Research answers kept in KV for a few minutes (Nov 12, the owner: things
+# that can be added for free -- the player page open at once). A server
+# that just started has nothing in memory and would read the whole season
+# again; the next member to open the same player (or the same member on a
+# new server) gets the answer as it was minutes ago. The matchup (injuries,
+# odds) is kept shorter. Answers over ANSWER_MAX aren't kept.
+ANSWER_SECONDS = {"matchup": 4 * 60, "league-context": 10 * 60, "player-context": 10 * 60,
+                  "game-notes": 15 * 60, "scout": 10 * 60, "dvp": 10 * 60}
+ANSWER_MAX = 900_000
+ANSWER_PREFIX = "krazy_data:answers:v1"
+
+
+def answer_key(resource, query, league):
+    """The KV key for one research question: the resource, the league and
+    every argument asked, in order."""
+    import hashlib
+    asked = sorted((key, ",".join(values)) for key, values in (query or {}).items() if key not in ("resource", "league", "_"))
+    digest = hashlib.sha1(json.dumps(asked, separators=(",", ":")).encode("utf-8")).hexdigest()[:24]
+    return f"{ANSWER_PREFIX}:{league}:{resource}:{digest}"
+
+
+def _kept_context(handler, resource, query, league):
+    """handler._context, through the kept answers (answer_key): a kept one
+    is sent at once; otherwise the answer is worked out, sent and kept when
+    it's a good one (200) and small enough."""
+    from v2.board import store
+    key = answer_key(resource, query, league)
+    try:
+        raw = store.get(key)
+    except Exception:  # noqa: BLE001 -- storage trouble: work it out as before
+        raw = None
+    if raw:
+        try:
+            return _send(handler, 200, json.loads(raw))
+        except (TypeError, ValueError):
+            pass
+    handler._capture = []
+    try:
+        handler._context(resource, query, league)
+    finally:
+        captured, handler._capture = handler._capture, None
+    if not captured:
+        return None
+    status, payload = captured[0]
+    if status == 200 and isinstance(payload, dict):
+        text = json.dumps(payload, separators=(",", ":"))
+        if len(text) <= ANSWER_MAX:
+            try:
+                store.set(key, text, ex=ANSWER_SECONDS.get(resource, 300))
+            except Exception:  # noqa: BLE001 -- it's sent all the same
+                pass
+    return _send(handler, status, payload)
 
 
 def _cached():
@@ -1355,7 +1414,7 @@ class handler(BaseHTTPRequestHandler):
                 import nba_matchups
                 return _send(self, 200, nba_matchups.play_types(who, team, opponent))
             if resource in ("matchup", "league-context", "player-context", "game-notes", "scout", "dvp"):
-                return self._context(resource, query, league)
+                return _kept_context(self, resource, query, league)
             if resource == "props-record":
                 # How the props the list showed went (props_record.py).
                 if league != "nba":

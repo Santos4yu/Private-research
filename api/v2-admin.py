@@ -583,6 +583,13 @@ class handler(BaseHTTPRequestHandler):
                 slips = slip_ledger.tick(limit=6)
         except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
+        # Saved NBA picks whose player is now listed Out (pick_alerts.py).
+        try:
+            import pick_alerts
+            if time.monotonic()-started < 36:
+                pick_alerts.injury_tick()
+        except Exception:  # noqa: BLE001 -- never at the cost of the line checks
+            pass
         cs2 = None
         try:
             cs2 = cs2_job.result(timeout=max(0, 55-(time.monotonic()-started)))
