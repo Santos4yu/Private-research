@@ -17,7 +17,7 @@
 // slide up should be a full screen. That's how Polymarket looks"): an amount
 // on a keypad, what it wins, and swipe up to save it to the history.
 // A section the admin switches on (site_controls 'predictor'), off until then.
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {AlertTriangle,ArrowLeft,BookOpen,CalendarDays,Check,ChevronDown,ChevronRight,ChevronUp,Delete,Flame,Info,Layers,RefreshCw,Share,Trophy,UserX,X,Zap} from 'lucide-react';
 import {useFullAccess,useIsAdmin} from './admin-notice.js';
@@ -27,6 +27,7 @@ import {GameRecord} from './GameRecord.jsx';
 import {CountUp} from './count-up.jsx';
 import {SPORTS,matchupRows,restText,outPoints,recentGames,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,splitText,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
+import {HoldSheet,useHold} from './HoldShare.jsx';
 import {PropGenerator} from './PropGenerator.jsx';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
 import './game-predictor.css';
@@ -1031,8 +1032,9 @@ function VersusBar({chance,market,color}){
  </span>;
 }
 
-function Leg({leg,mixed,value}){
- return <li className="gp-leg">
+function Leg({leg,mixed,value,onHold}){
+ const hold=useHold(()=>onHold?.([leg]));
+ return <li className={`gp-leg${onHold?' gp-holdable':''}`} {...(onHold?hold:{})}>
   <Logo team={leg.team} size={28}/>
   <span><b>{leg.team.short||leg.team.abbr}</b><small>{mixed&&leg.sport?`${leg.sport.toUpperCase()} · `:''}{leg.home?'vs':'@'} {leg.opponent.abbr} · {mixed?startText(leg.startsAt):clockText(leg.startsAt)}</small>
    {value&&leg.market!=null&&<VersusBar chance={leg.chance} market={leg.market} color={teamColor(leg.team)}/>}</span>
@@ -1045,13 +1047,14 @@ function Leg({leg,mixed,value}){
 // our chance), then what it pays, its chance to hit and its value. With both
 // leagues each leg says its league, and its day when they aren't all on one.
 const dayOf=iso=>{const time=Date.parse(iso||'');return Number.isFinite(time)?new Date(time).toLocaleDateString('en-US',{weekday:'short'}):'';};
-function ParlaySlip({combo,index,mixed,tag}){
+// Press and hold it to copy or save it as a picture (HoldShare.jsx).
+function ParlaySlip({combo,index,mixed,tag,onHold}){
  const days=new Set(combo.legs.map(leg=>dayOf(leg.startsAt)));
- return <li className="gp-slip" data-top={tag?'':undefined} style={{'--i':index}}>
+ const hold=useHold(()=>onHold(combo.legs));
+ return <li className="gp-slip gp-holdable" data-top={tag?'':undefined} style={{'--i':index}} {...hold}>
   <div className="gp-slip-top">
    <span className="gp-slip-name">{combo.legs.length}-pick parlay</span>
    {tag&&<span className="gp-slip-tag">{tag}</span>}
-   <ShareButton legs={combo.legs} icon className="gp-share gp-slip-share" label={`Share this ${combo.legs.length}-pick parlay as a picture`}/>
   </div>
   <ul className="gp-slip-legs">{combo.legs.map(leg=><li key={`${leg.sport}:${leg.game}`} className="gp-slip-leg">
    <Logo team={leg.team} size={32}/>
@@ -1114,6 +1117,10 @@ function MoneylineGenerator({league,admin}){
  const lead=showValue?value:top;
  const mixed=which==='both';
  const combos=useMemo(()=>parlays(board,{...(mode==='payout'?{payout}:{legs}),sort,mixed}),[board,mode,payout,legs,sort,mixed]);
+ // A pick or parlay held down: its picture with Copy and Download (Nov 13).
+ const [holding,setHolding]=useState(null);
+ const closeHold=useCallback(()=>setHolding(null),[]);
+ const pickHold=useHold(()=>lead?.[0]&&setHolding([lead[0]]));
  const leagues=new Set((board?.games||[]).filter(game=>!game.held).map(game=>game.sport));
  const games=board?.games||[],held=games.filter(game=>game.held).length;
  const dayName=(days.find(item=>item.key===day)||days[0]).top;
@@ -1139,9 +1146,8 @@ function MoneylineGenerator({league,admin}){
   :!top.length?<Empty title={`No moneylines ${when} yet`} text="The books usually post them the day before."/>
   :<div className={`gp-results${state.loading?' is-busy':''}`}>
    {sort==='value'&&!value.length&&<p className="gp-note gp-value-none">Our model agrees with the market on every game {when}, so there's no value pick. The most likely winners:</p>}
-   <section className="gp-pick" style={teamColor(lead[0].team)?{'--team':teamColor(lead[0].team)}:undefined}>
-    <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>{showValue?`Best value ${when}`:`Most likely to win ${when}`}</span>
-     <ShareButton legs={[lead[0]]} label={`Share the ${lead[0].team.abbr} moneyline as a picture`}/></div>
+   <section className="gp-pick gp-holdable" style={teamColor(lead[0].team)?{'--team':teamColor(lead[0].team)}:undefined} {...pickHold}>
+    <div className="gp-pick-top"><span className="gp-kicker"><Trophy size={14} aria-hidden="true"/>{showValue?`Best value ${when}`:`Most likely to win ${when}`}</span></div>
     <div className="gp-pick-main">
      <span className="gp-hero-logo"><Logo team={lead[0].team} size={56}/></span>
      <span><b>{lead[0].team.short||lead[0].team.abbr}</b><small>{which==='both'?`${lead[0].sport?.toUpperCase()} · `:''}{lead[0].home?'vs':'@'} {lead[0].opponent.abbr} · {clockText(lead[0].startsAt)} · {lead[0].confidence} confidence</small></span>
@@ -1155,19 +1161,21 @@ function MoneylineGenerator({league,admin}){
      <div><dt>Price</dt><dd>{odds(lead[0].price)}</dd></div>
     </dl>}
    </section>
-   {showValue?lead.length>1&&<Section title="More value picks"><ul className="gp-legs">{lead.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'} value/>)}</ul></Section>
-    :<Section title={`Every game ${when}`}><ul className="gp-legs">{lead.map(leg=><Leg key={`${leg.sport}:${leg.game}`} leg={leg} mixed={which==='both'}/>)}</ul></Section>}
+   {showValue?lead.length>1&&<Section title="More value picks"><ul className="gp-legs">{lead.slice(1).map(leg=><Leg key={leg.game} leg={leg} mixed={which==='both'} value onHold={setHolding}/>)}</ul></Section>
+    :<Section title={`Every game ${when}`}><ul className="gp-legs">{lead.map(leg=><Leg key={`${leg.sport}:${leg.game}`} leg={leg} mixed={which==='both'} onHold={setHolding}/>)}</ul></Section>}
    <Section title={`${mixed?'NBA + NFL parlays':'Parlays'}${mode==='payout'?` paying ${payout}x or more`:`, ${legs} legs`}`} icon={Layers}>
     {mixed&&state.next?.length>0&&<p className="gp-note gp-mixed-note">No {state.next.map(sport=>sport.toUpperCase()).join(' or ')} games {when}: {state.next.length===1?'its':'their'} legs are from {state.next.length===1?'its':'their'} next games.</p>}
     {combos.length?<ol className="gp-slips">{combos.map((combo,index)=><ParlaySlip key={combo.legs.map(leg=>`${leg.sport}:${leg.game}:${leg.side}`).join()}
-     combo={combo} index={index} mixed={mixed} tag={index===0?(sort==='value'?'Best value':'Most likely'):null}/>)}</ol>
+     combo={combo} index={index} mixed={mixed} tag={index===0?(sort==='value'?'Best value':'Most likely'):null} onHold={setHolding}/>)}</ol>
      :<p className="gp-note">{mixed&&leagues.size<2?'Only one league has games with moneylines right now, so there\'s no parlay with both.'
      :sort==='value'?`Not enough value picks ${when} for ${mode==='payout'?`a parlay paying ${payout}x`:`${legs} legs`}. Switch the order to Most likely for our picks.`
      :mode==='payout'?`No mix of our picks ${when} pays ${payout}x.`:`Not enough games for ${legs} legs.`}</p>}
     {admin&&held>0&&<p className="gp-note">Admin: {held} {held===1?'game':'games'} left out: no moneyline yet, or data to check.</p>}
     {state.partial&&<p className="gp-note">One league couldn't load; these are the other's games.</p>}
    </Section>
+   <p className="gp-note gp-hold-hint">Press and hold a pick or parlay to copy or save it as a picture.</p>
   </div>}
+  {holding&&<HoldSheet legs={holding} onClose={closeHold}/>}
  </div>;
 }
 

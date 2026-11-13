@@ -262,11 +262,14 @@ test('the moneyline picture\'s words',()=>{
  assert.deepEqual(parlay.money.map(row=>row[0]),['Amount','To win','Payout']);
  assert.equal(parlay.money[0][1],'$25');
  assert.equal(parlay.money[2][1],moneyText(25*price.dec));
- // A straight pick with no amount: in units.
+ // No amount (the Generator's shared plays, Nov 13): just the moneylines, no money rows;
+ // a straight pick's price is on its leg, not on top.
  const straight=cardText({legs:[{team:{abbr:'DAL'},price:-253}]});
  assert.equal(straight.title,'Moneyline');
- assert.equal(straight.odds,'-253');
- assert.deepEqual(straight.money,[['Amount','1 unit'],['To win','0.40 units'],['Payout','1.40 units']]);
+ assert.equal(straight.odds,null);
+ assert.deepEqual(straight.money,[]);
+ assert.deepEqual(cardText({legs}).money,[]);
+ assert.equal(cardText({legs}).odds,odds(price.american));
  assert.equal(combined([{price:null}]),null);
 });
 

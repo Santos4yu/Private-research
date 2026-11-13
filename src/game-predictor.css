@@ -1035,3 +1035,25 @@ button.gp-pickrow-x:active{transform:scale(.9)}
 
 /* The admin's note under Side by side: where the offense and defense ranks come from. */
 .gp-ranks-from{margin-top:10px;font-size:12px;color:var(--gp-faint)}
+
+/* Press and hold to share (Nov 13, HoldShare.jsx): the held card keeps the
+   phone's own text menu away; the sheet shows the picture with Copy and
+   Download under it. It sits on the page body, so its colors are its own. */
+.gp-holdable{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.gp-hold-hint{margin-top:14px;color:var(--gp-faint);font-size:12px;text-align:center}
+.gp-hold{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.62);
+ -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:gp-hold-in .18s ease-out both}
+.gp-hold-card{display:grid;gap:12px;width:min(420px,100%);padding:14px;border-radius:22px;background:#151617;
+ box-shadow:0 0 0 1px rgba(255,255,255,.06),0 24px 60px rgba(0,0,0,.5);animation:gp-hold-pop .22s cubic-bezier(.2,.8,.2,1) both}
+.gp-hold-picture{display:grid;place-items:center;min-height:180px;overflow:hidden;border-radius:14px;background:#0f1011}
+.gp-hold-picture img{display:block;width:100%;max-height:62vh;object-fit:contain}
+.gp-hold-wait{color:rgba(244,246,246,.56);font:600 13px/1.4 var(--font-sans,system-ui,sans-serif)}
+.gp-hold-note{margin:0;color:rgba(244,246,246,.62);font:500 12.5px/1.45 var(--font-sans,system-ui,sans-serif);text-align:center}
+.gp-hold-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gp-hold-actions button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;border:0;border-radius:14px;
+ background:rgba(255,255,255,.08);color:#f4f6f6;font:750 15px/1 var(--font-sans,system-ui,sans-serif);cursor:pointer;transition:background-color .2s,transform .15s}
+.gp-hold-actions button:first-child{background:rgba(255,255,255,.16)}
+.gp-hold-actions button:active{transform:scale(.97)}
+.gp-hold-actions button:disabled{opacity:.5;cursor:default}
+@keyframes gp-hold-in{from{opacity:0}}
+@keyframes gp-hold-pop{from{opacity:0;transform:translateY(10px) scale(.97)}}

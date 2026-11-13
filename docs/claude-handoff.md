@@ -58,6 +58,34 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 13 (b): press and hold a pick to share it, just the moneylines
+
+- The owner shares plays with their community: "I don't want them to see a
+  model or anything related or value or nothing just the moneylines make it
+  nice and copyable image ... minimalistic without adding extra buttons make
+  it so when I hold down on it it pops up a download or copy button".
+- The picture (`src/game-share.js` `drawMoneyline`): without an amount it
+  is the title ("3-Pick Parlay" with the total odds on the right, or
+  "Moneyline"), then each leg: the game and time, logo, team, "Moneyline"
+  under it on a parlay, and the price.
+  - No chance, no units, no glow, no site name.
+  - A saved bet (an amount, the bet screen's share) keeps its money rows.
+  - `cardText` gives `odds` null for a straight pick and `money` [] without
+    an amount.
+- Press and hold (`src/HoldShare.jsx`):
+  - `useHold` fires after 450 ms (a finger that moves 10 px is scrolling).
+    A right-click on a computer opens it too, and the phone's own long-press
+    menu is kept away (`.gp-holdable`: no callout, no text selection).
+  - `HoldSheet` shows the picture, made as the sheet opens (`pictureOf`),
+    with Copy (`copyPicture`, the clipboard) and Download (`savePicture`).
+    Download on a phone is the share sheet, whose Save Image puts it in
+    Photos; on a computer it's a file. The picture itself can be
+    long-pressed on a phone too.
+- In the Generator: the top pick, every row under it and each parlay card.
+  The parlay cards' and top pick's Share buttons are gone. A line under the
+  parlays says "Press and hold a pick or parlay to copy or save it as a
+  picture."
+
 ### Nov 13 (a): a player out, read with how his team does without him
 
 - The owner: "out Luka but he's been out for the whole season or for 6
