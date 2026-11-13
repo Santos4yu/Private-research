@@ -133,6 +133,7 @@ DK_RESTING = 120
 PRIOR_KEY = "krazy_data:predictor:v1:nba-prior:{season}"
 PRIOR2_KEY = "krazy_data:predictor:v2:nba-prior:{season}"
 MEETINGS_KEY = "krazy_data:predictor:v2:nba-meetings:{season}"
+LAST_REGULARS_KEY = "krazy_data:predictor:v2:nba-last-regulars:{season}"
 MAX_HISTORY = 400
 # A game is settled once ESPN calls it final; asked about this long after its start.
 SETTLE_AFTER = {"nba": 2.5 * 3600, "nfl": 3.5 * 3600}
@@ -1271,6 +1272,42 @@ def _nba_v2_prior(season, load=None, store=None) -> dict | None:
     return value
 
 
+def _nba_last_regulars(season, load=None, store=None) -> dict:
+    """Last season's regulars (predictor_nba.last_regulars): worked out once and kept."""
+    import predictor_nba
+    key = LAST_REGULARS_KEY.format(season=season)
+    hit = _memory.get(key)
+    if hit:
+        return hit[1]
+    store = _store() if store is None else store
+    try:
+        raw = store.get(key) if store else None
+        if raw:
+            value = json.loads(raw)
+            _memory[key] = (time.time(), value)
+            return value
+    except Exception:  # noqa: BLE001
+        pass
+    if load is None:
+        from backend.sports.wnba import league
+        load = lambda: league.stored(season, "nba")
+    try:
+        payload = load()
+    except Exception:  # noqa: BLE001 -- nobody counts as out all season
+        payload = None
+    if not payload or not payload.get("games"):
+        return {}
+    games, index = predictor_nba.games_of(payload)
+    value = predictor_nba.last_regulars(games, index)
+    _memory[key] = (time.time(), value)
+    try:
+        if store and value:
+            store.set(key, json.dumps(value, separators=(",", ":")))
+    except Exception:  # noqa: BLE001
+        pass
+    return value
+
+
 def _nba_last_meetings(season, load=None, store=None, fetch=None) -> dict:
     """A finished season's meetings of each pair of teams (season_meetings):
     worked out once and kept. From its stored schedule; a season stored
@@ -1455,6 +1492,7 @@ def _nba_v2(now=None) -> dict:
     if hit and hit[1][0] == built and time.time() - hit[0] < TABLE_SECONDS:
         return hit[1][1]
     context = nba_context(payload, _nba_v2_prior(season - 1), today, _nba_last_meetings(season - 1))
+    context["last"] = _nba_last_regulars(season - 1)
     _memory["nba-v2"] = (time.time(), (built, context))
     return context
 
@@ -1466,7 +1504,7 @@ def nba_model_v2(game, context) -> dict | None:
     import predictor_nba
     params = V2["nba"]
     rt, states = context["rt"], context["states"]
-    built = predictor_nba.predict(game, rt, states, params, _key)
+    built = predictor_nba.predict(game, rt, states, params, _key, last=context.get("last"))
     if not built:
         return None
     home, away = game["home"]["abbr"], game["away"]["abbr"]
@@ -1896,6 +1934,31 @@ def _player_line(made, side, other, lead) -> str | None:
     return " ".join(part for part in (f"{lead} {player['name']}" + (f": {why}." if why else "."), number) if part)
 
 
+VERDICT_WORDS = {"holding": "holding their own", "surviving": "barely surviving", "struggling": "struggling"}
+
+
+def _record_text(part) -> str:
+    return f"{part['wins']}-{part['losses']}"
+
+
+def _split_line(row, team) -> str | None:
+    """How the team has done without a player who's out (predictor_nba.split_of):
+    its record and margin each way and what that means for tonight."""
+    split, said = row.get("split") or {}, VERDICT_WORDS.get(row.get("verdict"))
+    with_him, without = split.get("with") or {}, split.get("without") or {}
+    if not said or not without.get("games"):
+        return None
+    margin = lambda part: f"{part['adjusted']:+.1f} a game against their opponents"
+    if row.get("seasonOut"):
+        return (f"{row['name']} hasn't played for {team} this season. They're {_record_text(without)} without him "
+                f"({margin(without)}): {said}. Every number here already counts them without him, so nothing more comes off.")
+    text = (f"{_cap(team)} are {_record_text(without)} in {without['games']} games without {row['name']} ({margin(without)}) "
+            f"and {_record_text(with_him)} with him ({with_him['adjusted']:+.1f}): {said}.")
+    if row.get("splitCounted"):
+        text += " That's counted in what his absence costs them tonight."
+    return text
+
+
 def _injury_lines(made, built) -> list:
     """Only who matters: players out who cost their team at least a point
     (the NBA), a starting quarterback out and skill players out (the NFL),
@@ -1909,6 +1972,13 @@ def _injury_lines(made, built) -> list:
                 names = _list_text([row["name"] + (f" ({str(row['injury']).lower()})" if row.get("injury") else "") for row in gone[:3]])
                 worth = sum(row["impact"] for row in gone)
                 lines.append(f"{_cap(_the(made, side))} are without {names}, worth about {worth:.1f} points a game to them.")
+            # Nov 13, the owner: how they've done without him, not just that he's out.
+            team = _the(made, side)
+            for row in rows:
+                if row.get("out") and row.get("verdict") and ((row.get("full") or 0) >= 1 or row.get("seasonOut")):
+                    said = _split_line(row, team)
+                    if said:
+                        lines.append(said)
             for row in rows:
                 if not row.get("out") and row.get("kind") == "questionable" and (row.get("impact") or 0) >= 1.5:
                     lines.append(f"{row['name']} is questionable for {_the(made, side)}: if he sits, that's about "

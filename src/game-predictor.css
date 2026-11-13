@@ -283,6 +283,14 @@
 .gp-story-list span{display:block;margin-bottom:3px;color:var(--gp-muted);font-size:11.5px;font-weight:700}
 .gp-story-list p{margin:0;font-size:14px;line-height:1.5;color:color-mix(in srgb,var(--gp-text) 92%,transparent)}
 .gp-out-more{margin-top:6px;font-size:12px}
+/* How the team has done without him (Nov 13): the verdict in its color, then the records. */
+.gp-split{display:block;margin-top:6px}
+.gp-split strong{display:inline-block;font-size:12px;font-weight:800;color:var(--gp-muted)}
+.gp-split[data-verdict=holding] strong{color:var(--gp-up)}
+.gp-split[data-verdict=surviving] strong{color:var(--gp-gold)}
+.gp-split[data-verdict=struggling] strong{color:var(--gp-down)}
+.gp-out li[data-out] .gp-split small{margin-top:1px;color:var(--gp-muted)}
+.gp-out em.gp-out-none{color:var(--gp-faint);font-weight:700}
 /* The analysis: the pick's numbers in two columns, its verdict at the top;
    then each section a small title over short paragraphs. */
 .gp-thepick-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}

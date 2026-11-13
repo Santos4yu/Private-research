@@ -25,7 +25,7 @@ import {useInk,inkStyle} from './use-ink.js';
 import {ChipMenu,Empty,Section,Segmented,Shimmer} from './gp-parts.jsx';
 import {GameRecord} from './GameRecord.jsx';
 import {CountUp} from './count-up.jsx';
-import {SPORTS,matchupRows,restText,outPoints,recentGames,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
+import {SPORTS,matchupRows,restText,outPoints,recentGames,americanOf,byText,cents,edgeText,valuePicks,chartFrame,chartPath,clockText,dayOptions,dayText,historyGroups,pickScoreText,decimal,evText,groupByDay,keyInjuries,splitText,gamePicks,gameClockText,inkOn,lineText,liveAlert,liveFirst,liveText,marketNote,mergeBoards,pickStatus,propProgress,runText,sparkPath,moneyText,odds,pairColors,parlays,paysText,pct,pull,readGuide,recordText,resultOf,sideSeries,startText,twoCalls,unitsText,valueRows,winOf} from './game-predictor-core.js';
 import {shareMoneyline} from './game-share.js';
 import {PropGenerator} from './PropGenerator.jsx';
 import {findGame,liveWithScores,nbaBoard,nbaJson,nbaReachable,withNbaLive} from './nba-live.js';
@@ -931,8 +931,9 @@ function WhosOut({prediction}){
   <div className="gp-two">{sides.map(({side,shown,others})=><div key={side}>
    <p className="gp-team-head"><Logo team={prediction[side]} size={20}/>{prediction[side].short||prediction[side].abbr}</p>
    {shown.length?<ul className="gp-out">{shown.slice(0,5).map((player,index)=><li key={index} data-out={player.out?'':undefined}>
-    <span><b>{player.name}</b><small>{[player.position,player.status,player.chance!=null&&!player.out?`${Math.round(player.chance*100)}% to sit`:null,player.injury].filter(Boolean).join(' · ')}</small></span>
-    {player.impact>0&&<em>−{player.impact} pts</em>}
+    <span><b>{player.name}</b><small>{[player.position,player.status,player.chance!=null&&!player.out?`${Math.round(player.chance*100)}% to sit`:null,player.injury].filter(Boolean).join(' · ')}</small>
+     {(()=>{const split=splitText(player);return split&&<span className="gp-split" data-verdict={split.verdict}><strong>{split.label}</strong><small>{split.text}</small></span>;})()}</span>
+    {player.impact>0?<em>−{player.impact} pts</em>:player.seasonOut?<em className="gp-out-none">No change</em>:null}
    </li>)}</ul>:<p className="gp-note">Nobody who matters.</p>}
    {others>0&&<p className="gp-note gp-out-more">{others} more on the report, {rest}.</p>}
   </div>)}</div>

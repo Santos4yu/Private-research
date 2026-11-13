@@ -162,14 +162,114 @@ def team_states(games, index, today, params, players) -> dict:
                 # His latest game in the window and the team's games since (the matchup card's injuries).
                 "lastDate": lines[-1][0].isoformat(), "missed": sum(1 for g in hist if g["date"] > lines[-1][0]),
                 "playedLast": hist[-1] is not None and any(str(r[0]) == pid and (r[index["min"]] or 0) > 0 for r in hist[-1]["lines"].get(team) or []),
+                # Each of the team's games this season: did he play (his with / without split, split_of).
+                "played": [any(str(r[0]) == pid and (r[index["min"]] or 0) > 0 for r in g["lines"].get(team) or []) for g in hist],
             }
         last = hist[-1]
         # Its last 10: each game's margin from its side, the opponent, home or away (the matchup card).
         recent_games = [{"date": g["date"].isoformat(), "opponent": g["away"] if g["home"] == team else g["home"], "home": g["home"] == team,
                          "margin": (g["hs"] - g["as"]) if g["home"] == team else (g["as"] - g["hs"])} for g in hist[-10:]]
+        # Every game this season from its side (the with / without splits).
+        log = [{"opponent": g["away"] if g["home"] == team else g["home"], "home": g["home"] == team,
+                "margin": (g["hs"] - g["as"]) if g["home"] == team else (g["as"] - g["hs"])} for g in hist]
         states[team] = {"games": len(hist), "lastDate": last["date"], "lastVenue": last["home"],
-                        "dates": [g["date"] for g in hist[-6:]], "regulars": regulars, "recent": recent_games}
+                        "dates": [g["date"] for g in hist[-6:]], "regulars": regulars, "recent": recent_games, "log": log}
     return states
+
+
+# A player out (Nov 13, the owner: "out Luka but he's been out ... for 6
+# games don't just call them a risky moneyline ... look at how they are
+# performing without him and with him"): how his team has done in its games
+# with him and without him this season (since his first game for it), each
+# game's margin read against the opponent's strength and the floor.
+SPLIT_FEWEST = 3      # games each way before the split says anything
+SPLIT_K = 12          # how hard a split is pulled toward the model's own number (games)
+VERDICTS = ("holding", "surviving", "struggling")
+
+
+def _adjusted(game, rt, home_edge):
+    """A game's margin against an average opponent on a neutral floor."""
+    opponent = game["opponent"]
+    strength = (rt["off"].get(opponent, 0.0) - rt["def"].get(opponent, 0.0)) * rt.get("pace_mu", 100.0) / 100
+    return game["margin"] + strength - (home_edge if game["home"] else -home_edge)
+
+
+def _side_of(games, rt, home_edge):
+    if not games:
+        return {"games": 0, "wins": 0, "losses": 0, "margin": None, "adjusted": None}
+    wins = sum(1 for game in games if game["margin"] > 0)
+    return {"games": len(games), "wins": wins, "losses": len(games) - wins,
+            "margin": round(sum(game["margin"] for game in games) / len(games), 1),
+            "adjusted": round(sum(_adjusted(game, rt, home_edge) for game in games) / len(games), 1)}
+
+
+def verdict(split) -> str | None:
+    """How the team is doing without him: holding (about as well, or still
+    clearly good), surviving (worse but getting by) or struggling (much worse
+    and losing ground). None before SPLIT_FEWEST games without him."""
+    without = split.get("without") or {}
+    if without.get("games", 0) < SPLIT_FEWEST or without.get("adjusted") is None:
+        return None
+    with_him = split.get("with") or {}
+    if with_him.get("games", 0) >= SPLIT_FEWEST and with_him.get("adjusted") is not None:
+        gap = without["adjusted"] - with_him["adjusted"]
+        if gap >= -2 or without["adjusted"] >= 4:
+            return "holding"
+        return "struggling" if gap < -6 and without["adjusted"] < 0 else "surviving"
+    # Out all season: how they're doing on their own.
+    return "holding" if without["adjusted"] >= 1.5 else "surviving" if without["adjusted"] >= -3 else "struggling"
+
+
+def split_of(state, player, rt, home_edge) -> dict | None:
+    """{with, without}: the team's record, margin and margin against an
+    average opponent in its games with him and without him, since his first
+    game for it this season; None when he hasn't played for it."""
+    flags, log = (player or {}).get("played") or [], (state or {}).get("log") or []
+    first = next((i for i, played in enumerate(flags) if played), None)
+    if first is None or len(flags) != len(log):
+        return None
+    games = list(zip(flags, log))[first:]
+    return {"with": _side_of([game for played, game in games if played], rt, home_edge),
+            "without": _side_of([game for played, game in games if not played], rt, home_edge)}
+
+
+def season_split(state, rt, home_edge) -> dict | None:
+    """A player out all season: the team's whole season is without him."""
+    log = (state or {}).get("log") or []
+    return {"with": _side_of([], rt, home_edge), "without": _side_of(log, rt, home_edge)} if log else None
+
+
+def blended_value(player, split, params) -> tuple[float, bool]:
+    """His worth to the team in points (the model's Game Score number), pulled
+    toward what the team has actually lost without him when there are enough
+    games each way (SPLIT_K games of the model's number against the split's):
+    (points, whether the split moved it). Never below 0."""
+    model = params["injury"] * player["value"]
+    with_him, without = (split or {}).get("with") or {}, (split or {}).get("without") or {}
+    if with_him.get("games", 0) < SPLIT_FEWEST or without.get("games", 0) < SPLIT_FEWEST:
+        return model, False
+    seen = with_him["adjusted"] - without["adjusted"]
+    pull = without["games"] / (without["games"] + SPLIT_K)
+    return max(0.0, (1 - pull) * model + pull * seen), True
+
+
+def last_regulars(games, index, fewest_games=20, fewest_minutes=20.0) -> dict:
+    """Last season's regulars: {player id: {games, mpg, ppg, team}} for those
+    with `fewest_games` games at `fewest_minutes` a game or more (a player out
+    all of this season who mattered last season)."""
+    seen = defaultdict(lambda: [0, 0.0, 0.0, None])
+    for g in games:
+        for team in (g["home"], g["away"]):
+            for row in g["lines"].get(team) or []:
+                minutes = row[index["min"]] or 0
+                if minutes > 0:
+                    cell = seen[str(row[0])]
+                    cell[0] += 1
+                    cell[1] += minutes
+                    cell[2] += row[index["pts"]] or 0
+                    cell[3] = team
+    return {pid: {"games": n, "mpg": round(minutes / n, 1), "ppg": round(points / n, 1), "team": team}
+            for pid, (n, minutes, points, team) in seen.items() if n >= fewest_games and minutes / n >= fewest_minutes}
 
 
 def defense_by_position(games, index, players, today) -> dict:
@@ -262,9 +362,11 @@ def miss_chance(item) -> float:
     return 0.4
 
 
-def predict(game, rt, states, params, key):
+def predict(game, rt, states, params, key, last=None):
     """The independent prediction: margin (home), total, the parts, who's out and the questionable scenarios.
-    None when either team has no ratings."""
+    None when either team has no ratings. `last`: last season's regulars by
+    player id ({mpg, ppg, team}), to tell a player out all season (no games
+    for his team yet) who matters from one who doesn't."""
     home, away = game["home"]["abbr"], game["away"]["abbr"]
     if home not in rt["off"] or away not in rt["off"]:
         return None
@@ -275,14 +377,18 @@ def predict(game, rt, states, params, key):
     injuries = game.get("injuries") or {}
     lost, out, questionable = {}, {}, {}
     for side, abbr in (("home", home), ("away", away)):
-        regulars = (states.get(abbr) or {}).get("regulars") or {}
+        state = states.get(abbr) or {}
+        regulars = state.get("regulars") or {}
         by_name = {key(p["name"]): p for p in regulars.values()}
         lost[side], out[side], questionable[side] = 0.0, [], []
         for item in injuries.get(abbr) or []:
             kind = classify(item.get("status"))
             player = regulars.get(str(item.get("id") or "")) or by_name.get(key(item.get("name")))
             counted = bool(player and player["rotation"] and player["here"])
-            cost = params["injury"] * player["value"] * player["reflect"] if counted else 0.0
+            # His worth, pulled toward how the team has really done without him (blended_value).
+            split = split_of(state, player, rt, params["home"]) if counted and kind in ("out", "questionable") else None
+            worth, moved = blended_value(player, split, params) if counted else (0.0, False)
+            cost = worth * player["reflect"] if counted else 0.0
             entry = {"name": item.get("name"), "position": item.get("position"), "status": item.get("status"), "kind": kind,
                      "injury": item.get("injury"), "impact": round(cost, 1) if kind != "other" else 0.0,
                      "minutes": round(player["minutes"], 1) if player else None,
@@ -291,13 +397,20 @@ def predict(game, rt, states, params, key):
                      "ppg": round(player["season"]["pts"] / player["season"]["games"], 1) if player and player["season"]["games"] else None,
                      "missed": player.get("missed") if player else None, "since": player.get("lastDate") if player else None,
                      "headshot": player.get("headshot") if player else None}
+            if split:
+                entry.update(split=split, verdict=verdict(split), full=round(params["injury"] * player["value"], 1), splitCounted=moved)
+            elif not player and kind == "out" and last and str(item.get("id") or "") in last and state.get("games", 0) >= SPLIT_FEWEST:
+                # Out all season: every game they've played is without him, so the ratings already are.
+                whole = season_split(state, rt, params["home"])
+                entry.update(seasonOut=True, split=whole, verdict=verdict(whole), lastSeason=last[str(item.get("id"))],
+                             ppg=entry["ppg"] or last[str(item.get("id"))].get("ppg"))
             if kind == "out" and counted:
-                lost[side] += player["value"] * player["reflect"]
+                lost[side] += worth / params["injury"] * player["reflect"]
             # Nov 9, the owner, on TOR at 74% with Barnes and Quickley day-to-day:
             # a questionable player counts at his chance to sit, not as playing.
             if kind == "questionable" and counted:
                 chance = miss_chance(item)
-                lost[side] += player["value"] * player["reflect"] * chance
+                lost[side] += worth / params["injury"] * player["reflect"] * chance
                 entry["chance"], entry["expected"] = chance, round(cost * chance, 1)
                 if cost >= 0.3:
                     questionable[side].append(entry)

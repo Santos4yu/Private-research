@@ -58,6 +58,49 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 13 (a): a player out, read with how his team does without him
+
+- The owner: "out Luka but he's been out for the whole season or for 6
+  games don't just call them a risky moneyline because he's out look at how
+  they are performing without him and with him are they holding their own
+  or are they barely surviving or are they struggling?"
+- Already true before this: a player out all season isn't one of the team's
+  regulars, so nothing came off. A player out for some games came off at
+  his value × `reflect`, his share of the last 30 games he played.
+- New in `predictor_nba.py`:
+  - `team_states` keeps each team's season `log` (opponent, home, margin)
+    and each regular's `played` flags.
+  - `split_of`: his team's record and margin with him and without him,
+    since his first game for it. `adjusted` reads each margin against the
+    opponent's net rating and the floor (home edge off).
+  - `verdict` returns:
+    - holding: no more than 2 worse without him, or still +4 without him;
+    - struggling: more than 6 worse and below 0 without him;
+    - surviving: anything in between;
+    - out all season: holding at +1.5 or better, surviving down to -3,
+      struggling below that.
+    - It needs 3 games without him (`SPLIT_FEWEST`).
+  - `blended_value`: his worth in points is the model's number pulled
+    toward what the team has actually lost without him. The pull is
+    games without ÷ (games without + 12) (`SPLIT_K`), and the worth never
+    goes below 0. Tonight's cost is still worth × reflect.
+    - Not backtested: the pull is deliberately gentle (6 games without him
+      moves a third of the way).
+- Out all season: `last_regulars` lists last season's players with 20+
+  games at 20+ minutes (`_nba_last_regulars`, KV
+  `krazy_data:predictor:v2:nba-last-regulars:{season}`). One of them on
+  tonight's report with no games for his team gets `seasonOut`, the
+  team's whole season as "without him", impact 0.
+- Shown:
+  - Why → "Injuries that matter" lists him under his status: "Holding
+    their own" (green), "Barely surviving" (gold) or "Struggling" (red),
+    then "3-3 without him (+0.4 a game) · 5-2 with him (+4.1)". A player
+    out all season shows "No change" where the points would be.
+    `keyInjuries` shows a player out with a verdict even when his cost
+    tonight is under a point.
+  - The write-up adds a sentence per player (`_split_line`).
+  - The NFL is unchanged: a starting QB out is read through who starts.
+
 ### Nov 12 (h): DraftKings' chance on the Props tab (hit rate)
 
 - The owner, with the Props tab's track record open: "I want better props

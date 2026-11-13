@@ -298,11 +298,26 @@ export function pairColors(home,away){
 /** The injuries that matter: in the NBA a player worth a point or more to
  * his team (out or questionable); in the NFL a QB, RB, WR or TE out or
  * doubtful. {shown, others}: the rest are only counted. */
+/** How the team has done without a player who's out, in words: {verdict, label, text}. */
+export const VERDICTS={holding:'Holding their own',surviving:'Barely surviving',struggling:'Struggling'};
+const splitRecord=part=>`${part.wins}-${part.losses}`;
+const signed=value=>`${value>=0?'+':'−'}${Math.abs(value).toFixed(1)}`;
+export function splitText(player){
+ const split=player?.split,label=VERDICTS[player?.verdict];
+ if(!split?.without?.games||!label)return null;
+ const without=`${splitRecord(split.without)} without him (${signed(split.without.adjusted)} a game)`;
+ const text=player.seasonOut?`Out all season: ${without}`
+  :split.with?.games?`${without} · ${splitRecord(split.with)} with him (${signed(split.with.adjusted)})`:without;
+ return {verdict:player.verdict,label,text};
+}
+
 export function keyInjuries(rows,sport){
  const list=rows||[];
  const matters=sport==='nfl'
   ?player=>(player.out||/doubtful/i.test(player.status||''))&&['QB','RB','WR','TE'].includes(String(player.position||'').toUpperCase())
-  :player=>(player.impact||0)>=1;
+  // A player out with a with / without record (Nov 13) shows even when his
+  // absence costs little tonight: how the team has done without him is the point.
+  :player=>(player.impact||0)>=1||Boolean(player.out&&player.verdict&&((player.full||0)>=1||player.seasonOut));
  const shown=list.filter(matters);
  return {shown,others:list.length-shown.length};
 }

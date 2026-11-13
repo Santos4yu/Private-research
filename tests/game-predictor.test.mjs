@@ -460,3 +460,13 @@ test('the matchup card: the teams side by side, the better side marked, their la
  const {restText}=await import('../src/game-predictor-core.js');
  assert.deepEqual([restText(1),restText(2),restText(4),restText(null),restText(7,true)],['Back-to-back','1 day','3 days','—','7 days']);
 });
+
+test('a player out: how his team has done without him, and he shows even when he costs little tonight', async () => {
+ const {splitText:text,keyInjuries:key}=await import('../src/game-predictor-core.js');
+ const split={with:{games:6,wins:4,losses:2,adjusted:2.5},without:{games:6,wins:4,losses:2,adjusted:-1.2}};
+ assert.deepEqual(text({name:'Luka',out:true,verdict:'surviving',split}),{verdict:'surviving',label:'Barely surviving',text:'4-2 without him (−1.2 a game) · 4-2 with him (+2.5)'});
+ assert.equal(text({name:'Luka',out:true,verdict:'holding',seasonOut:true,split:{with:{games:0},without:{games:8,wins:6,losses:2,adjusted:3}}}).text,'Out all season: 6-2 without him (+3.0 a game)');
+ assert.equal(text({name:'Luka',out:true}),null);
+ const rows=[{name:'Luka',out:true,impact:0.4,full:4.2,verdict:'holding',split},{name:'Bench',out:true,impact:0.2},{name:'Gone',out:true,impact:0,seasonOut:true,verdict:'struggling',split}];
+ assert.deepEqual(key(rows,'nba').shown.map(row=>row.name),['Luka','Gone']);
+});
