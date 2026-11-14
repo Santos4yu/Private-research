@@ -451,3 +451,61 @@ button.nm-why:hover,.nm-why[aria-expanded=true]{background:rgba(255,255,255,.07)
  .nm-table[data-book] :is(.nm-thead,.nm-main){--nm-cols:22px 38px minmax(0,1fr) 132px 58px 52px 112px 46px 46px 46px}
  .nm-table[data-book] .nm-main{grid-template-areas:'rank face name line book grade l10 l5 l20 season' 'rank face when line book grade l10 l5 l20 season'}
 }
+
+/* ---------------------------------------------------------------- Polish (Nov 14)
+   The owner, with the list and a player page on a phone: "a nicer more
+   polished 4k design and layout nicer colors less ai looking and cleaner
+   design". Neutral greys (no blue cast), one green and one red that read
+   calm, numbers without glow. On a phone each prop is a soft card: photo,
+   name, the line with its game, then his last 10 and DraftKings' chance,
+   the matchup on a tinted tile, the slip's + at the end. No rank badge or
+   Why arrow on a phone (the page has the why). Computers keep the table. */
+.nba-matchups{--m-soft:#141518;--m-card:#121316;--m-card-hover:#17181c;--m-hover:rgba(255,255,255,.03);--m-pick:rgba(255,255,255,.085);--m-rule:rgba(255,255,255,.055);
+ --m-text:#f4f4f5;--m-muted:#a1a1aa;--m-faint:#71717a;
+ --m-good:#34d399;--m-poor:#f87171;--m-fair:#fbbf24;
+ --m-strong:#34d399;--m-edge:#86d9b5;--m-neutral:#d4d4d8;--m-tough:#f87171}
+:root #app-shell:has(#panel-v2[data-league]:not([hidden])){background:#09090b!important}
+:root[data-theme] body .nba-matchups :is(.nm-grade b,.nm-l10 b,.nm-rate-cell){text-shadow:none}
+.nba-matchups .nm-title h2{font-weight:700;letter-spacing:-.02em}
+.nba-matchups .nm-updated{color:var(--m-faint)}
+/* The matchup: its number on a tile tinted by its band. */
+.nba-matchups .nm-grade{display:grid;place-items:center;width:48px;height:38px;border-radius:11px;background:color-mix(in srgb,currentColor 12%,transparent)}
+.nba-matchups .nm-grade b{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.nm-sub{display:contents}
+
+@media (max-width:760px){
+ .nba-matchups .nm-title h2{font-size:22px}
+ .nba-matchups .nm-folds{flex-wrap:nowrap;gap:8px;margin:2px 0 14px;overflow-x:auto;scrollbar-width:none}
+ .nba-matchups .nm-folds::-webkit-scrollbar{display:none}
+ .nba-matchups .nm-fold{flex:none;height:36px;padding:0 12px;background:var(--m-soft)}
+ .nba-matchups .nm-fold small{max-width:132px}
+ .nba-matchups .nm-table{margin-inline:0}
+}
+
+@container (max-width:639px){
+ /* The heading is the sort: its words on the right, no rule under it. */
+ .nm-thead{height:30px;margin:0 0 6px;padding:0 6px 0 4px;box-shadow:none}
+ .nm-th-player{color:var(--m-faint)}
+ .nba-matchups .nm-list{display:grid;gap:8px}
+ .nba-matchups .nm-row{border-radius:18px;background:var(--m-card);animation-duration:.35s}
+ .nba-matchups .nm-row+.nm-row::after{display:none}
+ .nba-matchups .nm-row:hover,.nba-matchups .nm-row[data-open]{background:var(--m-card-hover)}
+ .nm-main,.nm-table[data-book] .nm-main{--nm-cols:46px minmax(0,1fr) 48px;grid-template-areas:'face name grade' 'face line grade' 'face rates grade';
+  column-gap:12px;row-gap:5px;padding:14px 2px 14px 14px}
+ .nm-rank{display:none}
+ .nm-main .sa-face{--size:46px}
+ .nm-name{align-self:end;font-size:15px;font-weight:650;letter-spacing:-.005em}
+ .nm-sub{display:flex;align-items:baseline;gap:6px;min-width:0}
+ .nm-sub-line{grid-area:line}
+ .nm-sub-rates{grid-area:rates;align-items:center;gap:10px}
+ .nm-sub .nm-line{flex:none}
+ .nm-sub .nm-when{flex:0 1 auto;min-width:0;align-self:baseline;font-size:12.5px}
+ .nm-sub .nm-when::before{content:'·';margin-right:6px;color:var(--m-faint)}
+ /* The time is on the games strip above; the row keeps the opponent. */
+ .nm-sub .nm-time{display:none}
+ .nm-line b{font-size:14.5px}
+ .nm-sub .nm-l10{flex:none}
+ .nm-sub .nm-book{flex:none;gap:4px}
+ .nba-matchups .nm-row>.nm-why{display:none}
+ .nm-save{margin:0 12px 0 8px}
+}

@@ -125,12 +125,19 @@ function PropRow({row,read,hit,prop,role,book,books,open,onToggle,onOpen,short,i
    <span className="nm-rank" data-top={rank<=3||undefined}>{rank}</span>
    <Face row={row}/>
    <b className="nm-name">{row.player}</b>
-   <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}
-    {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&` · ${when(row.startsAt)}`}</small>
-   <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img className="nm-demon" src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span>
-   {books&&<BookCell book={book}/>}
+   {/* Nov 14 (the owner: "cleaner design"): on a phone the line and the game
+       share one row, his last 10 and DraftKings' chance the next; on a
+       computer the wrappers step aside (display: contents) for the columns. */}
+   <span className="nm-sub nm-sub-line">
+    <span className="nm-line"><small>More</small><b>{figure(row.line)}</b><em>{stat}</em>{pic&&<img className="nm-demon" src={pic[0]} alt={pic[1]} title={pic[2]} width="18" height="18"/>}</span>
+    <small className="nm-when">{row.position&&<span className="nm-pos">{row.position} · </span>}
+     {row.teamAbbr&&row.opponent?<><span className="nm-own">{row.teamAbbr} </span>{home?'vs':'@'} {row.opponent}</>:row.teamAbbr}{row.startsAt&&<span className="nm-time">{` · ${when(row.startsAt)}`}</span>}</small>
+   </span>
+   <span className="nm-sub nm-sub-rates">
+    <span className="nm-l10"><Spark row={row}/><b data-tone={rateTone(hit)}>{hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}</b></span>
+    {books&&<BookCell book={book}/>}
+   </span>
    <span className="nm-grade" data-tone={read?.tone||undefined}><b>{read?(index<FIRST?<CountUp value={read.score} delay={index*35+120}/>:read.score):'—'}</b></span>
-   <span className="nm-l10"><Spark row={row}/><b data-tone={rateTone(hit)}>{hit?`${hit.hits}/${hit.games}`:waiting?'…':'—'}</b></span>
    {EXTRA.map(([key])=>{const item=rateOf(row,key);return <span className="nm-rate-cell" key={key} style={{gridArea:key}} data-tone={rateTone(item)}>{item?`${item.hits}/${item.games}`:'—'}</span>;})}
   </button>
   {picking?null:read?<button type="button" className="nm-why" aria-expanded={open} aria-label={`Why ${row.player}'s scores`} title="Why these scores" onClick={onToggle}><ChevronDown size={16}/></button>:<span className="nm-why" aria-hidden="true"/>}

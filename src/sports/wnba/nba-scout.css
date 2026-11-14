@@ -1272,3 +1272,67 @@
 }
 /* The stat his line is in, on the tapped game: its number in the accent, no frame. */
 .nba-mp .mp-gp-box [data-focus]{box-shadow:none!important}
+
+/* ---------------------------------------------------------------- Polish (Nov 14)
+   The owner: "nicer more polished 4k design ... nicer colors less ai
+   looking and cleaner design and inside the page make it clean and simple
+   to use". The Props list's neutral greys and calm green / red here too,
+   one card padding and radius everywhere, numbers in one weight with no
+   glow, smaller labels, and less said twice ("His games" says its stat in
+   the chips only; the averages drop "per game"). */
+.nba-mp{--mp-bg:#09090b;--mp-card:#131416;--mp-soft:rgba(255,255,255,.055);--mp-pick:rgba(255,255,255,.1);--mp-rule:rgba(255,255,255,.06);--mp-line:rgba(255,255,255,.06);
+ --mp-raised:rgba(255,255,255,.035);--mp-text:#f4f4f5;--mp-muted:#a1a1aa;--mp-faint:#71717a;
+ --mp-good:#34d399;--mp-edge:#86d9b5;--mp-fair:#fbbf24;--mp-poor:#f87171;--mp-strong:#34d399}
+:root #app-shell:has(#props-league-root[data-page=player]){background:#09090b!important}
+/* The banner. */
+.nba-mp .mp-hero{gap:14px 16px;padding-bottom:16px}
+.nba-mp .mp-hero h1{font-weight:700;letter-spacing:-.025em}
+.nba-mp .mp-hero p{font-size:13px}
+.nba-mp .mp-hero-lines h2{margin-bottom:8px;font-size:12px;color:var(--mp-faint)}
+.nba-mp .mp-hero-lines li{gap:1px 10px;padding:7px 7px 7px 12px;border-radius:14px}
+.nba-mp .mp-hero-lines li[data-page]{background:#1d1e22}
+.nba-mp .mp-hero-lines li>small{font-size:11px;font-weight:600;color:var(--mp-faint)}
+.nba-mp .mp-hero-lines li>span b{font-size:15px}
+.nba-mp .mp-hero-lines .slip-toggle{transform:scale(.88)}
+/* The tabs. */
+.nba-mp .mp-tabs button,.nba-mp[data-wide] .mp-tabs button{font-weight:600;color:var(--mp-faint)}
+.nba-mp .mp-tabs button[aria-selected=true],.nba-mp[data-wide] .mp-tabs button[aria-selected=true]{color:var(--mp-text);box-shadow:inset 0 -2px 0 var(--mp-text)}
+/* Cards: one radius and padding, the title quiet. */
+.nba-mp .mp-cols,.nba-mp .mp-col{gap:10px}
+.nba-mp .mp-card{border-radius:20px;background-color:var(--mp-card)}
+.nba-mp .mp-card>header,.nba-mp .nba-grade>header{padding:16px 18px 2px}
+.nba-mp .mp-card>header h2,.nba-mp .mp-part .mp-card>header h2,.nba-mp .nba-grade>header h2{font-size:14.5px;font-weight:650;letter-spacing:-.01em}
+.nba-mp .mp-card>header h2 svg{width:14px;height:14px}
+.nba-mp .mp-card-body{padding:12px 18px 18px}
+/* Switches and chips: words, the picked one on a soft pill. */
+.nba-mp :is(.mp-seg,.ns-seg) button,.nba-mp .mp-chips button{height:30px;padding:0 12px;font-size:13px;font-weight:600;color:var(--mp-faint)}
+.nba-mp :is(.mp-seg,.ns-seg) button[aria-pressed=true],.nba-mp .mp-chips button[aria-pressed=true]{background:var(--mp-pick);color:var(--mp-text)}
+/* His averages: label, number, the change in a window; no "per game". */
+.nba-mp .mp-avg-grid{margin-top:14px}
+.nba-mp .mp-avg-grid small{color:var(--mp-faint);font-size:12px}
+.nba-mp .mp-avg-grid b{font-size:24px;font-weight:700}
+.nba-mp .mp-avg-grid em:not([data-tone]){display:none}
+.nba-mp .mp-avg-grid em[data-tone]{font-size:12px;font-weight:600}
+/* His games: the hit rate and what it's over in one line under it. */
+.nba-mp .mp-trend .mp-chips{margin:6px 0 4px}
+.nba-mp .mp-trend-head{align-items:center;margin:10px 0 12px}
+.nba-mp .mp-trend-head>div:first-child{display:grid;gap:4px}
+.nba-mp .mp-trend-head b{font-size:32px;font-weight:700;letter-spacing:-.03em}
+.nba-mp .mp-trend-head span{color:var(--mp-muted);font-size:13px;font-weight:500}
+.nba-mp .mp-stepper{height:40px;background:rgba(255,255,255,.05)}
+.nba-mp .mp-stepper small{font-size:11px;color:var(--mp-faint)}
+.nba-mp .mp-stepper b{font-size:16px}
+.nba-mp .mp-bars{margin-top:12px}
+.nba-mp .mp-bars>:is(span,button) i{max-width:28px;border-radius:6px 6px 3px 3px;box-shadow:none}
+.nba-mp .mp-bars>[data-tone=good] i{background:color-mix(in srgb,var(--mp-good) 80%,#131416)}
+.nba-mp .mp-bars>[data-tone=poor] i{background:color-mix(in srgb,var(--mp-poor) 62%,#131416)}
+.nba-mp .mp-bars>:is(span,button) b{font-size:11.5px;font-weight:600;color:var(--mp-muted)}
+.nba-mp .mp-bars>[data-tone=good] b{color:var(--mp-good)}
+.nba-mp .mp-bars>[data-tone=poor] b{color:var(--mp-poor)}
+.nba-mp .mp-bars>:is(span,button) small{color:var(--mp-faint);font-weight:600}
+.nba-mp .mp-bars-line{border-top:1px dashed rgba(244,244,245,.42)}
+.nba-mp .mp-bars>button[aria-pressed=true] i{box-shadow:0 0 0 2px var(--mp-card),0 0 0 3px rgba(244,244,245,.85)}
+@media (max-width:760px){
+ .nba-mp .mp-card>header,.nba-mp .nba-grade>header{padding:15px 16px 2px}
+ .nba-mp .mp-card-body{padding:12px 16px 16px}
+}

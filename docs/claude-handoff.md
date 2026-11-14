@@ -58,6 +58,37 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 14 (b): the Props tab polished (list and player page)
+
+- The owner, with the NBA list and Kuminga's page on a phone: "nicer more
+  polished 4k design and layout nicer colors less ai looking and cleaner
+  design and inside the page make it clean and simple to use".
+- Both sheets end with a "Polish (Nov 14)" block (nba-matchups.css,
+  sports/wnba/nba-scout.css).
+  - Neutral greys with no blue cast: background #09090b, cards
+    #121316 / #131416, text #f4f4f5 / #a1a1aa / #71717a.
+  - Green #34d399, red #f87171, amber #fbbf24.
+  - No glow on the scores (gloss.css's text-shadow is off in the list).
+- List:
+  - The matchup number sits on a tile tinted by its band, everywhere.
+  - On a phone (the table's container under 640px) each prop is a soft
+    card. Row 1 is the name; row 2 is "More 2.5 3PM · vs HOU" (the time
+    is on the games strip); row 3 is his last 10 and DraftKings' chance.
+    The tile and the + sit on the right. No rank badge, and no Why arrow
+    on a phone.
+  - Markup: `.nm-sub` wrappers (`nm-sub-line`, `nm-sub-rates`) are
+    `display: contents` on a computer, so the table's columns are as
+    before; `.nm-time` is hidden on a phone.
+  - Soft spots and Track record are two pills in one row that scrolls.
+- Page:
+  - One card radius (20) and padding (16-18).
+  - Quieter titles, switches and chips that are words with the picked one
+    on a soft pill.
+  - Averages drop "per game".
+  - His games: no stat note in the corner (the chips say it); the hit
+    rate with "over 2.5 · last 10 games" under it; calmer bars without
+    shadow; the line's dashes lighter.
+
 ### Nov 14 (a): the Props tab's "vs his position" reads this season
 
 - The owner: Donovan Mitchell 36 PRA, our Why said the Heat allowed guards

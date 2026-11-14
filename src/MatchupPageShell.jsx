@@ -110,12 +110,11 @@ export function Trend({row,lines,logs,chips,notes,tonight}){
  const keyOf=game=>String(game.gameId||game.date);
  const chosen=games.find(game=>keyOf(game)===picked)||games[games.length-1]||null;
  const detailed=Boolean(notes||tonight);
- return <Card title="His games" note={SHORT[stat]||row.market} icon={LineChart} className="mp-trend">
+ return <Card title="His games" icon={LineChart} className="mp-trend">
   <div className="mp-chips" role="group" aria-label="Stat">{shown.map(([key,label])=><button type="button" key={key} aria-pressed={stat===key} onClick={()=>setStat(key)}>{label}</button>)}</div>
   <div className="mp-trend-head">
-   <div><small>{SHORT[stat]} · {span==='h2h'?`vs ${row.opponent}`:`last ${span.slice(1)}`} · {games.length} {games.length===1?'game':'games'}</small>
-    <b key={`${stat}-${span}-${line}`} data-tone={finite(over)&&games.length?(over*2>=games.length?'good':'poor'):undefined}>{finite(over)&&games.length?`${over}/${games.length}`:'—'}</b>
-    {finite(line)&&<span>over {fmt(line,1)}</span>}</div>
+   <div><b key={`${stat}-${span}-${line}`} data-tone={finite(over)&&games.length?(over*2>=games.length?'good':'poor'):undefined}>{finite(over)&&games.length?`${over}/${games.length}`:'—'}</b>
+    <span>{finite(line)?`over ${fmt(line,1)} · `:''}{span==='h2h'?`vs ${row.opponent}`:`last ${games.length} ${games.length===1?'game':'games'}`}</span></div>
    {finite(line)&&<div className="mp-stepper" aria-label="Line"><button type="button" aria-label="Lower the line" onClick={()=>setLine(value=>Math.max(0,value-0.5))}><Minus size={16}/></button>
     <span><small>Line</small><b>{fmt(line,1)}</b></span><button type="button" aria-label="Raise the line" onClick={()=>setLine(value=>value+0.5)}><Plus size={16}/></button></div>}
   </div>
