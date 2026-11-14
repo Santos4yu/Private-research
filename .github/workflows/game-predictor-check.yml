@@ -319,3 +319,28 @@ jobs:
                         [(row["date"], row["away"], row["as"], row["home"], row["hs"]) for row in meetings])
           except Exception:  # noqa: BLE001
               traceback.print_exc()
+      - name: What each defense allows guards this season (the Props tab's "vs his position")
+        shell: python
+        run: |
+          import sys, traceback
+          sys.path.insert(0, ".")
+          from datetime import datetime, timezone
+          from backend.sports.wnba import league, context
+          try:
+              season = league.current_season(datetime.now(timezone.utc), "nba")
+              payload = league.build(season, deadline_seconds=None, store=False, league="nba")
+              by_team = context.team_games(payload)
+              players = payload.get("players") or {}
+              total = context.defense_vs_position(by_team, players)
+              each = context.defense_vs_each(by_team, players)
+              teams = len(by_team)
+              most = lambda rank: f"{teams - rank + 1}th most" if rank else "-"
+              print("season", season, "teams", teams, "games each:", sorted(len(games) for games in by_team.values()))
+              for stat in ("pts", "pra"):
+                  rows = sorted(by_team, key=lambda team: -(each[team]["G"]["stats"][stat]["szn"][0] or 0))
+                  print(f"\nGuards, {stat}: team | per guard a game (rank) | all guards added up a game (rank) | last 10 per guard")
+                  for team in rows:
+                      e, t = each[team]["G"]["stats"][stat], total[team]["G"]["stats"][stat]
+                      print(f"  {team:4} {e['szn'][0]:6} ({most(e['szn'][1])}) | {t['szn'][0]:6} ({most(t['szn'][1])}) | {e['l10'][0]}")
+          except Exception:  # noqa: BLE001
+              traceback.print_exc()

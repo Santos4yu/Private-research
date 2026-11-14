@@ -58,6 +58,31 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 14 (a): the Props tab's "vs his position" reads this season
+
+- The owner: Donovan Mitchell 36 PRA, our Why said the Heat allowed guards
+  about the 4th most, PickFinder 18th most: "can I trust it".
+- Cause: early in a season `league-context` blends all of last season's
+  games in (api/wnba.py, until teams average 15 this season). The Props
+  tab's position read (nba-matchup-score.js `positionRead`, `dvpEach`) was
+  about 7 parts last season to 1 part this, while PickFinder, the matchup
+  page's season switch and the Finder's Defense column read this season.
+  The box scores themselves were checked against real scoreboards on
+  Oct 30.
+- Now `positionTables`: once the opponent has played 5 games this season
+  (FRESH_GAMES), the read uses `league.thisSeason.dvpEach` and says "this
+  season". Before that the blend stands and says "last season included".
+- Still different from other apps by design:
+  - ours is a guard at a time (each guard's line averaged, RotoBot's way,
+    which backtested better than the position's total);
+  - G / F / C as ESPN lists them, while PickFinder splits PG / SG / SF /
+    PF / C;
+  - 12 games is a small sample either way.
+- The "Game predictor check" workflow prints every defense against guards
+  (points and PRA, per guard and added up, with ranks) to compare by hand.
+- And the track record says how much to lean on it: every matchup band
+  went over about 42%.
+
 ### Nov 13 (b): press and hold a pick to share it, just the moneylines
 
 - The owner shares plays with their community: "I don't want them to see a

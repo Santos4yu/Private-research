@@ -233,15 +233,31 @@ function paceRead(row, league) {
  * at a time; the position's total, dvp, from a server that doesn't send it
  * yet). Rank 1 allows the least.
  */
+// Nov 14, the owner: "Heat allowed 4th most to guards ... pickfinder showed
+// 18th most ... can I trust it". Early in a season the league numbers
+// carry all of last season's games too (api/wnba.py blends them in until
+// teams have played 15), so this read was mostly last season's Heat. Once
+// the opponent has played FRESH_GAMES this season, it reads this season's
+// games alone (league.thisSeason), as other apps and the matchup page do,
+// and says which it read.
+const FRESH_GAMES = 5;
+function positionTables(league, opponent) {
+  const now = league?.thisSeason;
+  if (now?.dvpEach?.[opponent] && (now.games?.[opponent] ?? 0) >= FRESH_GAMES)
+    return {tables: {...now, dvp: now.dvpEach}, count: now.teamCount, each: true, when: ' this season'};
+  if (league?.dvpEach) return {tables: {...league, dvp: league.dvpEach}, count: league.teamCount, each: true,
+    when: now ? ', last season included' : ''};
+  return {tables: league, count: league?.teamCount, each: false, when: ''};
+}
 function positionRead(row, league, stat) {
-  const each = Boolean(league?.dvpEach);
-  const cell = defenseCell(row, each ? {...league, dvp: league.dvpEach} : league);
+  const {tables, count, each, when} = positionTables(league, row?.opponent);
+  const cell = defenseCell(row, tables);
   if (!cell || !finite(cell.value)) return null;
-  const soft = spreads(cell.value, cell.values) ?? fromRank(league?.teamCount - cell.rank + 1, league?.teamCount);
+  const soft = spreads(cell.value, cell.values) ?? fromRank(count - cell.rank + 1, count);
   if (!finite(soft)) return null;
   const who = each ? `each ${ONE[cell.position] || 'player at his position'}` : POSITIONS[cell.position] || 'his position';
   return {key: `position-${stat}`, kind: 'position', soft,
-    text: `${row.opponent} allows ${who} ${one(cell.value)} ${WORDS[stat] || 'of it'} a game (${place(cell.rank, league.teamCount)})`};
+    text: `${row.opponent} allows ${who} ${one(cell.value)} ${WORDS[stat] || 'of it'} a game${when} (${place(cell.rank, count)})`};
 }
 
 /**

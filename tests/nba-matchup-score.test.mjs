@@ -88,6 +88,20 @@ test('what a defense allows his position is a player at a time, as RotoBot count
   assert.equal(Math.sign(threes.reads.reduce((sum, read) => sum + read.points, 0)), Math.sign(threes.score - 50));
 });
 
+test('early in a season, what a defense allows his position reads this season once it has five games (Nov 14)', () => {
+  // The league numbers blend last season in (api/wnba.py); this season's tables ride along as thisSeason.
+  const now = structuredClone(real.dvpEach);
+  now.DEN.G.stats.tpm.szn = [2.4, 30];
+  const games = Object.fromEntries(Object.keys(real.dvpEach).map(team => [team, 12]));
+  const blended = {...real, thisSeason: {teamCount: 30, games, dvpEach: now}};
+  const fresh = matchupScore(row('n', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey: 'player_threes'}), blended);
+  assert.equal(fresh.reads[0].text, 'DEN allows each guard 2.4 threes a game this season (1st most)');
+  // Too few games this season: the blend stands, and says so.
+  const early = {...blended, thisSeason: {...blended.thisSeason, games: {...games, DEN: 3}}};
+  assert.equal(matchupScore(row('e', {position: 'G', teamAbbr: 'OKC', opponent: 'DEN', marketKey: 'player_threes'}), early).reads[0].text,
+    'DEN allows each guard 1.5 threes a game, last season included (10th most)');
+});
+
 test('the same for every forward against a team: his own games sit beside it', () => {
   const quiet = matchupScore(row('4'), league);
   const log = [...[...Array(8)].map(() => ({value: 10, opponent: 'T1'})), ...[...Array(3)].map(() => ({value: 25, opponent: 'DAL'}))];
