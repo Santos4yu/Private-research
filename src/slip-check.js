@@ -12,6 +12,7 @@ import {finderMarket} from './prop-finder-core.js';
 import {finderWindow, cachedSoccerLog, loadSoccerOpponents, within} from './unified-finder-data.js';
 import {withSoccerMatchups} from './soccer-matchup.js';
 import {assessLeg, POWER, FLEX, SPORT_NAMES} from './smart-slip.js';
+import {loadBookProps, withDraftKings} from './book-props.js';
 import {CUTS, matchupCase, withMatchups} from './slip-matchup.js';
 import {links} from './slip-correlation.js';
 import {LETTERS, letterFor, scoreParlay} from './slip-score.js';
@@ -223,16 +224,23 @@ const SEASON_START = sport => {
  * the board's number). `enrich` (the sport's history loader) re-scores it
  * exactly; without one, the last games kept on the line are used.
  */
-export async function relined(row, line, {enrich, signal} = {}) {
+export async function relined(row, line, {enrich, signal, books = loadBookProps} = {}) {
+  // The books' nearest line (`bookLine`) was read for the board's number too.
   const clone = {...row, id: `${row.id}|at:${line}`, line, apps: (row.apps || []).filter(app => app.key === 'prizepicks').map(app => ({...app, over: null, under: null})),
-    diff: null, average: null, windows: null, streak: null, modifier: 'standard', relinedFrom: row.line};
+    bookLine: null, diff: null, average: null, windows: null, streak: null, modifier: 'standard', relinedFrom: row.line};
+  let out = null;
   if (enrich) {
     try {
       const [scored] = await enrich([{...clone, historyStatus: 'pending', historyRefresh: false}], {signal, concurrency: 1});
-      if (scored?.historyStatus === 'ready') return {...scored, id: clone.id, apps: clone.apps, modifier: 'standard', relinedFrom: row.line};
+      if (scored?.historyStatus === 'ready') out = {...scored, id: clone.id, apps: clone.apps, bookLine: null, modifier: 'standard', relinedFrom: row.line};
     } catch (error) { if (error.name === 'AbortError') throw error; }
   }
-  return rewindow(clone, row.gameLog || []);
+  out ||= rewindow(clone, row.gameLog || []);
+  // The NBA's: DraftKings read again at the slip's number (book-props.js, Nov 17).
+  if (row.sport === 'nba' && books) {
+    try { [out] = withDraftKings([out], await books()); } catch { /* graded without it */ }
+  }
+  return out;
 }
 
 /** A line's hit rates scored from a game log: the player's games against this row's number. */

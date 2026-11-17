@@ -58,6 +58,35 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 17 (a): DraftKings' price in the Parlay Builder and Slip Analyzer (NBA)
+
+- The owner: "make the parlay generator and slip analyzer better and more
+  efficient for nba". Asked what to improve, they picked smarter picks
+  (DraftKings' over % on every NBA leg).
+- Both tools grade a leg with smart-slip.js `assessLeg`, which already
+  weighs a sportsbook price most (two-sided price: 50% book, 40% the model,
+  10% hit rates). No book reached an NBA line there, so NBA legs leaned
+  on hit rates.
+- `book-props.js` `withDraftKings(rows, players)`, called in finder-pool.js
+  `loadLines` for the NBA (so the builder, the Slip Analyzer and the
+  assistant all get it):
+  - DraftKings' line at PrizePicks' number: its prices join the line's
+    `apps` (key draftkings).
+  - At another number: its chance moved to PrizePicks' line becomes the
+    line's `bookLine` (`{line, over, books: ['DraftKings']}`), weighed
+    like a one-sided price.
+  - Goblins and Demons only take it at their own number; quarter and half
+    lines don't take it.
+- The leg's reasons say "sportsbooks 60% · DraftKings −160" (or "their line
+  33.5").
+- A coin-flip record with DraftKings at 60% is now offered. With DraftKings
+  under 47% on the Over, a leg is never offered (`backed`), as with any
+  book.
+- slip-check.js `relined` (a slip's leg at a number the board doesn't
+  have) now drops the board's `bookLine` too, which was read for the
+  board's number. It used to keep it, for every sport. For the NBA it reads
+  DraftKings again at the slip's number (`books` option for tests).
+
 ### Nov 14 (b): the Props tab polished (list and player page)
 
 - The owner, with the NBA list and Kuminga's page on a phone: "nicer more

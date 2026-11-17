@@ -2,6 +2,7 @@
 // Slip alike. Both read and write the same saved boards (finder-store.js),
 // so hit rates worked out on one page are there on the other.
 import {withBookLines} from './line-value.js';
+import {loadBookProps, withDraftKings} from './book-props.js';
 import {loadFinderSport, enrichMlbRows, enrichWnbaRows, enrichSoccerRows, enrichNhlRows, enrichCfbRows, enrichTennisRows, persistFinderCache, readFinderCache,
   carryHistory, loadFinderDefense, withDefense, loadMlbMatchups, withMlbMatchups} from './unified-finder-data.js';
 
@@ -94,5 +95,11 @@ export async function loadLines(sport, {signal, onProgress, onBoard, only} = {})
   } catch (error) { if (error.name === 'AbortError') throw error; }
   // PrizePicks lines the books post at another number get the books' read
   // moved to theirs (line-value.js).
-  return withBookLines(rows);
+  rows = withBookLines(rows);
+  // The NBA's: DraftKings' own price on each line (book-props.js).
+  if (sport === 'nba') {
+    try { rows = withDraftKings(rows, await loadBookProps()); }
+    catch (error) { if (error?.name === 'AbortError') throw error; }
+  }
+  return rows;
 }

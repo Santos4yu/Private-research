@@ -65,3 +65,28 @@ export async function loadBookProps({fetcher = fetch, now = Date.now()} = {}) {
     return {};
   }
 }
+
+/**
+ * NBA PrizePicks lines with DraftKings' price on them (Nov 17, the owner:
+ * the Parlay Builder and the Slip Analyzer "better ... for nba", smarter
+ * picks). Every page reads lines through finder-pool.js loadLines, and
+ * smart-slip.js assessLeg already weighs sportsbook prices most: until now
+ * no book reached an NBA line there. At PrizePicks' own number DraftKings
+ * joins the line's apps (a two-sided price); at another number its chance
+ * moved to PrizePicks' line becomes the line's `bookLine` (weighed like a
+ * one-sided price), as line-value.js does for other books. Goblins and
+ * Demons only take it at their own number.
+ */
+export function withDraftKings(rows, players) {
+  if (!Array.isArray(rows) || !players || !Object.keys(players).length) return rows;
+  return rows.map(row => {
+    if (row?.sport !== 'nba') return row;
+    const apps = Array.isArray(row.apps) ? row.apps : [];
+    if (apps.some(app => app?.key === 'draftkings')) return row;
+    const found = bookChance(row, players);
+    if (!found) return row;
+    if (!found.moved) return {...row, apps: [...apps, {key: 'draftkings', name: 'DraftKings', over: found.over, under: found.under}]};
+    if (String(row.modifier || 'standard').toLowerCase() !== 'standard' || row.bookLine) return row;
+    return {...row, bookLine: {line: found.line, over: found.chance, books: ['DraftKings']}};
+  });
+}

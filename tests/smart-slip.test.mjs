@@ -220,3 +220,30 @@ test('a slip carries one PrizePicks promo line at most', () => {
   for (const slip of ladder) assert.ok(slip.legs.filter(leg => leg.row.promo).length <= 1, slip.legs.map(leg => leg.player).join(', '));
   assert.ok(ladder.some(slip => slip.legs.some(leg => leg.row.promo)), 'one promo is still welcome');
 });
+
+test('NBA lines carry DraftKings\' price, and the builder and the Slip Analyzer weigh it (Nov 17)', async () => {
+  const {withDraftKings} = await import('../src/book-props.js');
+  const players = {lukadoncic: {pts: [32.5, -160, 125, 0.597], reb: [9.5, -110, -110, 0.5]}, jalenbrunson: {ast: [7.5, 140, -175, 0.40]}};
+  const luka = row({player: 'Luka Doncic', sport: 'nba', market: 'Points', marketKey: 'player_points', line: 32.5, l10: [5, 10], season: [10, 20]});
+  const [priced] = withDraftKings([luka], players);
+  // At PrizePicks' number: DraftKings joins the line's apps, both prices.
+  assert.deepEqual(priced.apps.at(-1), {key: 'draftkings', name: 'DraftKings', over: -160, under: 125});
+  const plain = judgeLeg(luka, 'OVER', {now: NOW}), backed = judgeLeg(priced, 'OVER', {now: NOW});
+  // A coin-flip record alone isn't backed; with DraftKings at 60% it is, and says so.
+  assert.equal(plain, null);
+  assert.ok(backed && backed.book > 0.55, String(backed?.book));
+  assert.equal(reasons(backed).find(item => item.key === 'books').detail, 'DraftKings −160');
+  // At another number: its chance moved to PrizePicks' line, as the books' nearest line.
+  const [moved] = withDraftKings([row({player: 'Luka Doncic', sport: 'nba', market: 'Rebounds', marketKey: 'player_rebounds', line: 8.5})], players);
+  assert.equal(moved.bookLine.line, 9.5);
+  assert.ok(moved.bookLine.over > 0.55);
+  // DraftKings against the Over: never offered.
+  const [against] = withDraftKings([row({player: 'Jalen Brunson', sport: 'nba', market: 'Assists', marketKey: 'player_assists', line: 7.5, l10: [7, 10], season: [12, 20]})], players);
+  assert.equal(judgeLeg(against, 'OVER', {now: NOW}), null);
+  // A Goblin at another number, another league, a quarter's line or an empty feed: left as it was.
+  const goblin = row({player: 'Luka Doncic', sport: 'nba', market: 'Points', marketKey: 'player_points', line: 28.5, modifier: 'goblin'});
+  const quarter = row({player: 'Luka Doncic', sport: 'nba', market: '1Q Points', marketKey: 'player_points_1q', line: 9.5});
+  const other = row({player: 'Luka Doncic', sport: 'wnba', market: 'Points', marketKey: 'player_points', line: 32.5});
+  assert.deepEqual(withDraftKings([goblin, quarter, other], players), [goblin, quarter, other]);
+  assert.deepEqual(withDraftKings([luka], {}), [luka]);
+});

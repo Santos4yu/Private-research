@@ -279,3 +279,23 @@ test('a side and line read into the stat still match the stat', async () => {
   assert.deepEqual(statKeys('nba', 'Points More'), statKeys('nba', 'Points'));
   assert.deepEqual(statKeys('nba', '3 Pointers Made'), ['3pm']);
 });
+
+test('an NBA leg at its own number drops the board\'s book read and reads DraftKings at the slip\'s number (Nov 17)', async () => {
+  const board = {...row({player: 'Luka Doncic', sport: 'nba', market: 'Points', line: 32.5}), marketKey: 'player_points',
+    apps: [{key: 'prizepicks', name: 'PrizePicks', over: null, under: null}, {key: 'draftkings', name: 'DraftKings', over: -160, under: 125}],
+    bookLine: {line: 33.5, over: 0.55, books: ['DraftKings']}};
+  const players = {lukadoncic: {pts: [30.5, -115, -105, 0.51]}};
+  // DraftKings' own number is the slip's: its prices join the line, the board's go.
+  const same = await relined(board, 30.5, {books: async () => players});
+  assert.deepEqual(same.apps.map(app => app.key), ['prizepicks', 'draftkings']);
+  assert.equal(same.apps[1].over, -115);
+  assert.equal(same.bookLine, null);
+  // Another number: DraftKings moved to it, never the board's old read.
+  const moved = await relined(board, 28.5, {books: async () => players});
+  assert.equal(moved.bookLine.line, 30.5);
+  assert.ok(moved.bookLine.over > 0.6);
+  // No feed: nothing from the books at all.
+  const none = await relined(board, 28.5, {books: async () => ({})});
+  assert.equal(none.bookLine, null);
+  assert.ok(none.apps.every(app => app.key === 'prizepicks'));
+});
