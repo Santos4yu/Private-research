@@ -1,0 +1,135 @@
+/* App feel (Nov 17). The owner: "how it feels and looks compared to other
+   actual popular research tools ours feels and looks cheap ... it doesn't
+   feel or look like an app it's just a flimsy website" -- pages that don't
+   match, waiting and jumping, stiff to use, too busy, bland buttons; the
+   feel wanted is PickFinder's. Stage one, for every page:
+   - touch like an app: no grey flash on a tap, no double-tap zoom wait,
+     controls that dip when pressed and never select as text;
+   - crisp type: smoothed, and page titles in one face, weight and size;
+   - one header: on a phone the shared bar is just the page's name, as big
+     as every other page's title; no logo row, no badge or icon tile beside
+     a title, no landing-page headline;
+   - words, not shouted labels: the small spaced-out capitals become
+     sentence case at a readable size.
+   Imported last (main.jsx), after finish.css. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+*{-webkit-tap-highlight-color:transparent}
+:where(button,[role=button],[role=tab],a[href],summary,label,select){touch-action:manipulation}
+:where(button,[role=button],[role=tab]){-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* A press dips the control a little (the `scale` property, so a control's
+   own transform is left alone). Phones only: a mouse has its hover. */
+@media (hover:none) and (pointer:coarse){
+  :where(button,[role=button],[role=tab]):not(:disabled){transition:scale .14s cubic-bezier(.2,.8,.2,1)}
+  :where(button,[role=button],[role=tab]):not(:disabled):active{scale:.97}
+}
+@media (prefers-reduced-motion:reduce){
+  :where(button,[role=button],[role=tab]):active{scale:none}
+}
+
+/* Page titles: one face, weight and color everywhere. */
+html:root body :is(.cs-top-title h1,.sa-head h1,.sa-stage-copy h1,.ss-title h1,.ml2-head h1,.gp-title h2,.unified-finder .finder-title h1){
+  font-family:var(--font-sans,'Inter',system-ui,sans-serif);font-weight:700;letter-spacing:-.025em;color:#f4f4f5}
+html:root body .ss-title .ss-mark{display:none}
+/* No decorative glow across the top of a page. */
+html:root body .slip-analyzer::before{display:none}
+
+/* Small labels: sentence case, readable. */
+html:root body :is(
+  .cs-sports small,
+  .lb-hub-title small,
+  .cs-sheet-kicker,
+  .lb-keys small,
+  .lb-more h5,
+  .cs-mstats dt,
+  .cs-table th,
+  .cs-tag,
+  .cs-weather small,
+  .cs-half h4,
+  .cs-nrfi-head,
+  .cs-nrfi-model span,
+  .cs-legend span,
+  .cs-faq h3,
+  .sa-eyebrow,
+  .sa-stage-tag,
+  .sa-stage-works>span,
+  .sa-demo-flag,
+  .sa-demo-letter small,
+  .sa-demo-tier,
+  .sa-dial-face small,
+  .sa-kind,
+  .sa-parlay-figures dt,
+  .sa-leg-tier,
+  .sa-callout small,
+  .sa-swaps h3,
+  .sa-tier,
+  .sa-side,
+  .sa-status,
+  .sa-live-tag,
+  .sa-form-head>span,
+  .sa-records span,
+  .sa-games-head,
+  .sa-editor label span,
+  .sa-safer small,
+  .sh-eyebrow,
+  .sh-tier,
+  .sh-status,
+  .sh-pill,
+  .ss-label,
+  .ss-games-day,
+  .ss-review-text small,
+  .ss-ladder em,
+  .ss-ticket-kind,
+  .ss-grade small,
+  .ss-ticket-head dt,
+  .ml2-eyebrow,
+  .ml2-tiles span,
+  .ml2-chart-title,
+  .ml2-history th,
+  .ml2-books th,
+  .ml2-live,
+  .ml2-tier,
+  .ml2-num small,
+  .ml2-pick>div>span,
+  .ml2-pick dt,
+  .ml2-target>span,
+  .ml2-books td small,
+  .ml2-matchup h4,
+  .ml2-views span,
+  .mb-stat span,
+  .mb-unit label>span:first-child,
+  .mb-unit p span,
+  .mb-fields label>span,
+  .mb-returned>span,
+  .mb-picture-read p b,
+  .mb-bank-main>span,
+  .mb-bank-form label>span:first-child){
+  text-transform:none;letter-spacing:0;font-weight:600}
+
+@media (max-width:760px){
+  /* Every page's title the same size, its line under it the same. */
+  html:root body :is(.cs-top-title h1,.sa-head h1,.sa-stage-copy h1,.ss-title h1,.ml2-head h1,.gp-title h2){font-size:28px;line-height:1.15;margin:0}
+  html:root body :is(.cs-top-title p,.sa-head p,.sa-stage-copy>p,.ss-title p,.ml2-head p,.gp-title p){margin:6px 0 0;color:#a1a1aa;font-size:14px;line-height:1.45;font-weight:500}
+  /* The shared bar: the page's name only, as large as the others. */
+  :root[data-theme] .kp-brand-copy .ace-hero-wordmark{display:none!important}
+  :root[data-theme] body .mobile-screen-title{font:700 28px/1.15 var(--font-sans,'Inter',system-ui,sans-serif)!important;letter-spacing:-.025em!important;margin:0!important}
+  /* Props: the bar names the page; the list's own title steps aside. */
+  .nba-matchups .nm-title h2{display:none}
+  /* Parlay Builder: no badge beside its title. */
+  html:root body .smart-slip .ss-head-pp{display:none}
+  /* Slip Analyzer: the page itself, not a full-screen card with an empty
+     example space; the example slip is for a computer's wide page. */
+  html:root body .sa-stage .sa-stage-demo{display:none}
+  html:root body .slip-analyzer .sa-stage{height:auto;min-height:0;margin-top:8px;padding:0;border:0;border-radius:0;background:none;box-shadow:none;overflow:visible}
+  html:root body .slip-analyzer .sa-stage::before,html:root body .slip-analyzer .sa-stage::after{display:none}
+  html:root body .slip-analyzer .sa-stage-copy>p{margin-bottom:18px}
+  /* Parlay Builder's first step: what it does, the sports and Let's go,
+     without the drawn slip or a second heading under the page's title. */
+  html:root body .smart-slip .ss-wiz[data-at="0"]{min-height:0;border:0;border-radius:0;background:none;box-shadow:none}
+  html:root body .smart-slip .ss-intro-art,html:root body .smart-slip .ss-intro-text h2{display:none}
+  html:root body .smart-slip .ss-intro{padding:4px 6px 0;text-align:left}
+  html:root body .smart-slip .ss-intro-text p{margin:0;color:#a1a1aa;font-size:14px;line-height:1.5;text-align:left}
+  html:root body .smart-slip .ss-intro-sports{justify-content:flex-start}
+  /* The Finder's sport picker in words, not capitals. */
+  html:root body .unified-finder .finder-topbar .finder-mobile-sport .finder-sport-label{text-transform:none;letter-spacing:0;font-weight:650}
+}

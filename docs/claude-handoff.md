@@ -58,6 +58,46 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 17 (b): app feel, stage 1 (one header, no landing-page heroes, tactile taps)
+
+- The owner: the site "feels and looks cheap ... it doesn't feel or look
+  like an app it's just a flimsy website".
+  - Asked what's off, they picked all of: pages don't match, waiting and
+    jumping, stiff to use, too busy, plus "bland and cheap" buttons.
+  - Pages: all of them. The feel they want: PickFinder's (the feel, never
+    its look or branding).
+- Stage 1 is `src/app-feel.css` (imported last in main.jsx, after
+  finish.css):
+  - Touch: no tap highlight; `touch-action: manipulation`; controls never
+    select as text. On touch screens, buttons, tabs and role=button dip
+    to `scale: .97` while pressed (the `scale` property, so a control's own
+    transform stays).
+  - Text smoothed (antialiased, optimizeLegibility).
+  - Page titles in one face and weight (Inter 700, -.025em, #f4f4f5): Cheat
+    Sheets, Slip Analyzer, Parlay Builder, Moneylines, Game Predictor,
+    Finder. On a phone they're 28px with a 14px muted line under them.
+  - The shared phone bar (`.kp-brand-copy`) shows only the page's name, as
+    big as the others (no PropScout wordmark). The Props list's own "NBA
+    Matchups" heading is hidden on a phone.
+  - The small spaced-out capitals in cheat-sheets.css, slip-analyzer.css,
+    smart-slip.css, moneylines.css and my-bets.css are sentence case
+    (the selector list was collected from those files' uppercase rules).
+    The Finder's sport picker says "All sports".
+  - Slip Analyzer on a phone: the page itself, not a full-screen card with
+    an empty example space (example hidden; the `.slip-analyzer::before`
+    glow is gone everywhere).
+  - Parlay Builder's first step on a phone: its line, the sports and Let's
+    go, without the drawn slip or "Build your parlay" under the title. The
+    "PrizePicks ready" badge is hidden on a phone.
+- Markup: SlipStage.jsx / SlipAnalyzer.jsx headers are "Slip Analyzer"
+  with one line (no "Grade any slip in seconds." or caps tag). The Parlay
+  Builder has no icon tile. Moneylines' title is "Moneylines" (no "Grade the
+  matchup.").
+- Next stages offered to the owner:
+  - 2: one button, segmented-control, chip and card style across pages, and
+    skeletons instead of spinners or blank space while loading.
+  - 3: page by page declutter (Finder, Props, Game Predictor, Slip tools).
+
 ### Nov 17 (a): DraftKings' price in the Parlay Builder and Slip Analyzer (NBA)
 
 - The owner: "make the parlay generator and slip analyzer better and more

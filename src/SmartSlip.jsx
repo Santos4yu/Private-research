@@ -757,7 +757,7 @@ export function SmartSlip(){
 
  return <section className="smart-slip" aria-labelledby="smart-slip-title" ref={pageRef} data-view={view}>
   <header className="ss-head">
-   <div className="ss-title"><span className="ss-mark" aria-hidden="true"><TicketIcon size={22}/></span>
+   <div className="ss-title">
     <div><h1 id="smart-slip-title">Parlay Builder</h1>
      <p>Pick a payout, your lines and your games. Every slip is built from Elite and Strong picks, overs only.</p></div></div>
    <span className="ss-head-pp"><img src={PRIZEPICKS_LOGO} alt=""/>PrizePicks ready</span>

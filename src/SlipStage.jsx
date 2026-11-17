@@ -1,5 +1,5 @@
 import React,{useRef,useState} from 'react';
-import {Activity,ClipboardPaste,Crosshair,ImageUp,ScanLine,ShieldCheck,Sparkles,TrendingUp} from 'lucide-react';
+import {Activity,ClipboardPaste,Crosshair,ImageUp,ShieldCheck,Sparkles,TrendingUp} from 'lucide-react';
 import {LEAGUE_LOGOS} from './league-logos';
 
 // The Slip Analyzer's front door: one stage with the pitch and the upload
@@ -34,9 +34,10 @@ export function SlipStage({sports,names,onFile,onPaste}){
   onDrop={event=>{event.preventDefault();setOver(false);onFile(event.dataTransfer.files?.[0]);}}>
   <div className="sa-stage-main">
    <div className="sa-stage-copy">
-    <span className="sa-stage-tag"><ScanLine size={14} aria-hidden="true"/>Slip Analyzer</span>
-    <h1>Grade any slip<span> in seconds.</span></h1>
-    <p>Drop in a screenshot of your picks. We check every pick against the player's recent games, the matchup and the sportsbook odds, then grade the whole slip.</p>
+    {/* Nov 17, the owner: the site "doesn't feel or look like an app". A page's
+        title, not a landing page's headline. */}
+    <h1>Slip Analyzer</h1>
+    <p>Upload a screenshot of your picks to grade every leg and the whole slip.</p>
     <div className="sa-upload">
      <button type="button" className="sa-upload-main" onClick={()=>input.current?.click()}>
       <span className="sa-upload-icon"><ImageUp size={20} aria-hidden="true"/></span>

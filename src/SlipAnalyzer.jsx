@@ -609,8 +609,8 @@ export function SlipAnalyzer(){
  return <div className="slip-analyzer" ref={host}>
   {phase==='pick'?<SlipStage sports={sports} names={SPORT_NAMES} onFile={run} onPaste={pasteButton}/>
   :<header className="sa-head">
-   <div><span className="sa-eyebrow">Slip Analyzer</span><h1>Grade your parlay.</h1>
-    <p>Upload a screenshot of your picks. The parlay gets one grade, and every pick is checked against the player's recent games, the matchup and sportsbook odds.</p></div>
+   <div><h1>Slip Analyzer</h1>
+    <p>Every pick checked against his recent games, the matchup and DraftKings, then one grade for the slip.</p></div>
   </header>}
 
   {phase==='reading'&&<div className="sa-reading" role="status" aria-live="polite" aria-label={STEPS[step]}>

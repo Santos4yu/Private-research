@@ -49,6 +49,7 @@ import './prop-focus.css';
 import './page-switch.css';
 import './gloss.css';
 import './finish.css';
+import './app-feel.css';
 
 import { topTabs } from './navTabs';
 import { VortexSidebar } from './VortexSidebar';
