@@ -58,6 +58,57 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 17 (c): the redesign's look is picked (not built yet)
+
+The owner: the site "feels and looks cheap ... it doesn't feel or look like
+an app", and "i only want to redo the look not the actual data or
+functions". After several rounds of mockups they picked a **research-tool
+style** ("That's the App Style I like", then "Ayeee I actually like this
+let's work and perfect it page by page I'll let you know when am not
+busy"). Wait for them to say they're free, then build one page at a time
+with them.
+
+- Approved screens: `docs/design/research-style/` (computer player page,
+  computer Finder board, phone player page, phone Finder board). The
+  players, numbers and the jersey-number circles are placeholders: the
+  real pages keep our data and real headshots.
+- Where it came from: OddsIQ's player page, seen on a TikTok stream. Use
+  the layout idea only (dense, one dark color, the chart as the star,
+  everything about a player on one screen). Never their teal colors,
+  name or wording.
+- Rejected on the way, so don't offer them again: three versions that only
+  changed colors; versions "designed with pure shapes" (flat circles and
+  boxes, no logos or icons); a dark betting app with a floating dock and a
+  light navy app (liked, but the research style won).
+- Tokens: background `#0a0a0c`; panels `#111114` / `#17171b` / `#1f1f24`;
+  1px inside hairline `rgba(255,255,255,.065)` (no white highlight
+  lines); text `#ededef` / `#9b9ca3` / `#64656c`; hit `#22c55e` (bars
+  `#2bd468`→`#1a9f4b`, text `#4ade80`); miss `#ef4444` (bars
+  `#f25555`→`#c23030`, text `#f87171`); main button white with black
+  text. Font Geist (`@fontsource/geist-sans`), tabular numbers, 13px base
+  on a computer. Panels 16px radius; text tabs with a white underline;
+  segmented controls; hit-rate cells tinted green/red by percent.
+- Computer: a 54px top bar (logo, Finder / Props / Games / Cheat sheets /
+  Tools, search with ⌘K, bell, white Slip button). Player page in two
+  columns: stat tabs, the line with DraftKings' price and fair chance,
+  L5 / L10 / L20 / 2026 / H2H boxes, filters, a red/green bar chart with
+  opponent logos and a hover card, then game log and depth chart; the
+  right column has DraftKings, line moves, the matchup (guards / forwards
+  / centers with a toughest-to-easiest slider) and the game (win chance,
+  spread, total).
+- Phone: a full-width tab bar with labels (Finder, Props, Games, Slip,
+  More); the same parts stacked; a white full-width add button.
+- Plan: the app frame first (top bar, tab bar), then the Finder (board and
+  player page), Props, Games, the Parlay Builder, the Slip Analyzer, the
+  rest. Delete each page's old CSS as it's rebuilt: the ~60 layered
+  stylesheets (`gloss.css`, `finish.css`, `app-feel.css`...) are why
+  pages don't match. Data and functions stay as they are.
+- Check before drawing them for real: the mockup's hover card shows "line
+  that night", and the matchup card shows pace and the last guard vs that
+  team. Leave out anything we don't have.
+- Lesson from this stretch: when the owner asks a question ("can I trust
+  the data"), answer it; don't change code unasked.
+
 ### Nov 17 (b): app feel, stage 1 (one header, no landing-page heroes, tactile taps)
 
 - The owner: the site "feels and looks cheap ... it doesn't feel or look
