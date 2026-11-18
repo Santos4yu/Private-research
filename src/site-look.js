@@ -29,10 +29,16 @@
 // cards in the two colors' middle), over it on a light one. The member's
 // name takes the two colors themselves, moving the same way.
 
-export const DEFAULT_BASE = '#0a0a0a';
+//
+// The default (Nov 18, the owner picked "10 · Charcoal" from the color
+// options: dark grey, not black, with orange buttons): every page, panel
+// and menu follows it, as for any color picked here. Black stays a pick.
+// A theme saved on the old default, black, moves to it once (onCharcoal,
+// src/brand-colors.js).
+export const DEFAULT_BASE = '#17181b';
 // [color, name]: the dark ones first, then the light ones.
 export const LOOKS = [
-  ['#0a0a0a', 'Black'], ['#1c1d21', 'Graphite'], ['#0d1a33', 'Navy'], ['#0e2118', 'Forest'], ['#221230', 'Plum'],
+  ['#17181b', 'Charcoal'], ['#0a0a0a', 'Black'], ['#0d1a33', 'Navy'], ['#0e2118', 'Forest'], ['#221230', 'Plum'],
   ['#2b0f1f', 'Pink'], ['#ffffff', 'White'], ['#e7e8eb', 'Light grey'], ['#fbe2eb', 'Blush'], ['#e1ecf8', 'Sky'],
 ];
 // [from, to, name]

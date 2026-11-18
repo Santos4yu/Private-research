@@ -1,25 +1,30 @@
-/* The site's tint (Nov 18, the owner picked "New color tint": a deep
-   tinted dark instead of plain black and grey, our own color, not OddsIQ's
-   teal). Ink blue: the ground, panels a step lighter, cool hairlines. It
-   sets the kit's names (kit.css) and the older sheets' own names for the
-   same surfaces, so every page picks it up. Loaded after kit.css. */
+/* The site's surfaces (Nov 18, the owner picked "10 · Charcoal": dark grey,
+   not black, orange buttons; before it, an ink-blue tint). Plain greys,
+   written against the site's own #0A0A0A page like every other sheet, so
+   build/look-surfaces.mjs runs them through the page color (`--ls`,
+   Charcoal by default, src/site-look.css): the ground is the page color
+   itself and each step sits as far above it as here, on any color a
+   member picks in Settings. The owner, on the old ink colors: "we shouldnt
+   have the old black on some menus or parts". It sets the kit's names
+   (kit.css) and the older sheets' own names for the same surfaces, so
+   every page picks it up. Loaded after kit.css. */
 :root {
-  --k-bg: #0b0e14;
-  --k-panel: #121723;
-  --k-raised: #181f2d;
-  --k-high: #212a3b;
-  --k-line: rgba(148, 163, 196, .10);
-  --k-line-strong: rgba(148, 163, 196, .24);
-  --k-text: #eef1f6;
-  --k-muted: #9ba4b6;
-  --k-faint: #677187;
+  --k-bg: #0a0a0a;
+  --k-panel: #131315;
+  --k-raised: #1b1b1f;
+  --k-high: #242428;
+  --k-line: rgba(255, 255, 255, .075);
+  --k-line-strong: rgba(255, 255, 255, .15);
+  --k-text: #f2f3f5;
+  --k-muted: #a0a2a9;
+  --k-faint: #6b6d74;
 
   --ace-bg: var(--k-bg);
   --ace-sidebar: var(--k-panel);
   --ace-card: var(--k-panel);
   --ace-card-2: var(--k-raised);
   --ace-raised: var(--k-high);
-  --ace-border: rgba(148, 163, 196, .16);
+  --ace-border: rgba(255, 255, 255, .12);
   --ace-border-soft: var(--k-line);
   --ace-text: var(--k-text);
   --ace-muted: var(--k-muted);
@@ -27,14 +32,14 @@
 }
 /* The member's or the admin's own tint (Settings) still mixes in on top. */
 :root[data-theme][data-custom-accents] {
-  --theme-bg: color-mix(in srgb, var(--theme-secondary) var(--theme-bg-tint, 0%), #0b0e14);
-  --theme-bg-2: color-mix(in srgb, var(--theme-secondary) var(--theme-bg2-tint, 0%), #0f131c);
-  --theme-panel: color-mix(in srgb, var(--theme-secondary) var(--theme-panel-tint, 0%), #121723);
-  --theme-panel-2: color-mix(in srgb, var(--theme-secondary) var(--theme-panel2-tint, 0%), #181f2d);
-  --theme-border: color-mix(in srgb, var(--theme-secondary) var(--theme-border-tint, 0%), #232b3b);
+  --theme-bg: color-mix(in srgb, var(--theme-secondary) var(--theme-bg-tint, 0%), #0a0a0a);
+  --theme-bg-2: color-mix(in srgb, var(--theme-secondary) var(--theme-bg2-tint, 0%), #0f0f10);
+  --theme-panel: color-mix(in srgb, var(--theme-secondary) var(--theme-panel-tint, 0%), #131315);
+  --theme-panel-2: color-mix(in srgb, var(--theme-secondary) var(--theme-panel2-tint, 0%), #1b1b1f);
+  --theme-border: color-mix(in srgb, var(--theme-secondary) var(--theme-border-tint, 0%), #26262a);
 }
 :root[data-theme="obsidian"]:not([data-custom-accents]) {
-  --theme-bg: #0b0e14; --theme-bg-2: #0f131c; --theme-panel: #121723; --theme-panel-2: #181f2d; --theme-border: #232b3b;
+  --theme-bg: #0a0a0a; --theme-bg-2: #0f0f10; --theme-panel: #131315; --theme-panel-2: #1b1b1f; --theme-border: #26262a;
 }
 html, body, #app-shell:has(#panel-finder:not([hidden])) { background: var(--k-bg) !important; }
 
@@ -50,6 +55,6 @@ html:root body .unified-finder.unified-finder.unified-finder {
 /* The player page (finder-player-*.css) and its chart panel (trend-edge.css). */
 html:root body .fp2.fp2 { --fp2-panel: var(--k-panel); --fp2-line: var(--k-line); --fp2-well: var(--k-bg); }
 html:root body #gamelog-overlay#gamelog-overlay.trend-edge { --te-bg: var(--k-bg); --te-card: var(--k-panel); --te-line: var(--k-line-strong); }
-/* The top bar and the phone's bottom bar. */
-@media (min-width: 761px) { html:root body .ps-top { background: #0d1119; } }
-@media (max-width: 760px) { html:root body .mobile-app-nav { background: rgba(13, 17, 25, .94); } }
+/* The top bar and the phone's bottom bar: a step above the page. */
+@media (min-width: 761px) { html:root body .ps-top { background: #0e0e10; } }
+@media (max-width: 760px) { html:root body .mobile-app-nav { background: rgba(14, 14, 16, .94); } }

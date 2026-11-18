@@ -14,6 +14,12 @@ const contrast = (a, b) => {
   return (high + 0.05) / (low + 0.05);
 };
 
+test('Charcoal is the default and first swatch, Black still a pick', () => {
+  assert.deepEqual(LOOKS[0], ['#17181b', 'Charcoal']);
+  assert.ok(LOOKS.some(([color, name]) => color === '#0a0a0a' && name === 'Black'));
+  assert.deepEqual(lookOf('#17181b', 0), {mode: 'dark', page: '#17181b', surface: '#17181b', text: '#17181b'});
+});
+
 test('black is the site as it is: its own greys, not flipped', () => {
   assert.deepEqual(lookOf('#0a0a0a', 0), {mode: 'dark', page: '#0a0a0a', surface: '#0a0a0a', text: '#0a0a0a'});
 });
@@ -72,12 +78,13 @@ test('a color from the account sheet tints the site, dark or light as it is; whi
   const dark = tintOf('#00f58a', '#0a0a0a'), light = tintOf('#00f58a', '#ffffff');
   assert.ok(luminance(rgb(dark)) < 0.05 && rgb(dark)[1] > rgb(dark)[0]);
   assert.ok(luminance(rgb(light)) > 0.8 && rgb(light)[1] > rgb(light)[0]);
-  assert.equal(tintOf('#ffffff', '#0a0a0a'), '#0a0a0a');
+  // White is the plain page: the default, Charcoal.
+  assert.equal(tintOf('#ffffff', '#0a0a0a'), '#17181b');
   assert.equal(tintOf('#ffffff', '#fbe2eb'), '#ffffff');
 });
 
-test('bad values fall back to black, no brightness and no gradient', () => {
-  assert.equal(normalizeBase('pink'), '#0a0a0a');
+test('bad values fall back to the default (Charcoal), no brightness and no gradient', () => {
+  assert.equal(normalizeBase('pink'), '#17181b');
   assert.equal(normalizeBright('x'), 0);
   assert.equal(normalizeBright(99), 30);
   assert.equal(normalizeGrad(['#2dd4bf']), null);

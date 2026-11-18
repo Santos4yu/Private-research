@@ -5,7 +5,8 @@
    of all of it is set by the inline script in index.html's head, before
    the first paint. */
 
-:root { --ls: #0a0a0a; --lst: var(--ls); }
+/* Charcoal, the default (src/site-look.js DEFAULT_BASE), until a member's own pick. */
+:root { --ls: #17181b; --lst: var(--ls); }
 
 /* A gradient: the page itself is a band of its two colors twice the
    screen's size, swaying slowly from side to side behind everything (a

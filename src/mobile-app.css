@@ -82,7 +82,7 @@
   .mobile-app-tab:focus-visible { outline: 2px solid #fff !important; outline-offset: -3px !important; }
   .mobile-app-count {
     position: absolute; top: -4px; right: -9px; min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px;
-    border-radius: 999px; background: #fff; color: #0a0a0c; font: 700 10px/1 var(--font-sans);
+    border-radius: 999px; background: var(--theme-accent, #ff7a33); color: var(--theme-on-accent, #121212); font: 700 10px/1 var(--font-sans);
     box-shadow: 0 0 0 2px #0c0c0f;
   }
   body.mobile-keyboard-open .mobile-app-nav,

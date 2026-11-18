@@ -174,6 +174,10 @@ def validate(body):
  # when they match an earlier brand's default (src/brand-colors.js).
  if theme_primary and theme.get('scout') is True:result['theme']['scout']=True
  if theme_primary and theme.get('ace') is True:result['theme']['ace']=True
+ # Saved since the black-and-white theme, and since Charcoal: a white or
+ # black picked then is kept as picked (onCharcoal, src/brand-colors.js).
+ for flag in ('mono','charcoal'):
+  if theme_primary and theme.get(flag) is True:result['theme'][flag]=True
  result['updatedAt']=datetime.now(timezone.utc).isoformat()
  return result
 RESOURCE_TABS={'players':'research','prediction':'research','game-log-filters':'research','team-insights':'slate','slate':'slate','v2-board':'v2','board':'v2'}

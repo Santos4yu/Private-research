@@ -163,6 +163,10 @@ class SiteControlsTests(unittest.TestCase):
  def test_theme_accepts_valid_colors_and_lowercases_hex(self):
   result=controls.validate({**controls.DEFAULT,'theme':{'primary':'#0082FE','secondary':'#D6E1EA','tint':12.6}})
   self.assertEqual(result['theme'],{'primary':'#0082fe','secondary':'#d6e1ea','tint':13})
+ def test_theme_keeps_the_marks_of_when_it_was_picked(self):
+  result=controls.validate({**controls.DEFAULT,'theme':{'primary':'#ffffff','secondary':'#a3a3a3','tint':0,'scout':True,'mono':True,'charcoal':True,'other':True}})
+  self.assertEqual(result['theme'],{'primary':'#ffffff','secondary':'#a3a3a3','tint':0,'scout':True,'mono':True,'charcoal':True})
+  self.assertNotIn('charcoal',controls.validate({**controls.DEFAULT,'theme':{'primary':'','secondary':'','tint':0,'charcoal':True}})['theme'])
  def test_theme_rejects_invalid_hex_colors(self):
   for primary in ('not-a-color','#fff','#gggggg','red','#0082fe;'):
    with self.assertRaises(ValueError):controls.validate({**controls.DEFAULT,'theme':{'primary':primary,'secondary':'#d6e1ea','tint':0}})

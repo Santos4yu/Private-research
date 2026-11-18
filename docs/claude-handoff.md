@@ -58,6 +58,50 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (m): Charcoal, the site's new colors (owner: "we shouldnt have the old black on some menus or parts")
+
+The owner asked for a color rework that reaches everything, saw twelve
+palettes (scratchpad mock-ups, not in the repo) and picked **10 · Charcoal**:
+dark grey, not black, orange buttons.
+
+- Why some parts were "old black": tint.css (Nov 18 (d)) set the kit's
+  surfaces to ink blues (`#121723`, `#181f2d`...). Those aren't greys, so
+  build/look-surfaces.mjs left them fixed, while every older sheet's greys
+  followed the page color. Kit pages were navy, the rest black.
+- Now one color runs everything: `DEFAULT_BASE` in src/site-look.js is
+  `#17181b` (Charcoal, the first swatch in Settings → Background; Graphite,
+  nearly the same, is gone; Black stays a pick) and site-look.css's `--ls`
+  default is the same. tint.css sets the kit names to plain greys written
+  against the native `#0A0A0A` page, so look-surfaces turns them into steps
+  above whatever page color is on (Charcoal, or a member's own pick).
+- A paint test (scratchpad `paint.mjs` / `paint2.mjs`: the site tinted a
+  loud purple, every element's background checked) found nothing left on
+  its own black or navy on 17 pages and 12 menus/sheets on phone, and the
+  main pages, player pages and slip on desktop. Two navy bits in
+  nba-scout.css (the side-head pill, the minutes bars' default) are greys now.
+- Orange buttons: the default accent (`DEFAULT_ACCENT` `#ff7a33`,
+  src/brand-colors.js) is `--theme-accent` everywhere it was white. Solid
+  white buttons now use the accent: the top bar's Slip, the Finder's picked
+  sort chip and added (+) state, the phone bar's count badge, Pick Builder
+  Export, the Props page's Add, Game Predictor's Done, Research's "Open
+  research", the Analyze tag. Text on the accent is dark when white would
+  read under 3:1 (`accentTextColor` in app.js). Switch knobs and the White
+  swatch stay white on purpose.
+- One-time move for saved colors (`onCharcoal`, src/brand-colors.js): a
+  theme saved before Charcoal still on the old defaults (white accent,
+  plain black page) shows the new ones; any color picked (Navy, a gradient,
+  a brightness, an accent of their own) stays. Saves since carry
+  `charcoal: true` and are kept as saved, so Black and white can be picked
+  again. The early script in index.html skips an old plain-black look the
+  same way, so there's no black flash. site_controls.py now keeps the
+  admin's `mono` and `charcoal` marks on the site-wide theme (it dropped
+  `mono` before).
+- index.html theme-color, the boot screen, manifest colors and the iPhone
+  home-screen launch images (public/splash, recolored from #0E0E0E) are
+  Charcoal; manifest `?v=9`, splash `?v=5`.
+- Tests: tests/brand-colors.test.mjs (the move), site-look.test.mjs (the
+  default and swatches), test_site_access.py (the kept marks).
+
 ### Nov 18 (l): review of three Codex commits pushed to main (owner: "check it all and do any fixes")
 
 - a1b5c81 (snapshot capture and reporting): kept. It fixed real bugs:
@@ -370,6 +414,7 @@ tint, new layouts.
   base it mixes into is ink now), the Finder's `--f-*`, `--fb-*`, `--fba-*`,
   `--fc-*`, `--fp-*`, the player page's `--fp2-*` and the chart panel's
   `--te-*`. Pages with hard-coded greys stay grey until they're redone.
+  (Replaced by Charcoal, Nov 18 (m): tint.css is plain greys now.)
 - Bigger text and spacing on computers (min-width 1051px) on the Finder
   player page: name 26px, stat tabs, window cells, filters, research tabs,
   card titles and text, tables; wider gaps. In `player-kit.css`.

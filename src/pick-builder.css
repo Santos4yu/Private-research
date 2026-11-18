@@ -159,7 +159,7 @@
 .pick-builder-leg .pick-builder-side button[aria-pressed=true]:not(:disabled):hover{filter:brightness(1.06)}
 .pick-builder-leg .pick-builder-side button:disabled:not([aria-pressed=true]){opacity:.35}
 .pick-builder-footer{background:var(--pb-panel);box-shadow:0 -1px 0 var(--pb-rule)}
-.pick-builder-export{gap:10px;min-height:48px;border-radius:14px;background:linear-gradient(180deg,#FFFFFF,#E6E6E6);color:#0B0B0B}
+.pick-builder-export{gap:10px;min-height:48px;border-radius:14px;background:var(--theme-accent,#ff7a33);color:var(--theme-on-accent,#121212)}
 .pick-builder-export img{width:20px;height:20px;border-radius:5px;object-fit:contain}
 .pick-builder-export:disabled img{opacity:.4}
 

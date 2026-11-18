@@ -434,7 +434,7 @@
 .gp-done-share{transition:transform .15s var(--gp-ease),background-color .2s}
 .gp-done-share:active{transform:scale(.92)}
 .gp-done-share:disabled{opacity:.6}
-.gp-done-ok{min-height:54px;border:0;border-radius:16px;background:rgba(255,255,255,.94);color:#111;font-size:16px;font-weight:850;cursor:pointer}
+.gp-done-ok{min-height:54px;border:0;border-radius:16px;background:var(--theme-accent,#ff7a33);color:var(--theme-on-accent,#121212);font-size:16px;font-weight:850;cursor:pointer}
 @media (min-width:700px){
  .gp-swipebar{width:100%;max-width:520px;margin:0 auto 20px;border-radius:22px;padding-bottom:16px}
  .gp-swipebar::after{display:none}

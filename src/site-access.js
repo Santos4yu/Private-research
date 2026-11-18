@@ -8,7 +8,7 @@ import {mountRecordPanel} from './site-record.js';
 import {renderPricing} from './billing.js';
 import {mountSubscribersPanel} from './site-subscribers.js';
 import {accountProfile} from './account-sync.js';
-import {isOldBrandTheme} from './brand-colors.js';
+import {isOldBrandTheme, onCharcoal, DEFAULT_ACCENT} from './brand-colors.js';
 import './push-alerts.js';
 import './install-guide.js';
 const ACCOUNT_ICON='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M5 21v-2a7 7 0 0 1 14 0v2" stroke="currentColor" stroke-width="1.6"/></svg>';
@@ -417,7 +417,7 @@ function escapeHtml(str){return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;',
 // Site theme presets are a convenience local to the admin's own browser --
 // only whichever one gets picked and saved actually goes out to visitors.
 const THEME_PRESETS_KEY='krazy_data_site_theme_presets';
-const DEFAULT_THEME=Object.freeze({primary:'#ffffff',secondary:'#a3a3a3',tint:0});
+const DEFAULT_THEME=Object.freeze({primary:DEFAULT_ACCENT,secondary:'#a3a3a3',tint:0});
 function loadThemePresets(){
  try{const saved=JSON.parse(localStorage.getItem(THEME_PRESETS_KEY)||'[]');return Array.isArray(saved)?saved.filter(p=>p&&p.name).slice(0,12):[];}catch{return [];}
 }
@@ -583,7 +583,9 @@ export async function loadSiteControls(){
  // ---- Website color theme ----
  // A site colour that was an earlier brand's default shows (and saves) as
  // PropScout's, so saving any other setting clears it (src/brand-colors.js).
- const theme=policy.theme&&policy.theme.primary&&!isOldBrandTheme(policy.theme)?policy.theme:DEFAULT_THEME;
+ // One still on the white accent from before Charcoal shows as the orange one.
+ const savedTheme=onCharcoal(policy.theme);
+ const theme=savedTheme&&savedTheme.primary&&!isOldBrandTheme(savedTheme)?savedTheme:DEFAULT_THEME;
  form.elements.themePrimary.value=theme.primary;form.elements.themeSecondary.value=theme.secondary;form.elements.themeTint.value=String(theme.tint??0);
  const themeOutputs=host.querySelector('.site-theme-control').querySelectorAll('output');
  const syncThemeOutputs=()=>{themeOutputs[0].textContent=form.elements.themePrimary.value.toUpperCase();themeOutputs[1].textContent=form.elements.themeSecondary.value.toUpperCase();themeOutputs[2].textContent=`${form.elements.themeTint.value}%`;};
@@ -642,7 +644,7 @@ export async function loadSiteControls(){
  form.onsubmit=async e=>{e.preventDefault();const message=statusEl();const button=host.querySelector('[type=submit]');button.disabled=true;const bgUrl=form.elements.bgUrl.value.trim();
   const themePrimary=form.elements.themePrimary.value,themeSecondary=form.elements.themeSecondary.value,themeTint=Number(form.elements.themeTint.value);
   const themeIsDefault=themePrimary.toLowerCase()===DEFAULT_THEME.primary&&themeSecondary.toLowerCase()===DEFAULT_THEME.secondary&&themeTint===DEFAULT_THEME.tint;
-  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledPropsLeagues:[...form.querySelectorAll('[name=propsLeague]')].filter(c=>!c.checked).map(c=>c.value),disabledResearch:[...form.querySelectorAll('[name=research]')].filter(c=>!c.checked).map(c=>c.value),dockTabs:[...form.querySelectorAll('[name=dockSlot]')].map(select=>select.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true,mono:true}}});
+  try{await request('/api/v2-admin',{action:'site-settings',settings:{maintenance:form.elements.maintenance.checked,requireLogin:form.elements.requireLogin.checked,registrationOpen:form.elements.registrationOpen.checked,paidAccess:form.elements.paidAccess.checked,message:form.elements.message.value,disabledSports:[...form.querySelectorAll('[name=sport]')].filter(c=>!c.checked).map(c=>c.value),disabledFinderSports:[...form.querySelectorAll('[name=finderSport]')].filter(c=>!c.checked).map(c=>c.value),disabledSheets:[...form.querySelectorAll('[name=sheet]')].filter(c=>!c.checked).map(c=>c.value),disabledPropsLeagues:[...form.querySelectorAll('[name=propsLeague]')].filter(c=>!c.checked).map(c=>c.value),disabledResearch:[...form.querySelectorAll('[name=research]')].filter(c=>!c.checked).map(c=>c.value),dockTabs:[...form.querySelectorAll('[name=dockSlot]')].map(select=>select.value),disabledTabs:[...form.querySelectorAll('[name=tab]')].filter(c=>!c.checked).map(c=>c.value),backgroundImage:{url:bgUrl,opacity:Number(form.elements.bgOpacity.value)},theme:themeIsDefault?{primary:'',secondary:'',tint:0}:{primary:themePrimary,secondary:themeSecondary,tint:themeTint,scout:true,mono:true,charcoal:true}}});
   if(bgUrl){
    message.textContent='Saved. Checking that the image loads…';
    const loads=await probeImageLoads(bgUrl);

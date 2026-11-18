@@ -40,3 +40,22 @@ export function isOldBrandTheme(theme) {
   if (theme?.ace) return false;
   return isOldBrandBlue(primary);
 }
+
+// Charcoal (Nov 18, the owner picked "10 · Charcoal": dark grey, not black,
+// orange buttons). A theme saved before it (no `charcoal: true`) that is
+// still on the old defaults, the white accent or the black background,
+// moves to the new ones; anything a member or the admin picked stays.
+// Themes saved since carry `charcoal: true` and are always kept as saved,
+// so Black and white can still be picked.
+export const DEFAULT_ACCENT = '#ff7a33';
+const OLD_ACCENT = '#ffffff';
+const OLD_BASE = '#0a0a0a';
+export function onCharcoal(theme) {
+  if (!theme || typeof theme !== 'object' || theme.charcoal) return theme;
+  const out = { ...theme };
+  if (String(out.primary || '').trim().toLowerCase() === OLD_ACCENT) out.primary = DEFAULT_ACCENT;
+  // The plain black page, not a gradient or a brightness picked over it.
+  const plain = !(Array.isArray(out.grad) && out.grad.length) && !(Number(out.bright) || 0);
+  if (plain && String(out.base || '').trim().toLowerCase() === OLD_BASE) delete out.base;
+  return out;
+}

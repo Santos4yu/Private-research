@@ -88,7 +88,7 @@
 .lab-matchup-icon { width: 22px; height: 22px; margin-left: -7px; border-radius: 999px; border: 2px solid #151515; background: #1f1f1f; object-fit: contain; }
 .lab-matchup-icon:first-child { margin-left: 0; }
 .lab-matchup-icon--head { object-fit: cover; }
-.lab-matchup-open { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid #ffffff40; border-radius: 999px; background: #ffffffeb; color: #222222; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.lab-matchup-open { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid transparent; border-radius: 999px; background: var(--theme-accent, #ff7a33); color: var(--theme-on-accent, #121212); font-size: 10px; font-weight: 700; white-space: nowrap; }
 .lab-player::after { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, #0c0c0c90, transparent 75%), linear-gradient(0deg, #0b0b0bce, transparent 75%); }
 .lab-player-grid { position: absolute; z-index: -3; inset: 0; background-image: linear-gradient(#fff1 1px, transparent 1px), linear-gradient(90deg, #fff1 1px, transparent 1px); background-size: 30px 30px; transform: skew(-14deg) scale(1.3); opacity: .45; }
 .lab-player-watermark { position: absolute; z-index: -2; top: -36px; right: 5px; color: #ffffff10; font: 900 250px/1.2 var(--font-sans); }
@@ -97,7 +97,7 @@
 .lab-player-tag { margin-bottom: auto; padding: 5px 7px; border: 1px solid #ffffff32; border-radius: 5px; background: #0002; color: #f3f5f8; font-size: 9px; font-weight: 600; letter-spacing: .08em; }
 .lab-player-name { display: block; font-size: 23px; font-weight: 500; letter-spacing: -.045em; line-height: 1.05; text-shadow: 0 2px 12px #0005; }
 .lab-player-name strong { display: block; margin-top: 3px; font-size: 40px; font-weight: 700; }
-.lab-player-open { display: inline-flex; align-items: center; gap: 12px; margin-top: 18px; min-height: 36px; padding: 8px 12px; border: 1px solid #ffffff40; border-radius: 9px; background: #ffffffeb; color: #222222; font-size: 11px; font-weight: 700; }
+.lab-player-open { display: inline-flex; align-items: center; gap: 12px; margin-top: 18px; min-height: 36px; padding: 8px 12px; border: 1px solid transparent; border-radius: 9px; background: var(--theme-accent, #ff7a33); color: var(--theme-on-accent, #121212); font-size: 11px; font-weight: 700; }
 .lab-section-heading--tools { margin: 28px 0 14px; align-items: center; }
 .lab-section-heading--tools h2 { font-size: 19px; }
 .lab-section-heading--tools > span { font-size: 11px; color: var(--theme-faint); }

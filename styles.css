@@ -5747,7 +5747,7 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid #727272!imp
 :root[data-theme="obsidian"]{
   --theme-bg:#040506;--theme-bg-2:#090909;--theme-panel:#0c0c0c;--theme-panel-2:#121212;
   --theme-border:#282828;--theme-text:#f3f3f3;--theme-dim:#9d9d9d;--theme-faint:#626262;
-  --theme-accent:#f0f0f0;--theme-accent-soft:#fff;--theme-accent-dim:rgba(255,255,255,.09);--theme-on-accent:#06070a;
+  --theme-accent:#ff7a33;--theme-accent-soft:#ffa070;--theme-accent-dim:rgba(255,122,51,.14);--theme-on-accent:#121212;
 }
 :root[data-theme="midnight"]{
   --theme-bg:#111111;--theme-bg-2:#171717;--theme-panel:#1a1a1a;--theme-panel-2:#232323;

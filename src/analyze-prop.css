@@ -48,10 +48,10 @@ html:root .ap-trigger:focus-visible { outline: 3px solid #f1f1f1 !important; out
 .ap-spot[data-on=true] { opacity: 1; }
 .ap-spot-tag {
   position: absolute; left: 10px; top: -15px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 8px; border-radius: 999px;
-  background: #fff; color: #0e0e0e; font: 800 12px/1 var(--font-sans, Inter, system-ui, sans-serif); white-space: nowrap;
+  background: var(--theme-accent, #ff7a33); color: var(--theme-on-accent, #121212); font: 800 12px/1 var(--font-sans, Inter, system-ui, sans-serif); white-space: nowrap;
   box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
 }
-.ap-spot-tag svg { color: #0b0b0b; }
+.ap-spot-tag svg { color: inherit; }
 
 /* The walk-through's pointer, or a finger on a touch screen, and its taps. */
 .ap-pointer { position: fixed; left: 0; top: 0; z-index: 3; pointer-events: none; will-change: transform; animation: ap-fade-in .3s ease both; }

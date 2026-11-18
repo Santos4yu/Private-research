@@ -1,7 +1,7 @@
 import {dockState} from './src/mobile-nav-core.js';
 import {initSiteAccess,siteTabAllowed,siteIsAdmin,loadSiteControls,showLockedTab,availableSiteTab,refreshSiteAccess,dismissBootLoader} from './src/site-access.js';
 import {ADMIN_TABS} from './src/site-access-core.js';
-import {isOldBrandTheme} from './src/brand-colors.js';
+import {isOldBrandTheme, onCharcoal, DEFAULT_ACCENT} from './src/brand-colors.js';
 import {LOOKS,GRADIENTS,DEFAULT_BASE,lookOf,applyLook,normalizeBase,normalizeBright,normalizeGrad,tintOf} from './src/site-look.js';
 /* =========================================================
    PropScout research — client-side renderer
@@ -156,7 +156,7 @@ const THEME_KEY = "vortex_theme_mode";
 const ACCENT_THEME_KEY = "vortex_custom_accents";
 const ACCENT_PRESETS_KEY = "vortex_accent_presets";
 const BG_IMAGE_KEY = "vortex_bg_image";
-const DEFAULT_ACCENTS = Object.freeze({ primary: "#ffffff", secondary: "#a3a3a3", tint: 0, base: DEFAULT_BASE, bright: 0, grad: null, sway: true });
+const DEFAULT_ACCENTS = Object.freeze({ primary: DEFAULT_ACCENT, secondary: "#a3a3a3", tint: 0, base: DEFAULT_BASE, bright: 0, grad: null, sway: true });
 // What's on the page now (applyAccentTheme): the account sheet's colors read it.
 let appliedTheme = { ...DEFAULT_ACCENTS };
 // The old blue brand colours give way to the new default (src/brand-colors.js).
@@ -537,7 +537,8 @@ function normalizeTint(value, fallback = DEFAULT_ACCENTS.tint) {
 
 function loadAccentTheme() {
   try {
-    const saved = JSON.parse(localStorage.getItem(ACCENT_THEME_KEY) || "null");
+    // A theme on the defaults before Charcoal moves to the new ones (src/brand-colors.js).
+    const saved = onCharcoal(JSON.parse(localStorage.getItem(ACCENT_THEME_KEY) || "null"));
     return withBackground({
       primary: normalizeAccentHex(saved?.primary, DEFAULT_ACCENTS.primary),
       secondary: normalizeAccentHex(saved?.secondary, DEFAULT_ACCENTS.secondary),
@@ -568,7 +569,9 @@ function accentTextColor(hex) {
     const linear = channel <= .03928 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
     return sum + linear * [0.2126, 0.7152, 0.0722][index];
   }, 0);
-  return luminance > .42 ? "#121212" : "#ffffff";
+  // Dark text on a light accent, and on one white text can't be read on
+  // (under 3:1, like the default orange): white on most others.
+  return luminance > .42 || 1.05 / (luminance + .05) < 3 ? "#121212" : "#ffffff";
 }
 
 function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
@@ -593,7 +596,7 @@ function applyAccentTheme(theme, { persist = true, syncControls = true } = {}) {
   root.style.setProperty("--theme-on-accent", accentTextColor(primary));
   localStorage.removeItem(THEME_KEY);
   if (persist) {
-    localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, base, bright, grad, sway, look, scout: true, mono: true }));
+    localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ primary, secondary, tint, base, bright, grad, sway, look, scout: true, mono: true, charcoal: true }));
     // A color picked here is this device's choice over the admin's site-wide
     // colors, as "Use my own instead" does: otherwise the next site-status
     // check (every few seconds) put the site's colors back (Nov 9, the owner:
@@ -723,7 +726,7 @@ window.addEventListener("vortex:site-policy", (event) => {
   siteUpdatedAt = detail.updatedAt || null;
   const bg = detail.backgroundImage;
   siteBackgroundImage = bg?.url ? { url: bg.url, opacity: normalizeBgOpacity(bg.opacity) } : null;
-  const theme = detail.theme;
+  const theme = onCharcoal(detail.theme);
   siteTheme = theme?.primary && !isLegacyAccent(theme) ? { primary: theme.primary, secondary: theme.secondary, tint: normalizeTint(theme.tint) } : null;
   applyEffectiveAccentTheme();
   applyEffectiveBackground();
@@ -1237,7 +1240,7 @@ function wireSettingsPanel() {
       els.secondaryAccentValue.textContent = theme.secondary.toUpperCase();
     });
     const save = () => {
-      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, look: lookOf(theme.base, theme.bright, theme.grad, theme.sway), scout: true, mono: true }));
+      localStorage.setItem(ACCENT_THEME_KEY, JSON.stringify({ ...theme, look: lookOf(theme.base, theme.bright, theme.grad, theme.sway), scout: true, mono: true, charcoal: true }));
       appliedTheme = { ...theme, tint: 0 };
       // Picked here, so it stands over the admin's site-wide colors (see applyAccentTheme).
       if (siteUpdatedAt) localStorage.setItem(APPEARANCE_REVERT_KEY, siteUpdatedAt);

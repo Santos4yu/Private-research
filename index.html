@@ -18,15 +18,18 @@
 <!-- Matches the default (dark) theme's --bg -- kept in sync with theme
      switches by app.js, so mobile Safari's status-bar/toolbar area blends
      with the app instead of showing its own default grey. -->
-<meta name="theme-color" content="#0E0E0E" id="theme-color-meta" />
+<meta name="theme-color" content="#17181B" id="theme-color-meta" />
 <!-- The background color picked in Settings (src/site-look.js), on before
      the first paint so a light or tinted site never flashes black first.
      app.js saves the worked-out look with the accent colors. -->
 <script>
   try {
-    var look = (JSON.parse(localStorage.getItem("vortex_custom_accents") || "null") || {}).look;
+    var saved = JSON.parse(localStorage.getItem("vortex_custom_accents") || "null") || {}, look = saved.look;
     var hex = /^#[0-9a-f]{6}$/;
-    if (look && hex.test(look.page || "") && hex.test(look.surface || "")) {
+    // Still on the old default, plain black, from before Charcoal: the
+    // default instead (onCharcoal, src/brand-colors.js).
+    var oldBlack = look && !saved.charcoal && look.mode !== "light" && !look.grad && look.surface === "#0a0a0a";
+    if (look && !oldBlack && hex.test(look.page || "") && hex.test(look.surface || "")) {
       var root = document.documentElement, set = function (name, value) { if (hex.test(value || "")) root.style.setProperty(name, value); };
       if (look.mode === "light") root.setAttribute("data-look", "light");
       set("--ls", look.surface); set("--lst", look.text); set("--look-page", look.page);
@@ -39,7 +42,7 @@
         if (look.still) root.setAttribute("data-look-still", "");
       }
     }
-  } catch (_) { /* private mode or a bad value: the default black */ }
+  } catch (_) { /* private mode or a bad value: the default, Charcoal */ }
 </script>
 <!-- Translucent: the home-screen app draws edge to edge, under the clock.
      iOS 26+ blurs a ~35px band below the status bar ("Liquid Glass"), so
@@ -50,24 +53,24 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="PropScout" />
-<link rel="manifest" href="/manifest.json?v=8" />
+<link rel="manifest" href="/manifest.json?v=9" />
 <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=8" />
 <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png?v=8" />
 <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=8" />
 <!-- Launch screens for the home-screen app, one per iPhone screen size
      (public/splash): the PropScout logo on the app's background instead of a
      blank flash while it opens. -->
-<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1320x2868.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1290x2796.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1284x2778.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1260x2736.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1242x2688.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/828x1792.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1206x2622.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1179x2556.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1170x2532.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1125x2436.png?v=4" />
-<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/750x1334.png?v=4" />
+<link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1320x2868.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1290x2796.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1284x2778.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1260x2736.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1242x2688.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/828x1792.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1206x2622.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1179x2556.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1170x2532.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1125x2436.png?v=5" />
+<link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/750x1334.png?v=5" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
@@ -93,7 +96,7 @@
   #boot-loading.private-loader {
     position: fixed; inset: 0; z-index: 10000;
     display: grid !important; place-items: center;
-    background: var(--theme-bg, #0E0E0E) !important;
+    background: var(--ls, hsl(225 8% 9.8%)) !important;
     opacity: 1; transition: opacity .5s ease;
   }
   #boot-loading.private-loader::before,
