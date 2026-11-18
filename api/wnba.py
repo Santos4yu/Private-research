@@ -231,7 +231,7 @@ _dvp_memory = {}
 DVP_SEASONS = 4
 
 
-def _dvp(league_name, season, position, player_id, view="total", team="", five=False):
+def _dvp(league_name, season, position, player_id, view="total", team="", five=False, player_team="", tip_at=""):
     """One stored season's Defense vs position for one position (ALL, G, F
     or C, as ESPN's box scores list players -- and, with `five`, the NBA's
     depth-chart spots PG, SG, SF, PF and DC) and view (context.VIEWS), every
@@ -250,7 +250,7 @@ def _dvp(league_name, season, position, player_id, view="total", team="", five=F
     if not payload or not payload.get("games"):
         return None
     index = None
-    if five and league_name == "nba":
+    if five:
         from backend.sports.wnba import depth
         index = depth.index_for(season)
     key = (payload.get("builtAt"), len(payload.get("games") or {}), index.version if index else None)
@@ -261,7 +261,22 @@ def _dvp(league_name, season, position, player_id, view="total", team="", five=F
     table = memory["value"]
     players = payload.get("players") or {}
     mine = context.primary_position(players.get(str(player_id)))
-    chosen = position if position in table["positions"] else mine if mine in table["positions"] else "ALL"
+    positions = table["positions"]
+    if five:
+        positions = list(context.SPOT_KEYS)
+        game_index = index if season == current else depth.index_for(current)
+        tip = depth.minute_of(tip_at)
+        mine = None
+        if game_index and player_team and tip is not None:
+            now = int(time.time() // 60)
+            cutoff = min(tip, now + depth.TIP_MARGIN_MINUTES + 1)
+            placements, _ = game_index.spots(player_team, cutoff, {})
+            listed = placements.get(str(player_id))
+            if listed and listed[0]:
+                mine = context._SPOT_OF_SLOT.get(listed[0])
+        chosen = position if position in positions else mine
+    else:
+        chosen = position if position in positions else mine if mine in positions else "ALL"
     view = view if view in table["views"] else "total"
     def stored(year):
         try:
@@ -277,30 +292,20 @@ def _dvp(league_name, season, position, player_id, view="total", team="", five=F
         if item.get("completed"):
             for side in (item.get("home"), item.get("away")):
                 played[side] = played.get(side, 0) + 1
-    found = {"season": season, "seasons": seasons, "positions": table["positions"], "position": chosen, "playerPosition": mine,
+    found = {"season": season, "seasons": seasons, "positions": positions, "position": chosen, "playerPosition": mine,
              "view": view, "views": [list(item) for item in context.VIEWS],
              "windows": [[name, size or 0] for name, size in context.DVP_WINDOWS],
              "teamCount": table["teamCount"], "games": table["games"], "played": played, "through": table["through"],
              "teams": {abbr: {"name": (teams.get(abbr) or {}).get("name"), "logo": (teams.get(abbr) or {}).get("logo")} for abbr in rows},
              "stats": [[key, label] for key, label, _ in context.STATS],
              "dvp": {abbr: entry.get(chosen) for abbr, entry in rows.items()},
-             "log": context.position_log(table, team, chosen) if team in rows else None,
+             "log": context.position_log(table, team, chosen) if team in rows and chosen in table["positions"] else None,
              "audit": memory["audit"]}
     if index:
-        from backend.sports.wnba import depth
-        spot = None
-        entry = players.get(str(player_id))
-        if entry and len(entry) > 3:
-            where, _ = index.spots(entry[3], int(time.time() // 60) + depth.TIP_MARGIN_MINUTES + 1,
-                                   {str(player_id): context.family(entry[1])})
-            listed = where.get(str(player_id))
-            # His spot on his team's newest chart; None when tied or not on it.
-            spot = context._SPOT_OF_SLOT.get(listed[0]) if listed and listed[0] else None
         found.update({
-            "groups": [["box", ["G", "F", "C"]], ["depth", list(context.SPOT_KEYS)]],
             "coverage": {abbr: (table["coverage"] or {}).get(abbr, {}).get(chosen) for abbr in rows} if chosen in context.SPOT_KEYS else None,
             "depth": {"status": index.status(), "placement": table["placement"], "flagShare": context.FLAG_SHARE,
-                      "staleHours": depth.STALE_MINUTES // 60, "playerSpot": spot},
+                      "staleHours": depth.STALE_MINUTES // 60, "playerSpot": mine},
         })
     return found
 
@@ -1449,11 +1454,8 @@ class handler(BaseHTTPRequestHandler):
                 import nba_matchups
                 return _send(self, 200, nba_matchups.play_types(who, team, opponent))
             if resource == "dvp":
-                # PG / SG / SF / PF / C (depth charts) only for whoever the
-                # admin's switch lets see them (site_controls "dvp5"); set here,
-                # over anything the request says, and part of the kept answer's key.
-                from site_controls import research_allowed
-                query["_five"] = ["1" if league == "nba" and research_allowed(self.headers, "dvp5") else "0"]
+                # Set on the server and include in the cache key.
+                query["_five"] = ["game-position" if league == "nba" else "0"]
             if resource in ("matchup", "league-context", "player-context", "game-notes", "scout", "dvp"):
                 return _kept_context(self, resource, query, league)
             if resource == "props-record":
@@ -1544,7 +1546,7 @@ class handler(BaseHTTPRequestHandler):
                 if not current - DVP_SEASONS < season <= current:
                     return _send(self, 400, {"error": "A valid season is required."})
                 found = _dvp(league_name, season, arg("position").upper(), arg("playerId"), arg("view"), team_code(arg("team")),
-                             five=arg("_five") == "1")
+                             five=league_name == "nba", player_team=team_code(arg("playerTeam")), tip_at=arg("tipAt"))
                 if not found:
                     return _send(self, 404, {"error": "That season isn't stored."})
                 return _send(self, 200, found)

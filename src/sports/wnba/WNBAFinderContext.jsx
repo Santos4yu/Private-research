@@ -81,9 +81,7 @@ const strength={good:'Weak',fair:'Average',poor:'Tough'};
 // one at a time, a game where nobody at the position played shown as left
 // out. Admins also see the box scores checked against the final scores.
 const POSITION_NAMES={ALL:'All',G:'G',F:'F',C:'C',PG:'PG',SG:'SG',SF:'SF',PF:'PF',DC:'C'};
-// The NBA's depth-chart spots (depth.py) sit beside the box score's G / F / C
-// when the admin's switch shows them; their C is keyed DC so the two never mix.
-const POSITION_GROUPS={box:'Box score',depth:'Depth chart'};
+// The NBA depth chart's center is keyed DC to distinguish it from the box-score C.
 const SPOT_KEYS=['PG','SG','SF','PF','DC'];
 function readTime(iso){
  const date=iso?new Date(iso):null;
@@ -109,10 +107,10 @@ const seasonName=year=>`${String(year-1).slice(-2)}/${String(year).slice(-2)}`;
 const dayName=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'':date.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
 const lastName=name=>{const parts=String(name||'').trim().split(/\s+/);return parts.length>1?`${parts[0][0]}. ${parts.slice(1).join(' ')}`:parts[0]||'';};
 function DefenseVsPosition({row,stat}){
- const opponent=opponentOf(row),admin=useIsAdmin();
+ const opponent=opponentOf(row),admin=useIsAdmin(),nba=leagueOf(row)==='nba';
  const [season,setSeason]=useState(null),[position,setPosition]=useState(null),[view,setView]=useState('total'),[team,setTeam]=useState(opponent),[open,setOpen]=useState(null),[all,setAll]=useState(false);
  useEffect(()=>setTeam(opponent),[opponent]);
- useEffect(()=>{setSeason(null);setPosition(null);setOpen(null);setAll(false);},[row.playerId]);
+ useEffect(()=>{setSeason(null);setPosition(null);setOpen(null);setAll(false);},[row.playerId,row.gameStartsAt,row.startsAt,row.teamAbbr]);
  const state=useWnba('dvp',dvpParams(row,{season,position,view,team}));
  // The last table stays up while another season, position or view loads.
  const shown=useRef(null);
@@ -140,7 +138,10 @@ function DefenseVsPosition({row,stat}){
  return <Card title="Defense vs position" note={[seasonName(data.season),count,through&&`thru ${through}`].filter(Boolean).join(' · ')} icon={Shield} className="wnba-dvp">
   <div className="wnba-dvp-menus" data-loading={state.loading||undefined}>
    <FinderDropdown aria-label="Season" value={data.season} onChange={e=>{setSeason(Number(e.target.value));setOpen(null);}}>{data.seasons.map(year=><option key={year} value={year}>{`${seasonName(year)} Season`}</option>)}</FinderDropdown>
-   <FinderDropdown aria-label="Position" value={data.position} onChange={e=>{setPosition(e.target.value);setOpen(null);}}>{data.positions.map(key=>{const group=(data.groups||[]).find(([,keys])=>keys.includes(key))?.[0];return <option key={key} value={key} data-group={group?POSITION_GROUPS[group]:undefined} data-display={key==='DC'?'C · depth chart':undefined}>{POSITION_NAMES[key]||key}</option>;})}</FinderDropdown>
+   <FinderDropdown aria-label="Position" value={nba?(position||'auto'):data.position} onChange={e=>{setPosition(e.target.value==='auto'?null:e.target.value);setOpen(null);}}>
+    {nba&&<option value="auto">{data.playerPosition?`Projected ${POSITION_NAMES[data.playerPosition]||data.playerPosition}`:'Position unavailable'}</option>}
+    {data.positions.map(key=><option key={key} value={key}>{POSITION_NAMES[key]||key}</option>)}
+   </FinderDropdown>
    <span className="wnba-dvp-vs" aria-hidden="true">vs</span>
    <FinderDropdownAssets.Provider value={{Defense:logos}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>{setTeam(e.target.value);setOpen(null);}}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider>
    {data.views&&<FinderDropdown aria-label="View" value={data.view} onChange={e=>setView(e.target.value)}>{data.views.map(([key,label])=><option key={key} value={key}>{label}</option>)}</FinderDropdown>}
@@ -155,7 +156,7 @@ function DefenseVsPosition({row,stat}){
     <td className="wnba-dvp-matchup"><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>
     {isOpen&&<tr className="wnba-dvp-log-row"><td colSpan={windows.length+3}><DefenseGames log={data.log} index={statIndex[key]} position={POSITION_NAMES[data.position]||data.position} logos={logos}/></td></tr>}
    </React.Fragment>;})}
-  </tbody></table></div>:<Empty>No games recorded for this defense in {seasonName(data.season)}.</Empty>}
+  </tbody></table></div>:<Empty>{nba&&!data.position?'No projected position for this game. Select a position to view the matchup.':`No games recorded for this defense in ${seasonName(data.season)}.`}</Empty>}
   {entry&&rows.length<order.length&&<button type="button" className="wnba-dvp-more" onClick={()=>setAll(true)}>Show all {order.length} stats</button>}
   {entry&&all&&leading.length>=2&&leading.length<order.length&&<button type="button" className="wnba-dvp-more" onClick={()=>{setAll(false);setOpen(null);}}>Show the line's stats only</button>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>
@@ -423,7 +424,7 @@ export default function WNBAFinderContext({row,logs,matchup,filters,onToggleFilt
  return <aside className="mlb-finder-context wnba-finder-context" data-tab={tab} aria-label={`${row.sport==='nba'?'NBA':'WNBA'} matchup research`}>
   {!shownTab&&<FinderResearchTabs tab={tab} onChange={setTab}/>}
   {tab==='matchup'&&<><Opportunity row={row} player={player} league={league} matchup={matchup} tracking={tracking} statLabel={statLabel}/><WinPredictor matchup={matchup}/><MatchupOdds matchup={matchup}/><LastFive matchup={matchup}/><Standings matchup={matchup} team={row.teamAbbr}/></>}
-  {tab==='defense'&&<><DefenseVsPosition row={row} stat={stat}/>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<OffenseVsDefense league={league} row={row}/></>}
+  {tab==='defense'&&<><DefenseVsPosition key={JSON.stringify([row.playerId,row.teamAbbr,row.gameStartsAt||row.startsAt])} row={row} stat={stat}/>{row.sport==='nba'&&<DefenderCard row={row} matchup={matchup}/>}<OffenseVsDefense league={league} row={row}/></>}
   {tab==='shooting'&&<ShotChart player={player} league={league} row={row}/>}
   {tab==='similar'&&<SimilarPlayers player={player} row={row} statLabel={statLabel} playerPosition={playerPosition} league={league} stat={stat}/>}
   {tab==='injuries'&&<Injuries matchup={matchup} player={player} row={row} filters={filters} onToggleFilter={onToggleFilter}/>}

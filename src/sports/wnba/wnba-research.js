@@ -96,7 +96,8 @@ export const periodless=name=>String(name||'').replace(/^\s*(1q|1h)\s+/i,'').rep
 // The matchup and Defense vs position requests, the same for the page and
 // for prefetching it.
 export const matchupParams=row=>({home:row.homeTeamAbbr,away:row.awayTeamAbbr,startsAt:row.startsAt,league:leagueOf(row)});
-export const dvpParams=(row,{season=null,position=null,view='total',team}={})=>({league:leagueOf(row),season,position,playerId:row.playerId,view,team:team??opponentOf(row)});
+export const dvpParams=(row,{season=null,position=null,view='total',team}={})=>({league:leagueOf(row),season,position,playerId:row.playerId,view,team:team??opponentOf(row),
+ ...(leagueOf(row)==='nba'?{playerTeam:row.teamAbbr,tipAt:row.gameStartsAt||row.startsAt}:{})});
 // A player page's research asked for before it opens (a row pressed or
 // hovered on the Finder), so it's there, or nearly, when the page is.
 export function prefetchResearch(row){

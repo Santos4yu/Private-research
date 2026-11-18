@@ -469,10 +469,10 @@ class DefenseBySeasonTests(unittest.TestCase):
                 "schedule": [{"id": "1", "completed": True, "home": "AAA", "away": "BBB", "score": {"AAA": 20, "BBB": 14}},
                              {"id": "2", "completed": False, "home": "BBB", "away": "AAA"}]}
 
-    def ask(self, *args, payload=None):
+    def ask(self, *args, payload=None, **kwargs):
         with patch.object(league, "current_season", return_value=2027), patch.object(league, "ensure", return_value=payload or self.season()), \
                 patch.object(league, "progress", side_effect=lambda year, name: {"partial": False} if year == 2026 else None):
-            return api._dvp("nba", 2027, *args)
+            return api._dvp("nba", 2027, *args, **kwargs)
 
     def test_guards_forwards_and_centers_as_espn_lists_them(self):
         found, picked = self.ask("", "f1"), self.ask("G", "f1")
@@ -513,16 +513,15 @@ class DefenseBySeasonTests(unittest.TestCase):
                 patch.object(api, "_kept_context", side_effect=lambda handler, resource, query, league: handler._context(resource, query, league)), \
                 patch.object(api, "_dvp", side_effect=lambda *args, **kw: asked.append((args, kw)) or {"ok": True}):
             request.do_GET()
-            # The depth-chart spots follow the admin's switch, never the request:
-            # a viewer adding _five=1 doesn't get them.
+            # The server selects the NBA position mode regardless of the query flag.
             request.path += "&_five=1"
             request.do_GET()
         self.assertEqual(sent, [(200, {"ok": True})] * 2)
-        self.assertEqual(asked, [(("nba", 2027, "G", "1", "per36", "BBB"), {"five": False})] * 2)
+        self.assertEqual(asked, [(("nba", 2027, "G", "1", "per36", "BBB"), {"five": True, "player_team": "", "tip_at": ""})] * 2)
 
-    def test_the_depth_chart_spots_follow_the_research_switch(self):
+    def test_the_request_passes_the_players_team_and_tip(self):
         request = object.__new__(api.handler)
-        request.path, request.headers = "/api/wnba?resource=dvp&league=nba&season=2027&position=pg&playerId=1&team=bbb", {}
+        request.path, request.headers = "/api/wnba?resource=dvp&league=nba&season=2027&position=pg&playerId=1&team=bbb&playerTeam=aaa&tipAt=2026-11-18T19:00Z", {}
         asked = []
         import site_controls
         with patch.object(api, "_send", side_effect=lambda *_: None), \
@@ -533,4 +532,30 @@ class DefenseBySeasonTests(unittest.TestCase):
                 patch.object(api, "_kept_context", side_effect=lambda handler, resource, query, league: handler._context(resource, query, league)), \
                 patch.object(api, "_dvp", side_effect=lambda *args, **kw: asked.append(kw) or {"ok": True}):
             request.do_GET()
-        self.assertEqual(asked, [{"five": True}])
+        self.assertEqual(asked, [{"five": True, "player_team": "AAA", "tip_at": "2026-11-18T19:00Z"}])
+
+    def test_nba_uses_the_game_depth_chart_and_never_falls_back_to_forward(self):
+        from backend.sports.wnba import depth
+
+        historical = depth.minute_of("2026-10-25T00:00Z")
+        tip = depth.minute_of("2026-10-26T00:00Z")
+        now = tip - 60
+        chart = {slot: [str(i)] for i, slot in enumerate(depth.SLOTS, 10)}
+        value = depth.empty(2027)
+        depth.merge(value, [
+            (historical - 60, "BBB", {**chart, "sg": ["50"]}),
+            (now - 60, "BBB", {**chart, "sf": ["50"]}),
+            (tip + 60, "BBB", {**chart, "pf": ["50"]}),
+        ], "espn")
+        payload = self.season()
+        payload["players"]["50"] = ["F One", "F", None, "BBB"]
+        payload["games"]["1"]["t"]["BBB"]["p"][0][0] = "50"
+        with patch.object(depth, "index_for", return_value=depth.Index(value)), patch.object(api.time, "time", return_value=now * 60):
+            auto = self.ask("", "50", five=True, player_team="BBB", tip_at="2026-10-26T00:00Z", payload=payload)
+            manual = self.ask("SG", "50", five=True, player_team="BBB", tip_at="2026-10-26T00:00Z", payload=payload)
+            unknown = self.ask("F", "50", five=True, player_team="BBB", payload=payload)
+        self.assertEqual(auto["positions"], ["PG", "SG", "SF", "PF", "DC"])
+        self.assertEqual((auto["position"], auto["playerPosition"]), ("SF", "SF"))
+        self.assertEqual(manual["dvp"]["AAA"]["stats"]["pts"]["szn"][0], 14.0)
+        self.assertIsNone(unknown["position"])
+        self.assertIsNone(unknown["dvp"]["AAA"])
