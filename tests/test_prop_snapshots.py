@@ -91,6 +91,12 @@ def pp_row(pp, line, player='Stephen Curry', odds='standard', start=TIP, **extra
             'odds_type': odds, 'start_time': start, **extra}
 
 
+def track(player, kind='standard', start=TIP, line=None, stat='points'):
+    """A line's track (prop_snapshots.observe_lines): player, stat, kind, start minute (and a Goblin's or Demon's number)."""
+    name = ''.join(ch for ch in player.lower() if ch.isalnum())
+    return '|'.join([name, stat, kind, str(int(start // 60))] + ([] if kind == 'standard' else [format(line, 'g')]))
+
+
 class LineTests(unittest.TestCase):
     def setUp(self):
         self.kv, self.memory = FakeKV(), {'fp': None, 'days': {}}
@@ -111,9 +117,9 @@ class LineTests(unittest.TestCase):
         self.assertEqual(self.feed(moved, NOW + 270), 2)
         day = snaps.day_of(TIP)
         history = snaps.line_history(day, self.kv)
-        self.assertEqual([move[1] for move in history['p3']['moves']], [13.5, 14.5])
-        self.assertEqual(history['p5']['moves'][-1][1], None)
-        self.assertEqual(history['g1']['meta'][5], 'goblin')
+        self.assertEqual([move[1] for move in history[track('P3')]['moves']], [13.5, 14.5])
+        self.assertEqual(history[track('P5')]['moves'][-1][1], None)
+        self.assertEqual(history[track('Stephen Curry', 'goblin', line=8.5)]['meta'][5], 'goblin')
         # A server starting cold reads what is kept and repeats nothing.
         cold = {'fp': None, 'days': {}}
         self.assertEqual(snaps.observe_lines(moved, NOW + 360, pipeline=self.kv, memory=cold), 0)
@@ -127,11 +133,11 @@ class LineTests(unittest.TestCase):
             self.assertTrue(all(command[0] != 'RPUSH' for command in commands))
             return self.kv(commands)
 
-        rows = [pp_row(str(index), 10.5) for index in range(350)]
+        rows = [pp_row(str(index), 10.5, player=f'Player {index}') for index in range(350)]
         self.assertEqual(snaps.observe_lines(rows, NOW, pipeline=bounded, memory=self.memory), 350)
 
     def test_an_incomplete_feed_takes_nothing_down_and_started_games_are_left_out(self):
-        board = [pp_row(f'p{n}', 10.5) for n in range(10)]
+        board = [pp_row(f'p{n}', 10.5, player=f'P{n}') for n in range(10)]
         self.feed(board, NOW)
         # Most of the feed missing at once: a page that failed, not lines pulled.
         self.assertEqual(self.feed(board[:3], NOW + 90), 0)
@@ -141,11 +147,23 @@ class LineTests(unittest.TestCase):
         self.assertEqual(self.feed([pp_row('late', 5.5, start=NOW - 60)], NOW + 200), 0)
 
     def test_a_line_gone_as_its_game_starts_is_not_a_pull(self):
-        board = [pp_row(f'p{n}', 10.5, start=NOW + 300) for n in range(5)] + [pp_row('q', 3.5)] * 1
+        board = [pp_row(f'p{n}', 10.5, player=f'P{n}', start=NOW + 300) for n in range(5)] + [pp_row('q', 3.5, player='Q')]
         self.feed(board, NOW)
         self.feed([row for row in board if row['id'] != 'p0'], NOW + 120)
         history = snaps.line_history(snaps.day_of(NOW + 300), self.kv)
-        self.assertEqual([move[1] for move in history['p0']['moves']], [10.5])
+        self.assertEqual([move[1] for move in history[track('P0', start=NOW + 300)]['moves']], [10.5])
+
+    def test_reposts_and_hidden_goblins_and_demons_write_nothing(self):
+        board = [pp_row('s1', 20.5, player='A'), pp_row('s2', 18.5, player='B'), pp_row('s3', 7.5, player='C'),
+                 pp_row('d1', 28.5, player='A', odds='demon'), pp_row('g1', 14.5, player='A', odds='goblin')]
+        self.assertEqual(self.feed(board, NOW), 5)
+        # PrizePicks reposts A's standard line under a new id and hides his Demon a while.
+        reposted = [dict(board[0], id='s1-new'), board[1], board[2], board[4]]
+        self.assertEqual(self.feed(reposted, NOW + 90), 0)
+        # The Demon is back on the same number: still nothing.
+        self.assertEqual(self.feed(reposted + [dict(board[3], id='d1-new')], NOW + 180), 0)
+        # A Demon on a new number is a new line.
+        self.assertEqual(self.feed(reposted + [dict(board[3], id='d2', line=29.5)], NOW + 270), 1)
 
 
 class FakeDepth:
@@ -215,6 +233,14 @@ class ReportTests(unittest.TestCase):
         self.kv.data[snaps.key('status')] = {'run': json.dumps({'at': NOW - 600})}
         self.assertFalse(snaps.watch_runs(soon, NOW, self.kv)['missing'])
         self.assertFalse(snaps.watch_runs([], NOW, self.kv)['due'])
+
+    def test_a_check_that_fails_is_logged_and_its_start_is_kept(self):
+        def broken(now):
+            raise RuntimeError('scoreboard down')
+        with self.assertRaises(RuntimeError):
+            snaps.tick(NOW, self.kv, games_of=broken, report_of=self.report({}), depth_index=FakeDepth())
+        self.assertEqual(json.loads(self.kv.data[snaps.key('status')]['tick'])['at'], int(NOW))
+        self.assertIn('tick-failed', {json.loads(item)['kind'] for item in self.kv.data[snaps.key('health')]})
 
     def test_the_timer_checks_once_per_window(self):
         calls = []

@@ -90,6 +90,26 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
     16 points.
 - No scheduled run had fired by 21:20 UTC (only manual runs). Watch the
   :17 and :47 runs.
+- First live evaluation (sealed report decrypted in the session, 21:31 UTC),
+  "list" record Oct 24 – Nov 17:
+  - 9,707 standard lines, after 2,574 duplicates removed, 678 void and
+    111 pushes.
+  - The side our grade favored won 50.6% (95% 49.1–52.0) of 9,109; the
+    player average's side won 51.8%. The difference is within noise.
+  - Overs went 48.4%; the grade favored the Over on 43.7%.
+  - Demons: 6,334 lines hit 34.1% against a mean chance of 34.0%.
+  - The Over/Under tables didn't print: `say()` took one argument. Fixed.
+- Line churn: 21k events over 12k PrizePicks ids in one day, because
+  PrizePicks reposts lines under new ids and hides/reshows Demons. Fixed:
+  - Lines are now tracked by player|stat|kind|start minute (plus the
+    number for Goblins/Demons).
+  - Take-downs are watched for standard lines only.
+  - `lstate` is kept 3 days.
+- The 10-minute report check had written nothing all day; its status
+  entry was missing. It now records `status.tick` when it begins and logs
+  `tick-failed` with the error, so a silent failure shows on the dashboard.
+
+
 - The repository is now public (it was private at ~16:20 UTC). The owner
   was told; it isn't ours to change. GitHub Actions minutes are free for
   public repos.

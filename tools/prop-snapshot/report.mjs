@@ -6,7 +6,7 @@
 // stay readable by whoever holds the private key alone.
 import {createCipheriv, createPublicKey, publicEncrypt, randomBytes, constants} from 'node:crypto';
 const said = [];
-const say = text => said.push(String(text));
+const say = (...parts) => said.push(parts.map(String).join(' '));
 const SITE = process.env.SITE || 'https://aceprops.xyz';
 const DAYS = Number(process.env.DAYS || 30);
 const base = process.env.ACTIONS_ID_TOKEN_REQUEST_URL, bearer = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;

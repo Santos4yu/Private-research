@@ -59,7 +59,7 @@ function Recording({recording}){
   <div className="mc-tiles">
    <div><span>Graded runs</span><b>{run?time(run.at):'None yet'}</b><small>{run?`${run.rows} lines · model ${run.model||'–'} · code ${String(run.sha||'').slice(0,7)}`:'The snapshot job posts before each night'}</small></div>
    <div><span>Line changes</span><b>{lines?time(lines.at):'None yet'}</b><small>{lines?`${lines.lines} lines in the last feed`:'Kept as PrizePicks moves them'}</small></div>
-   <div><span>Injury reports</span><b>{reports?time(reports.at):'None yet'}</b><small>{reports?`${reports.games} games · ${reports.changed} changed · ${reports.stale} stale · ${reports.missing} missing`:'Checked every 10 minutes'}</small></div>
+   <div><span>Injury reports</span><b>{reports?time(reports.at):'None yet'}</b><small>{reports?`${reports.games} games · ${reports.changed} changed · ${reports.stale} stale · ${reports.missing} missing`:status.tick?`Last check began ${time(status.tick.at)} and hasn't finished`:'Checked every 10 minutes'}</small></div>
    <div><span>Storage keys</span><b>{recording.keys??'–'}</b><small>{attempt?`Last failed run ${time(attempt.at)}`:'No failed runs'}</small></div>
   </div>
   {(recording.days||[]).map(day=><div key={day.day} className="mc-day">

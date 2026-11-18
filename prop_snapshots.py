@@ -43,6 +43,8 @@ from uuid import uuid4
 
 PREFIX = 'krazy:propsnap:v1:nba'
 KEEP_SECONDS = 270 * 86400
+# What each line stands at, for comparing the next feed: a few days.
+LSTATE_SECONDS = 3 * 86400
 # Each run's full rows (the inputs as read, every line's grade): a few days,
 # for checking a run; each line's changes stay in `last` (KEEP_SECONDS).
 RUN_KEEP_SECONDS = 3 * 86400
@@ -141,6 +143,11 @@ def _pairs(flat):
     return list(zip(flat[0::2], flat[1::2]))
 
 
+def _norm(value) -> str:
+    import re
+    return re.sub(r'[^a-z0-9]', '', str(value or '').lower())
+
+
 def _digest(value) -> str:
     return hashlib.sha1(_dump(value).encode()).hexdigest()[:12]
 
@@ -196,13 +203,19 @@ def observe_lines(rows, fetched_at=None, pipeline=None, memory=None):
         pp, line, start = str(row.get('id') or ''), _number(row.get('line')), _epoch(row.get('start_time'))
         if not pp or line is None or not start or start <= fetched_at:
             continue
-        entries[pp] = (line, start)
-        meta[pp] = [str(row.get('player') or '')[:60], str(row.get('player_id') or '')[:20], str(row.get('team') or '')[:6],
+        kind = str(row.get('odds_type') or 'standard').lower()
+        # One track per line, not per PrizePicks id (it reposts the same line
+        # under new ids all day): player, stat, kind and game; a Goblin's or
+        # Demon's number is part of its track (each number is its own line).
+        track = '|'.join([_norm(row.get('player')), _norm(row.get('stat')), kind, str(int(start // 60))]
+                         + ([] if kind == 'standard' else [format(line, 'g')]))
+        entries[track] = (line, start, kind)
+        meta[track] = [str(row.get('player') or '')[:60], str(row.get('player_id') or '')[:20], str(row.get('team') or '')[:6],
                     str(row.get('description') or '')[:12], str(row.get('stat') or '')[:40],
-                    str(row.get('odds_type') or 'standard')[:10], int(start)]
+                    kind[:10], int(start), pp]
     if not entries:
         return 0
-    fingerprint = _digest(sorted((pp, line) for pp, (line, _) in entries.items()))
+    fingerprint = _digest(sorted((pp, value[0]) for pp, value in entries.items()))
     if memory.get('fp') == fingerprint:
         return 0
     by_day = defaultdict(dict)
@@ -215,20 +228,23 @@ def observe_lines(rows, fetched_at=None, pipeline=None, memory=None):
         if replies is None:
             return 0
         for day, flat in zip(unknown, replies):
-            memory['days'][day] = {pp: _line_state(value) for pp, value in _pairs(flat)}
+            # Tracks only (ids kept before Nov 18's change are left out).
+            memory['days'][day] = {pp: _line_state(value) for pp, value in _pairs(flat) if '|' in pp}
     commands, written, updates = [], 0, {}
     stamp = int(fetched_at)
     for day in days:
         state, seen = memory['days'][day], by_day[day]
         events, fields, fresh = [], {}, []
-        for pp, (line, start) in seen.items():
+        for pp, (line, start, kind) in seen.items():
             before = state.get(pp)
             if before is None or before[0] != line:
                 events.append([stamp, pp, line])
                 fields[pp] = (line, start)
                 if before is None:
                     fresh.append(pp)
-        live = [pp for pp, (line, _) in state.items() if line is not None]
+        # Standard lines only are watched for being taken down: PrizePicks
+        # hides and reshows Goblins and Demons all day, which says nothing.
+        live = [pp for pp, (line, _) in state.items() if line is not None and pp.split('|')[2:3] == ['standard']]
         gone = [pp for pp in live if pp not in seen]
         # A feed missing a large share at once is incomplete: nothing is called taken down.
         if gone and len(gone) <= PULL_SHARE * len(live):
@@ -245,7 +261,7 @@ def observe_lines(rows, fetched_at=None, pipeline=None, memory=None):
         if fields:
             commands.append(['HSET', key('lstate', day), *[part for pp, (line, start) in fields.items()
                                                           for part in (pp, f"{'x' if line is None else format(line, 'g')}|{int(start)}")]])
-            commands.append(['EXPIRE', key('lstate', day), KEEP_SECONDS])
+            commands.append(['EXPIRE', key('lstate', day), LSTATE_SECONDS])
         if fresh:
             commands.append(['HSET', key('lmeta', day), *[part for pp in fresh for part in (pp, _dump(meta[pp]))]])
             commands.append(['EXPIRE', key('lmeta', day), KEEP_SECONDS])
@@ -267,9 +283,10 @@ def observe_lines(rows, fetched_at=None, pipeline=None, memory=None):
 
 
 def line_history(day: str, pipeline=None) -> dict:
-    """{projection id: {meta: [player, pp player id, team, opponent, stat,
-    type, start], moves: [[time, line or None], ...]}} for one day, repeated
-    events (two servers seeing one change) folded."""
+    """{track (player|stat|kind|start minute[|number for Goblins and
+    Demons]): {meta: [player, pp player id, team, opponent, stat, kind,
+    start, last PrizePicks id], moves: [[time, line or None], ...]}} for one
+    day, repeated events (two servers seeing one change) folded."""
     pipeline = pipeline or _pipeline
     replies = pipeline([['LRANGE', key('lines', day), 0, -1], ['HGETALL', key('lmeta', day)]]) or [[], []]
     meta = {}
@@ -490,6 +507,17 @@ def tick(now=None, pipeline=None, games_of=None, report_of=None, depth_index=Non
     claim = pipeline([['SET', key('claim'), '1', 'NX', 'EX', CHECK_SECONDS - 30]])
     if not claim or claim[0] != 'OK':
         return {'waiting': True}
+    # When the check last began, so one that never finishes shows.
+    _status('tick', {'at': int(now)}, pipeline)
+    try:
+        return _check(now, pipeline, games_of, report_of, depth_index)
+    except Exception as error:  # noqa: BLE001 -- logged, never silent
+        note('error', 'tick-failed', f'The report check failed ({type(error).__name__}: {str(error)[:160]})',
+             once='tick-failed', every=3600, now=now, pipeline=pipeline)
+        raise
+
+
+def _check(now, pipeline, games_of, report_of, depth_index):
     games = (games_of or _games)(now)
     for item in games:
         if 'error' in item:
