@@ -208,6 +208,27 @@ def _injuries(summary):
     return result
 
 
+def _starters(summary):
+    """{team: [athlete ids]} of each team's five starters when ESPN's summary
+    lists them (its box score marks them once they're named; before then it
+    has none). Only a team with exactly five is kept."""
+    out = {}
+    for side in ((summary.get("boxscore") or {}).get("players") or []):
+        abbr = (side.get("team") or {}).get("abbreviation")
+        ids = [str((entry.get("athlete") or {}).get("id")) for block in side.get("statistics") or []
+               for entry in block.get("athletes") or [] if entry.get("starter") and (entry.get("athlete") or {}).get("id")]
+        ids = list(dict.fromkeys(ids))
+        if abbr and len(ids) == 5:
+            out[abbr] = ids
+    for roster in summary.get("rosters") or []:
+        abbr = (roster.get("team") or {}).get("abbreviation")
+        ids = list(dict.fromkeys(str((entry.get("athlete") or {}).get("id")) for entry in roster.get("roster") or []
+                                 if entry.get("starter") and (entry.get("athlete") or {}).get("id")))
+        if abbr and abbr not in out and len(ids) == 5:
+            out[abbr] = ids
+    return out
+
+
 def _series(summary):
     series = (summary.get("seasonseries") or [None])[0]
     if not series:
@@ -253,6 +274,9 @@ def matchup(event_id: str, league: str = "wnba") -> dict:
         "standings": _standings(summary, teams_by_id),
         "injuries": _injuries(summary),
         "series": _series(summary),
+        # Phase 0 records (prop_snapshots.py): whether ESPN named the
+        # starters before tip, and who.
+        "starters": _starters(summary),
         "fetchedAt": datetime.now(timezone.utc).isoformat(),
     }
     _remember(key, value)

@@ -166,6 +166,14 @@ class handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from site_controls import allowed
+        query = parse_qs(urlparse(self.path).query)
+        if (query.get('view') or [''])[0] == 'finder-history' and (query.get('sport') or [''])[0] == 'nba' and self.headers.get('X-GitHub-OIDC'):
+            # The prop snapshot job (snapshot_runner.py) starts from the NBA
+            # histories the server keeps, as a member's Props tab does.
+            import snapshot_runner
+            if snapshot_runner.verified(self.headers):
+                from finder_history_store import snapshot
+                return self._send(200, snapshot('nba'))
         tab={'finder-history':'finder','prop-history':'research','moneyline':'moneyline','nrfi':'nrfi','soccer':'finder','nhl':'finder','cfb':'finder','tennis':'finder','moves':'moves','mlb-context':'finder','moneylines':'moneyline','finder-moneylines':'finder','mlb-sheet':'sheets','nfl-sheet':'sheets','nba-sheet':'sheets','mlb-matchups':'bot'}.get((parse_qs(urlparse(self.path).query).get('view') or [''])[0],'v2')
         if (parse_qs(urlparse(self.path).query).get('view') or [''])[0] == 'cs2':
             tab = 'finder'

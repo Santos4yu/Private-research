@@ -58,6 +58,62 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (j): Phase 0, pregame records and the model check (admin only)
+
+- The owner approved Phase 0 only: record reliable pregame data and measure
+  the production model. No projection, grade, confidence score or
+  recommendation changed. Phase 1 waits for the owner's review of the results.
+- `prop_snapshots.py` (KV `krazy:propsnap:v1:nba:*`, by US game day):
+  - lines: every NBA PrizePicks line (standard, Goblin, Demon) as events
+    only when it appears, moves or is taken down before its game. Hooked
+    into `line_moves.observe_prizepicks`; no extra PrizePicks calls.
+  - reports: on the moves-tick timer every 10 minutes (claim key). Covers
+    each upcoming game's ESPN injury report from `matchup.matchup` (already
+    cached 10 min), projected starters (newest depth chart before tip,
+    `depth.py`) and confirmed starters if ESPN lists them before tip
+    (`matchup._starters`, new). Versions are written only on change, with
+    ESPN's read time.
+  - runs: the GitHub job's grades (`accept_run`). `run:{day}:{id}` holds
+    the full rows plus inputs for 10 days; `last:{day}` holds each line's
+    newest pregame grade with a trail of changes (270 days).
+  - health: stale or missing reports, failed or missing runs, the job's own
+    problems, and code-version mismatch. `watch_runs` logs a missing run
+    when a game is within 150 minutes and the last run is over 80 minutes old.
+- `tools/prop-snapshot/run.mjs`, run by `.github/workflows/nba-prop-snapshot.yml`:
+  - Schedule: 14 runs a day, 16:17 to 03:17 UTC.
+  - It imports the site's own modules (`loadLines`, `pickLines`,
+    `propGrades`, `gradeLeg` Over and Under, `spreadScores`,
+    `bookChance`, `lineupRole`), fetches the same endpoints a member's
+    Props tab does, and posts every line.
+  - The model version is a hash of the imported modules' source plus the
+    calibration version.
+  - Its only credential is the OIDC token for that workflow
+    (`snapshot_runner.py`). That token opens NBA reads in api/wnba.py, the
+    NBA finder-history in api/board.py and the learning action in
+    api/prediction.py, read-only and never WNBA. It cannot post props-log.
+  - Modes: dispatch `mode=report` prints the recording and the evaluation;
+    `mode=dry` grades without posting.
+- `prop_eval.py`: the evaluation (rules in its docstring).
+  - Two records: "job" (from Nov 19) and "list" (`props_record`, Oct 30
+    onward; there, the Under is 1 - Over).
+  - Lines: one per player-night-stat-kind; DNP void, pushes out; Over and
+    Under scored apart.
+  - Baselines, all from earlier nights only: coin, line only, player
+    average (logistic fit), and DraftKings where it priced the line.
+  - Uncertainty: the bootstrap resamples whole player-games, and also
+    whole nights for the headline differences.
+- Admin endpoint `GET /api/v2-admin?action=nba-prop-eval&days=30[&part=][&fresh=1]`:
+  admin session or the job's token. The evaluation is cached 20 minutes.
+- Dashboard: on the NBA Props tab, a "Model check" fold
+  (`src/ModelCheck.jsx`, lazy chunk), shown only when `useIsAdmin`.
+- Data terms (unresolved, flagged to the owner):
+  - PrizePicks: we use its partner API, already polled by the site.
+  - ESPN: Disney's terms bar automated access without permission, and the
+    site already depends on ESPN.
+  - Odds: DraftKings' public feed.
+  - Phase 0 adds no new PrizePicks calls and essentially no new ESPN
+    calls. It only keeps what the site already reads.
+
 ### Nov 18 (i): NBA prop model audit and plan (nothing built yet)
 
 - The owner: keep PG/SG/SF/PF/C admin-only as reference data; don't touch

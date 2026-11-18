@@ -232,6 +232,14 @@ def observe_prizepicks(league, rows, fetched_at=None, app='prizepicks'):
     if not sport or not enabled():
         return []
     fetched_at = fetched_at or time.time()
+    if sport == 'nba' and app == 'prizepicks':
+        # Every NBA line, Goblins and Demons too, kept with its moves for
+        # measuring the prop model (prop_snapshots.py, Phase 0).
+        try:
+            import prop_snapshots
+            prop_snapshots.observe_lines(rows, fetched_at)
+        except Exception:  # noqa: BLE001 -- the moves stand without the record
+            pass
     entries, rows_by_key, people, stats = {}, {}, {}, {}
     for row in rows or []:
         # A flash sale is a promotion, not the line moving.

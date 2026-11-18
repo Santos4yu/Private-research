@@ -1362,14 +1362,20 @@ class handler(BaseHTTPRequestHandler):
         query = parse_qs(urlparse(self.path).query)
         league = "nba" if query.get("league", ["wnba"])[0].strip().lower() == "nba" else "wnba"
         name = league.upper()
-        if not session_with_live_access(self.headers):
+        # The prop snapshot job (snapshot_runner.py, GitHub's signed token for
+        # that one workflow) reads what a member's Props tab reads: NBA only.
+        runner = False
+        if league == "nba" and self.headers.get("X-GitHub-OIDC"):
+            import snapshot_runner
+            runner = snapshot_runner.verified(self.headers)
+        if not runner and not session_with_live_access(self.headers):
             return _send(self, 401, {"error": f"Sign in to use {name} data.", "authRequired": True})
         # Both leagues are only reachable through the Finder, so its admin
         # switches ("WNBA in the Finder", "NBA in the Finder") are enforced
         # here too -- hiding a league in the UI alone would leave the data one
         # URL away. Admins pass through.
         from site_controls import finder_sport_allowed
-        if not finder_sport_allowed(self.headers, league):
+        if not runner and not finder_sport_allowed(self.headers, league):
             return _send(self, 503, {"error": "This section is temporarily unavailable", "featureDisabled": True})
         resource = query.get("resource", ["board"])[0]
         try:

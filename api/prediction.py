@@ -408,6 +408,18 @@ class handler(BaseHTTPRequestHandler):
             return self._send(503, {"error": "Your pick couldn't be saved right now. Try again in a minute."})
         return self._send(404, {"error": "Unknown predictor action."})
 
+    def _learning(self):
+        # What the results have taught the model (learning.py): the
+        # corrections every page applies, the tiers and the record by grade.
+        import learning
+        try:
+            found = learning.model() or {}
+        except Exception:
+            found = {}
+        return self._send(200, {"version": found.get("version"), "at": found.get("at"), "picks": found.get("picks", 0),
+                                "groups": {name: {"points": group.get("points") or []} for name, group in (found.get("groups") or {}).items()},
+                                "tiers": found.get("tiers") or {}, "parlays": found.get("parlays") or {}, "parlayDays": found.get("parlayDays")})
+
     def do_GET(self):
         from site_controls import allowed
         if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower() == "ping":
@@ -417,6 +429,12 @@ class handler(BaseHTTPRequestHandler):
             return self._bets_list()
         if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower().startswith("game-"):
             return self._game_predictor()
+        if (parse_qs(urlparse(self.path).query).get("action", [""])[0]).strip().lower() == "learning" and self.headers.get("X-GitHub-OIDC"):
+            # The prop snapshot job (snapshot_runner.py) grades with the same
+            # corrections every page applies.
+            import snapshot_runner
+            if snapshot_runner.verified(self.headers):
+                return self._learning()
         if not allowed(self.headers,'research'):
             return self._send(503, {"error":"This section is temporarily unavailable", "featureDisabled":True})
         # Live (uncached) Discord role check -- this is the "real data"
@@ -438,16 +456,7 @@ class handler(BaseHTTPRequestHandler):
             except Exception:
                 return self._send(503, {"error": "Graded slips are unavailable right now."})
         if (qs.get("action", [""])[0]).strip().lower() == "learning":
-            # What the results have taught the model (learning.py): the
-            # corrections every page applies, the tiers and the record by grade.
-            import learning
-            try:
-                found = learning.model() or {}
-            except Exception:
-                found = {}
-            return self._send(200, {"version": found.get("version"), "at": found.get("at"), "picks": found.get("picks", 0),
-                                    "groups": {name: {"points": group.get("points") or []} for name, group in (found.get("groups") or {}).items()},
-                                    "tiers": found.get("tiers") or {}, "parlays": found.get("parlays") or {}, "parlayDays": found.get("parlayDays")})
+            return self._learning()
         if (qs.get("action", [""])[0]).strip().lower() == "player-news":
             # What the news says about a player for a line (player_news.py):
             # ESPN's player news, read by Groq into a few notes.

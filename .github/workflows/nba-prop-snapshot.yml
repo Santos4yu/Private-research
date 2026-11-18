@@ -1,0 +1,58 @@
+# The prop snapshot job (Phase 0 of the NBA prop model work; prop_snapshots.py):
+# before the night's NBA games, grades every line the Props tab lists with the
+# site's own code (tools/prop-snapshot/run.mjs) on the data a member's tab
+# reads, and posts the grades to the site. Its only credential is GitHub's
+# signed token for this workflow on main (snapshot_runner.py). Changes no
+# grade. "report" prints what is recorded and the evaluation instead.
+name: NBA prop snapshot
+
+on:
+  schedule:
+    # UTC. A morning read, two afternoon ones, then every half hour through
+    # the evening's tips (7 pm - 10:30 pm ET).
+    - cron: "17 16,19 * * *"
+    - cron: "47 21 * * *"
+    - cron: "17,47 22,23,0,1,2 * * *"
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "snapshot (grade and post), dry (grade, print, post nothing) or report"
+        default: snapshot
+      days:
+        description: Nights the report reads
+        default: "30"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nba-prop-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            src
+            tools/prop-snapshot
+            package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Grade and post, or report
+        env:
+          MODE: ${{ github.event.inputs.mode || 'snapshot' }}
+          DAYS: ${{ github.event.inputs.days || '30' }}
+        run: |
+          case "$MODE" in
+            report) node tools/prop-snapshot/report.mjs ;;
+            dry) node tools/prop-snapshot/run.mjs --dry ;;
+            *) node tools/prop-snapshot/run.mjs ;;
+          esac

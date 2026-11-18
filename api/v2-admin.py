@@ -46,6 +46,35 @@ from v2.board import admin_auth, store  # noqa: E402
 # error instead.
 
 
+# Phase 0's evaluation (prop_eval.py) reads the season's box scores and every
+# recorded line: kept a while, here and in storage, so the admin's page
+# doesn't redo it on every open.
+_EVAL_SECONDS = 20 * 60
+_eval_memory = {}
+
+
+def _prop_evaluation(days, fresh=False):
+    import prop_eval
+    import prop_snapshots
+    hit = _eval_memory.get(days)
+    if hit and not fresh and time.time() - hit[0] < _EVAL_SECONDS:
+        return hit[1]
+    kept_key = prop_snapshots.key("eval", days)
+    if not fresh:
+        reply = prop_snapshots._pipeline([["GET", kept_key]])
+        kept = prop_snapshots.unpack(reply[0]) if reply and reply[0] else None
+        if kept and time.time() - float(kept.get("generatedAt") or 0) < _EVAL_SECONDS:
+            _eval_memory[days] = (float(kept["generatedAt"]), kept)
+            return kept
+    try:
+        value = prop_eval.evaluate(days)
+    except Exception as error:  # noqa: BLE001 -- the page says so instead of failing
+        return {"error": f"The evaluation could not run ({type(error).__name__}: {str(error)[:160]})"}
+    _eval_memory[days] = (time.time(), value)
+    prop_snapshots._pipeline([["SET", kept_key, prop_snapshots.pack(value), "EX", _EVAL_SECONDS]])
+    return value
+
+
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._send(200, {})
@@ -131,6 +160,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._handle_nba_depth_test(qs)
             if action == "nba-depth-sync":
                 return self._handle_nba_depth_sync()
+            if action == "nba-prop-eval":
+                return self._handle_nba_prop_eval(qs)
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -230,6 +261,8 @@ class handler(BaseHTTPRequestHandler):
         try:
             if action == "nba-depth-import":
                 return self._handle_nba_depth_import(body)
+            if action == "nba-prop-snapshot":
+                return self._handle_nba_prop_snapshot(body)
             if action == "site-settings":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 from site_controls import validate,same_origin,KEY
@@ -587,6 +620,40 @@ class handler(BaseHTTPRequestHandler):
         report = depth.import_snapshots(body)
         return self._send(400 if report.get("error") else 200, report)
 
+    def _handle_nba_prop_snapshot(self, body):
+        """A graded run from the prop snapshot job (Phase 0, prop_snapshots.py):
+        GitHub's signed token for that workflow only (snapshot_runner.py)."""
+        import snapshot_runner
+        if not snapshot_runner.verified(self.headers):
+            return self._send(401, {"error": "Not allowed"})
+        import prop_snapshots
+        report = prop_snapshots.accept_run(body, site_sha=os.getenv("VERCEL_GIT_COMMIT_SHA", ""))
+        status = 200 if not report.get("error") else 503 if report["error"] == "Storage unavailable." else 400
+        return self._send(status, report)
+
+    def _handle_nba_prop_eval(self, qs):
+        """Phase 0's admin report (prop_snapshots.recording, prop_eval.evaluate):
+        what is being recorded and how the production grades have done.
+        An admin session, or the snapshot job's signed token (its report run)."""
+        allowed = admin_auth.is_admin_request(self.headers)
+        if not allowed and self.headers.get("X-GitHub-OIDC"):
+            import snapshot_runner
+            allowed = snapshot_runner.verified(self.headers)
+        if not allowed:
+            return self._send(401, {"error": "Admin session required"})
+        import prop_snapshots
+        part = (qs.get("part") or ["all"])[0]
+        try:
+            days = max(1, min(60, int((qs.get("days") or ["30"])[0])))
+        except ValueError:
+            days = 30
+        out = {}
+        if part in ("all", "recording"):
+            out["recording"] = prop_snapshots.recording()
+        if part in ("all", "evaluation"):
+            out["evaluation"] = _prop_evaluation(days, fresh=(qs.get("fresh") or [""])[0] == "1")
+        return self._send(200, out)
+
     def _handle_moves_tick(self, qs):
         """Check every league's PrizePicks lines now (line_moves.py), which
         records moves and sends saved-pick alerts. Called every few minutes
@@ -637,6 +704,15 @@ class handler(BaseHTTPRequestHandler):
         nba_pool = ThreadPoolExecutor(max_workers=1)
         nba_job = nba_pool.submit(nba_tick)
         nba_pool.shutdown(wait=False)
+        # Phase 0 of the NBA prop model work (prop_snapshots.py): every ten
+        # minutes, tonight's injury reports and starters, and whether the
+        # graded run is overdue. Beside the rest, never in its way.
+        def snapshot_tick():
+            import prop_snapshots
+            return prop_snapshots.tick() if prop_snapshots.enabled() else None
+        snapshot_pool = ThreadPoolExecutor(max_workers=1)
+        snapshot_job = snapshot_pool.submit(snapshot_tick)
+        snapshot_pool.shutdown(wait=False)
         line_moves.safely(line_moves.keep_fresh, set(line_moves.SPORTS), budget=25)
         # Moneylines ride the same timer: prices near the start (closing
         # lines) and settling finished plays (moneyline_model.py).
@@ -685,8 +761,13 @@ class handler(BaseHTTPRequestHandler):
             nba = nba_job.result(timeout=max(0, 55-(time.monotonic()-started)))
         except Exception:  # noqa: BLE001 -- never at the cost of the line checks
             pass
+        snapshots = None
+        try:
+            snapshots = snapshot_job.result(timeout=max(0, 56-(time.monotonic()-started)))
+        except Exception:  # noqa: BLE001 -- never at the cost of the line checks
+            pass
         return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories, "cs2":cs2,
-                                "slips": slips})
+                                "slips": slips, "snapshots": snapshots})
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")

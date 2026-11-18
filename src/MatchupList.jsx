@@ -14,8 +14,8 @@
 // or below his line (how far over or under), L5 / L20 / season beside them
 // when there's room, and a + on every row that puts it on the slip. Still
 // no glows, no gradient text, nothing that pulses (Oct 27).
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {ArrowDown,ArrowRight,ChevronDown,LayoutGrid,LineChart,RefreshCw,Search,SlidersHorizontal,Ticket,X} from 'lucide-react';
+import React,{Suspense,lazy,useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {Activity,ArrowDown,ArrowRight,ChevronDown,LayoutGrid,LineChart,RefreshCw,Search,SlidersHorizontal,Ticket,X} from 'lucide-react';
 import {finderSlipId,windowGames,windowRate} from './unified-finder-data';
 import {Face,Img} from './PickParts';
 import {propGrades} from './props-grade';
@@ -28,6 +28,9 @@ import {CountUp} from './count-up';
 import {useWide} from './use-wide';
 import {inkStyle,useInk} from './use-ink';
 import {pickBuilder} from './pick-builder-client';
+import {useIsAdmin} from './admin-notice';
+// The admin's model check (Phase 0 of the NBA prop model work): its own chunk, never loaded for members.
+const ModelCheck=lazy(()=>import('./ModelCheck'));
 import {SlipToggle,useSlipIds} from './SlipToggle';
 import './nba-matchups.css';
 
@@ -405,6 +408,8 @@ export function MatchupList({config}){
  const pickSpot=(key,team)=>{setStat(key);setGameNow('all');setFacing(team);if(!wide)setFold('');
   requestAnimationFrame(()=>tableRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));};
  const recordSummary=config.key==='nba'?recordOf(record):null;
+ // The admin's model check (ModelCheck.jsx): the NBA's, the admin's only.
+ const admin=useIsAdmin(),checking=admin&&config.key==='nba';
  const counts=useMemo(()=>ofKind.reduce((out,row)=>({...out,[row.marketKey]:(out[row.marketKey]||0)+1}),{}),[ofKind]);
  // The prop beside the list: the one picked, else the list's first. One of
  // his other lines can be picked from the preview even when the list shows
@@ -462,11 +467,13 @@ export function MatchupList({config}){
  if(page)return <Page key={page.id} row={page} lines={rows.filter(item=>item.player===page.player&&item.teamAbbr===page.teamAbbr)} league={league} onBack={closePage}/>;
 
  const filters=<Filters id={`${config.key}-filters`} sort={sort} sorts={sorts} onSort={setSort} kind={kind} onKind={setKind} roles={roles} role={roleShown} onRole={setRole}/>;
- const folds=(spots.teams.length>0||recordSummary)&&<div className="nm-folds">
+ const folds=(spots.teams.length>0||recordSummary||checking)&&<div className="nm-folds">
   {spots.teams.length>0&&<button type="button" className="nm-fold" data-kind="spots" aria-expanded={fold==='spots'} onClick={()=>setFold(fold==='spots'?'':'spots')}>
    <LayoutGrid size={16} aria-hidden="true"/><span><b>Soft spots</b><small>{spots.best?`${spots.best.team} ${SHORT[spots.best.key]} · ${Math.round(spots.best.value)}`:'By defense'}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
   {recordSummary&&<button type="button" className="nm-fold" data-kind="record" aria-expanded={fold==='record'} onClick={()=>setFold(fold==='record'?'':'record')}>
    <LineChart size={16} aria-hidden="true"/><span><b>Track record</b><small>{recordSummary.line}</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
+  {checking&&<button type="button" className="nm-fold" data-kind="check" aria-expanded={fold==='check'} onClick={()=>setFold(fold==='check'?'':'check')}>
+   <Activity size={16} aria-hidden="true"/><span><b>Model check</b><small>Admin</small></span><ChevronDown size={15} aria-hidden="true"/></button>}
  </div>;
  return <section className="nba-matchups" data-league={config.key} data-wide={wide||undefined} data-preview={picking||undefined} aria-labelledby={`${config.key}-matchups-title`}>
   <header className="nm-head">
@@ -497,6 +504,7 @@ export function MatchupList({config}){
    {folds}</>}
   {fold==='spots'&&spots.teams.length>0&&<section className="nm-spots" aria-label="Soft spots by defense"><SoftSpots spots={spots} stat={stat} facing={facing} onPick={pickSpot} wide={wide} league={league}/></section>}
   {fold==='record'&&recordSummary&&<section className="nm-record" aria-label="Track record"><RecordTable record={record} summary={recordSummary}/></section>}
+  {fold==='check'&&checking&&<section className="nm-record" aria-label="Model check"><Suspense fallback={null}><ModelCheck/></Suspense></section>}
   {facing&&<div className="nm-active nm-facing"><button type="button" onClick={()=>setFacing('')} aria-label={`Clear: against ${facing}'s defense`}>
    {league?.teams?.[facing]?.logo&&<img src={league.teams[facing].logo} alt="" width="13" height="13"/>}Against {facing}’s defense<X size={12} aria-hidden="true"/></button></div>}
 
