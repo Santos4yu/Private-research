@@ -194,11 +194,10 @@ def place_games(payload: dict, index) -> dict:
     """(game id, team) -> {athlete id: (spot key or None, how, candidate
     keys)} for every player with minutes, from that team's chart read before
     the game (depth.Index.spots). A tie is settled by ESPN's G / F / C for him
-    in that game when the box score kept it, else his latest. Unplaced:
+    in that game when the box score kept it. Unplaced:
     "tie" (candidates: the tied spots), "not on chart", "stale" or "none"
     (no chart from the three days before the game; candidates: every spot)."""
     from .depth import minute_of
-    latest = {pid: family((entry or [None, ""])[1]) for pid, entry in (payload.get("players") or {}).items()}
     minute = _I["min"]
     placed = {}
     for game in (payload.get("games") or {}).values():
@@ -206,7 +205,7 @@ def place_games(payload: dict, index) -> dict:
         for abbr, side in (game.get("t") or {}).items():
             own = side.get("g") or {}
             pids = [str(row[0]) for row in side.get("p") or [] if row[minute]]
-            labels = {pid: family(own.get(pid)) or latest.get(pid) for pid in pids}
+            labels = {pid: family(own.get(pid)) for pid in pids}
             where, status = index.spots(abbr, tip, labels)
             mapped = {}
             for pid in pids:

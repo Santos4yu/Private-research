@@ -120,6 +120,15 @@ class SpotTests(unittest.TestCase):
         placed = context.place_games(payload, index)[("g1", "BBB")]
         self.assertEqual(placed["103"][:2], ("SG", "label"))
 
+    def test_tie_without_historical_label_stays_unplaced(self):
+        payload = {**self.payload, "players": {"103": ["Tied Wing", "G", None, "BBB"]}}
+        chart = {**CHART, "sg": ["102", "103"]}
+        index = store_with((M("2026-11-10T00:00Z") - 600, "BBB", chart))
+
+        placement = context.place_games(payload, index)[("g1", "BBB")]["103"]
+
+        self.assertEqual(placement, (None, "tie", ("SG", "SF", "PF")))
+
     def test_gfc_tables_are_unchanged_by_the_depth_charts(self):
         plain = context.season_dvp(self.payload)
         dated = context.season_dvp(self.payload, self.index)
