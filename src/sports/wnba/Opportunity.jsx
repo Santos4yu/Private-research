@@ -12,8 +12,15 @@ import {MARKET_STAT, baseMarket, opponentOf} from './wnba-research';
 import {absences, gameRows, playerTiles, seasonsName, trackingTiles} from './opportunity';
 import './opportunity.css';
 
+// A tile's note is a few short facts (" · " between them); each gets its own line.
 function Tile({label, value, unit, note}) {
-  return <div className="bko-tile"><span>{label}</span><strong>{value}{unit && <small>{unit}</small>}</strong>{note && <em>{note}</em>}</div>;
+  const lines = note ? note.split(' · ').filter(Boolean) : [];
+  return <div className="bko-tile"><span>{label}</span><strong>{value}{unit && <small>{unit}</small>}</strong>
+    {lines.length > 0 && <em>{lines.map(line => {
+      // "Last 10: 34" reads as a small label and its number.
+      const [, head, number] = line.match(/^(Last 10|Projected tonight):\s*(.+)$/) || [];
+      return head ? <span key={line} className="bko-then">{head}<b>{number}</b></span> : <span key={line}>{line}</span>;
+    })}</em>}</div>;
 }
 
 export default function Opportunity({row, player, league, matchup, tracking, statLabel}) {
@@ -39,7 +46,7 @@ export default function Opportunity({row, player, league, matchup, tracking, sta
     {tracked.length > 0 && <div className="bko-section"><h3>NBA tracking · {tracking.data.season}</h3><div className="bko-tiles">{tracked.map(tile => <Tile key={tile.key} {...tile}/>)}</div></div>}
     {admin && row.sport === 'nba' && tracking?.error && <p className="bko-wait bko-admin">Admin: {tracking.error}</p>}
     {game.length > 0 && <div className="bko-section"><h3>Tonight&rsquo;s game</h3><ul className="bko-rows">{game.map(item => <li key={item.key}>
-      <span>{item.label}<small>{item.note}</small></span><b>{item.value}</b><i data-tone={item.tone}>{item.words}{item.league && <small>{item.league}</small>}</i></li>)}</ul></div>}
+      <span>{item.label}</span><b>{item.value}</b>{item.note && <small>{item.note}</small>}<i data-tone={item.tone}>{item.words}{item.league && <small>{item.league}</small>}</i></li>)}</ul></div>}
     {out.length > 0 && <div className="bko-section"><h3>Teammates on tonight&rsquo;s injury report</h3><ul className="bko-out">{out.map(item => <li key={item.id || item.name}>
       <p><b>{item.name}</b> <span>{item.status}</span></p>
       {!item.known ? <em>No games together on record.</em> : !item.games ? <em>{row.player} hasn&rsquo;t played without {them} in these games.</em> : <>
@@ -47,6 +54,5 @@ export default function Opportunity({row, player, league, matchup, tracking, sta
         <div className="bko-parts">{[...item.parts, ...(item.stat ? [item.stat] : [])].map(part => <span key={part.label}><small>{part.label}</small><b>{part.without}</b>{part.change && <i data-tone={part.change.startsWith('+') ? 'good' : part.change.startsWith('−') ? 'poor' : 'neutral'}>{part.change}</i>}</span>)}</div>
       </>}
     </li>)}</ul></div>}
-    <p className="bko-foot">{voice('Chances from the box scores: usage is the share of his team\u2019s shots, free-throw trips and turnovers that are his while he\u2019s on the floor; rebound and assist shares are worked out the same way (his minutes over the game\u2019s length). Pace is possessions a game.', row)}{row.sport === 'nba' ? ' NBA tracking is from stats.nba.com.' : ''}</p>
   </Card>;
 }

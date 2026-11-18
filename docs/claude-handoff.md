@@ -58,6 +58,24 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (e): the Opportunity card (the owner: "i hate how this looks")
+
+The Matchup tab's Opportunity card (`src/sports/wnba/Opportunity.jsx`,
+`opportunity.css`) redone in the kit: same numbers, new look.
+
+- His numbers are one strip of stats split by hairlines (flex, so an odd
+  tile stretches instead of leaving an empty slot), big number with its
+  unit beside it (the unit drops to its own line when it doesn't fit), and
+  the note's facts on separate lines with "Last 10" / "Projected tonight"
+  as a small label and its number.
+- Section headings in sentence case, quiet grey (no small uppercase).
+- Tonight's game rows: label and value on one line, the note under the
+  label, the rank tag under the value (on a phone, under the note).
+  Tags in the kit's soft green / red.
+- The footnote under the card (how usage is worked out, "NBA tracking is
+  from stats.nba.com") is gone: no footnotes under cards.
+- Bigger type on computers, like the rest of the player page.
+
 ### Nov 18 (d): tint, bigger type, glance cards (the owner: "everything looks the same")
 
 The owner saw the Finder player page and said "everything looks the same".
