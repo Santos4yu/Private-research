@@ -31,3 +31,5 @@
   --k-radius-sm: 10px;
 }
 body { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+/* The trend chart's gridlines show only where a page asks for them (player-kit.css). */
+.gl-grid { display: none; }

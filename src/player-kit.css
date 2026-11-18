@@ -38,3 +38,69 @@ html:root body .fp2 .fp2-tabs.fp2-tabs-research > button[aria-pressed=true] { ba
 /* The cards under the tabs: flat, a hairline, the title row quieter. */
 html:root body .fp2 :is(.fp2-research, .fp2-his) :is(.mlb-context-card, .mp-card) { border-radius: var(--k-radius) !important; }
 html:root body .fp2 :is(.fp2-research, .fp2-his) :is(.mlb-context-card, .mp-card) > header { background: transparent !important; }
+
+/* ------------------------------------------------------------ the chart
+   Nov 18, the owner with OddsIQ's chart: "this kind of looks the same it
+   doesnt look like the odds iq look". Flat solid bars (green over the line,
+   red under), a number scale with faint gridlines on the left, the result
+   above each bar in its color, the opponent under it, a thin dashed line.
+   Our colors, not theirs. */
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge { --c-hit: #22c55e; --c-miss: #ef4444; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart { position: relative; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge :is(.gamelog-chart > .gamelog-chart-track, .gl-scroller) { padding-left: 26px !important; box-sizing: border-box; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-grid {
+  position: absolute; z-index: 0; top: 12px; left: 0; right: 0; display: block; height: var(--plot-height, 280px); pointer-events: none;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-grid i { position: absolute; left: 22px; right: 0; bottom: calc(var(--tick) * 100%); height: 0; border-top: 1px solid rgba(255, 255, 255, .06); }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-grid b {
+  position: absolute; right: calc(100% + 6px); top: 0; transform: translateY(-50%); color: var(--k-faint); font: 500 10.5px/1 var(--font-sans); white-space: nowrap;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track { position: relative; z-index: 1; }
+
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar {
+  border-radius: 3px 3px 0 0 !important; background: var(--c-hit) !important; box-shadow: none !important; filter: none;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar::before { display: none !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under { background: var(--c-miss) !important; box-shadow: none !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge :is(.gl-bar-shell:hover, .gl-bar-shell:focus-visible) .gl-bar { transform: none; filter: brightness(1.15); }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-val {
+  bottom: calc(100% + 5px) !important; min-width: 0; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important;
+  color: var(--k-hit-text) !important; font: 700 12px/1 var(--font-sans) !important;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar.gl-bar-under .gl-val { color: var(--k-miss-text) !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-next-bar { border: 1.5px dashed rgba(255, 255, 255, .18) !important; border-radius: 3px 3px 0 0 !important; background: none !important; }
+
+/* Under each bar: the opponent, as text (the logos and dates go; a tap on a bar still shows the game). */
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge :is(.gl-logo, .gl-date) { display: none !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-opp {
+  display: block !important; max-width: 100%; margin-top: 8px; overflow: hidden; color: var(--k-faint); font: 600 10.5px/1 var(--font-sans);
+  letter-spacing: .02em; text-align: center; text-overflow: clip; text-transform: uppercase; white-space: nowrap;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-chart-track[data-compact="true"] .gl-opp { display: none !important; }
+
+/* The line: thin and dashed, its number small on the right. */
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker::before {
+  height: 1px !important; margin-top: 0; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .45) 0 5px, transparent 5px 9px) !important;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge .gl-line-marker .gl-line-tag {
+  min-width: 34px; padding: 3px 7px !important; border-radius: 6px !important; box-shadow: none !important; font: 700 11.5px/1.1 var(--font-sans) !important;
+}
+
+/* The windows (L5, L10 ...): small cells side by side, the picked one raised. */
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs { gap: 6px !important; padding: 0 !important; background: none !important; box-shadow: none !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button {
+  border: 0 !important; border-radius: 10px !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button.active { background: var(--k-high) !important; box-shadow: inset 0 0 0 1px var(--k-line-strong) !important; }
+
+/* The stats across the top: plain words with their line, a white underline under the picked one. */
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs { background: none !important; box-shadow: inset 0 -1px 0 var(--k-line) !important; border-radius: 0 !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button { background: none !important; box-shadow: none !important; border-radius: 0 !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button b { color: var(--k-faint) !important; font: 600 13px/1 var(--font-sans) !important; letter-spacing: .02em; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button small { padding: 0 !important; border: 0 !important; background: none !important; color: var(--k-faint) !important; font: 500 12px/1 var(--font-sans) !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { box-shadow: inset 0 -2px 0 #fff !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active b { color: var(--k-text) !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active small { color: var(--k-muted) !important; }
+
+/* The banner: a faint team tint, not a bright glow. */
+html:root body .fp2 .fp2-glow img { opacity: .22; }

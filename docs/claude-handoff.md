@@ -67,6 +67,15 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   disliked the tabs "separated 1by1" as tiles). On a phone the bar scrolls
   sideways and the next tab peeks in. The chart itself is unchanged (the
   owner: the chart page "is fine normal").
+- The chart (the owner, with OddsIQ's: "this kind of looks the same it
+  doesnt look like the odds iq look"): flat solid bars (green `#22c55e`
+  over the line, red `#ef4444` under, no gradient, glow or two-tone cut),
+  the result above each bar in its color, gridlines with numbers at an
+  even step (app.js `renderGameLogChart` adds `.gl-grid`; hidden outside
+  `.fp2` by kit.css), the opponent as text under each bar (logos and dates
+  hidden on this page; a tap on a bar still opens the game), a thin dashed
+  line, window cells side by side, the stats as underline tabs, a faint
+  banner tint. All in `player-kit.css`.
 - Next: Props, then Games, the slip tools and the rest.
 
 ### Nov 18 (b): redesign step 2, the Finder list

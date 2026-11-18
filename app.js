@@ -4174,6 +4174,16 @@ function renderGameLogChart() {
   axis.setAttribute("aria-hidden", "true");
   axis.innerHTML = `<span>${Number(max).toFixed(max % 1 ? 1 : 0)}</span><span>${Number(max / 2).toFixed(max % 1 ? 1 : 0)}</span><span>0</span>`;
   holder.appendChild(axis);
+  // Gridlines with their numbers, at an even step (shown on the Finder's
+  // player page, src/player-kit.css; hidden elsewhere).
+  const step = [1, 2, 5, 10, 20, 50, 100, 200].find((size) => max / size <= 5) || Math.ceil(max / 5);
+  const grid = document.createElement("div");
+  grid.className = "gl-grid";
+  grid.setAttribute("aria-hidden", "true");
+  let ticks = "";
+  for (let value = 0; value <= max + 1e-9; value += step) ticks += `<i style="--tick:${(value / max).toFixed(4)}"><b>${trendNumber(value)}</b></i>`;
+  grid.innerHTML = ticks;
+  holder.appendChild(grid);
   // Same games, new line: start the darker parts and the line where they
   // were and let them glide (trend-edge.css transitions) to where they are now.
   const bars = [...track.querySelectorAll(".gl-col:not(.gl-next) .gl-bar")];
