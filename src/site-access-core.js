@@ -58,7 +58,7 @@ export function canUsePropsLeague(policy,league){
 }
 // Research inside the pages (site_controls RESEARCH_SECTIONS), one switch
 // each; hidden from everyone but admins when off. New ones start off.
-export const RESEARCH_SECTIONS=[['news','Player news on the Finder player page']];
+export const RESEARCH_SECTIONS=[['news','Player news on the Finder player page'],['dvp5','NBA Defense vs position: PG / SG / SF / PF / C (depth charts)']];
 export function canUseResearch(policy,key){
  return policy.isAdmin||!(policy.disabledResearch||[]).includes(key);
 }

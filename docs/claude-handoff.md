@@ -58,6 +58,42 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (l): review of three Codex commits pushed to main (owner: "check it all and do any fixes")
+
+- a1b5c81 (snapshot capture and reporting): kept. It fixed real bugs:
+  - The job imports React through shared modules: the workflow now runs
+    `npm ci --omit=dev` (my first manual run had failed on it).
+  - Storage batches stay under the RPC's limits, and run plus latest
+    grades are written together under an owner-checked lock.
+  - Coverage counts were added, plus ESPN event IDs for void vs missing
+    results, and a refusal to print the report in a public repo's logs.
+  - Its note says "keep local pending approval", but it was pushed and
+    is live.
+- de491a8 (no fallback to a player's latest G/F/C for depth-chart ties):
+  kept. It avoids later information in past games.
+- 4c35411 made PG/SG/SF/PF/C every NBA member's default and removed the
+  dvp5 switch, against the owner's standing rule (admin-only until they
+  approve). Fixed:
+  - The switch is back: `_five` is "game-position" only when
+    `research_allowed(headers, "dvp5")`.
+  - Codex's projected-spot mode is kept behind it, with the box score's
+    G/F/C beside the spots (`groups`) for the admin.
+  - Members see G/F/C exactly as before.
+  - To make it public, the owner switches dvp5 on (Settings → Research).
+- First successful live job run (manual, 21:22 UTC):
+  - 3,162 lines listed, 3,161 graded (838 standard, both sides) and kept.
+  - DraftKings prices were empty that run.
+  - The site capped a run at 3,000 lines, so 161 were dropped. Fixed:
+    MAX_ROWS is now 8,000, and any overflow counts as rejected.
+  - Storage: about 210 KB per night's `last` and about 100 KB per full
+    run copy. Run copies are now kept 3 days (was 10); the trail holds
+    16 points.
+- No scheduled run had fired by 21:20 UTC (only manual runs). Watch the
+  :17 and :47 runs.
+- The repository is now public (it was private at ~16:20 UTC). The owner
+  was told; it isn't ours to change. GitHub Actions minutes are free for
+  public repos.
+
 ### Nov 18 (k): Model Check capture audit
 
 - At the audit, GitHub listed one failed manual snapshot run and no scheduled runs. The runner imports React through shared site modules, but the workflow omitted dependency installation. Install from the lockfile before running.

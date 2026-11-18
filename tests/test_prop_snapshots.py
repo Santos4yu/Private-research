@@ -261,6 +261,13 @@ class RunTests(unittest.TestCase):
         status = json.loads(self.kv.data[snaps.key('status')]['run'])
         self.assertEqual((status['at'], status['rows']), (int(NOW + 3600), 1))
 
+    def test_lines_past_the_limit_are_counted_not_dropped_silently(self):
+        rows = [graded(pp=str(n), line=10.5 + n) for n in range(5)]
+        with patch.object(snaps, 'MAX_ROWS', 3):
+            report = snaps.accept_run({'sha': 'x', 'rows': rows}, NOW, self.kv)
+        self.assertEqual((report['kept'], report['rejected']), (3, 2))
+        self.assertIn('run-rejected', {json.loads(item)['kind'] for item in self.kv.data[snaps.key('health')]})
+
     def test_a_failed_run_is_logged_and_never_counts_as_a_run(self):
         report = snaps.accept_run({'sha': 'x', 'problems': ['The run failed: board 503'], 'rows': []}, NOW, self.kv)
         self.assertEqual(report['kept'], 0)

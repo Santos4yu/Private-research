@@ -263,7 +263,6 @@ def _dvp(league_name, season, position, player_id, view="total", team="", five=F
     mine = context.primary_position(players.get(str(player_id)))
     positions = table["positions"]
     if five:
-        positions = list(context.SPOT_KEYS)
         game_index = index if season == current else depth.index_for(current)
         tip = depth.minute_of(tip_at)
         mine = None
@@ -303,6 +302,9 @@ def _dvp(league_name, season, position, player_id, view="total", team="", five=F
              "audit": memory["audit"]}
     if index:
         found.update({
+            # The box score's G / F / C beside the depth-chart spots, so the
+            # admin can set what members see against the spots.
+            "groups": [["box", ["G", "F", "C"]], ["depth", list(context.SPOT_KEYS)]],
             "coverage": {abbr: (table["coverage"] or {}).get(abbr, {}).get(chosen) for abbr in rows} if chosen in context.SPOT_KEYS else None,
             "depth": {"status": index.status(), "placement": table["placement"], "flagShare": context.FLAG_SHARE,
                       "staleHours": depth.STALE_MINUTES // 60, "playerSpot": mine},
@@ -1454,8 +1456,13 @@ class handler(BaseHTTPRequestHandler):
                 import nba_matchups
                 return _send(self, 200, nba_matchups.play_types(who, team, opponent))
             if resource == "dvp":
-                # Set on the server and include in the cache key.
-                query["_five"] = ["game-position" if league == "nba" else "0"]
+                # PG / SG / SF / PF / C (depth charts, the player's projected
+                # spot for the game) only for whoever the admin's switch lets
+                # see them (site_controls "dvp5"; the owner, Nov 18: admin-only
+                # until approved); set here, over anything the request says,
+                # and part of the kept answer's key.
+                from site_controls import research_allowed
+                query["_five"] = ["game-position" if league == "nba" and research_allowed(self.headers, "dvp5") else "0"]
             if resource in ("matchup", "league-context", "player-context", "game-notes", "scout", "dvp"):
                 return _kept_context(self, resource, query, league)
             if resource == "props-record":
@@ -1546,7 +1553,8 @@ class handler(BaseHTTPRequestHandler):
                 if not current - DVP_SEASONS < season <= current:
                     return _send(self, 400, {"error": "A valid season is required."})
                 found = _dvp(league_name, season, arg("position").upper(), arg("playerId"), arg("view"), team_code(arg("team")),
-                             five=league_name == "nba", player_team=team_code(arg("playerTeam")), tip_at=arg("tipAt"))
+                             five=league_name == "nba" and arg("_five") == "game-position",
+                             player_team=team_code(arg("playerTeam")), tip_at=arg("tipAt"))
                 if not found:
                     return _send(self, 404, {"error": "That season isn't stored."})
                 return _send(self, 200, found)

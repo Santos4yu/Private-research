@@ -81,7 +81,9 @@ const strength={good:'Weak',fair:'Average',poor:'Tough'};
 // one at a time, a game where nobody at the position played shown as left
 // out. Admins also see the box scores checked against the final scores.
 const POSITION_NAMES={ALL:'All',G:'G',F:'F',C:'C',PG:'PG',SG:'SG',SF:'SF',PF:'PF',DC:'C'};
-// The NBA depth chart's center is keyed DC to distinguish it from the box-score C.
+// The NBA's depth-chart spots (depth.py) sit beside the box score's G / F / C
+// when the admin's switch shows them; their C is keyed DC so the two never mix.
+const POSITION_GROUPS={box:'Box score',depth:'Depth chart'};
 const SPOT_KEYS=['PG','SG','SF','PF','DC'];
 function readTime(iso){
  const date=iso?new Date(iso):null;
@@ -135,12 +137,16 @@ function DefenseVsPosition({row,stat}){
  const short=([key,size])=>size>0&&finite(entry?.g?.[key])&&entry.g[key]<size;
  const audit=data.audit;
  const spot=SPOT_KEYS.includes(data.position);
+ // The depth-chart spots, where the admin's switch shows them: the card
+ // opens on the player's projected spot for this game.
+ const five=nba&&Boolean(data.depth);
  return <Card title="Defense vs position" note={[seasonName(data.season),count,through&&`thru ${through}`].filter(Boolean).join(' · ')} icon={Shield} className="wnba-dvp">
   <div className="wnba-dvp-menus" data-loading={state.loading||undefined}>
    <FinderDropdown aria-label="Season" value={data.season} onChange={e=>{setSeason(Number(e.target.value));setOpen(null);}}>{data.seasons.map(year=><option key={year} value={year}>{`${seasonName(year)} Season`}</option>)}</FinderDropdown>
-   <FinderDropdown aria-label="Position" value={nba?(position||'auto'):data.position} onChange={e=>{setPosition(e.target.value==='auto'?null:e.target.value);setOpen(null);}}>
-    {nba&&<option value="auto">{data.playerPosition?`Projected ${POSITION_NAMES[data.playerPosition]||data.playerPosition}`:'Position unavailable'}</option>}
-    {data.positions.map(key=><option key={key} value={key}>{POSITION_NAMES[key]||key}</option>)}
+   <FinderDropdown aria-label="Position" value={five?(position||'auto'):data.position} onChange={e=>{setPosition(e.target.value==='auto'?null:e.target.value);setOpen(null);}}>
+    {five&&<option value="auto">{data.playerPosition?`Projected ${POSITION_NAMES[data.playerPosition]||data.playerPosition}`:'Position unavailable'}</option>}
+    {data.positions.map(key=>{const group=(data.groups||[]).find(([,keys])=>keys.includes(key))?.[0];
+     return <option key={key} value={key} data-group={group?POSITION_GROUPS[group]:undefined} data-display={key==='DC'?'C · depth chart':undefined}>{POSITION_NAMES[key]||key}</option>;})}
    </FinderDropdown>
    <span className="wnba-dvp-vs" aria-hidden="true">vs</span>
    <FinderDropdownAssets.Provider value={{Defense:logos}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>{setTeam(e.target.value);setOpen(null);}}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider>
@@ -156,7 +162,7 @@ function DefenseVsPosition({row,stat}){
     <td className="wnba-dvp-matchup"><span className="wnba-strength" data-tone={tone(rank)}>{strength[tone(rank)]||'—'}</span></td></tr>
     {isOpen&&<tr className="wnba-dvp-log-row"><td colSpan={windows.length+3}><DefenseGames log={data.log} index={statIndex[key]} position={POSITION_NAMES[data.position]||data.position} logos={logos}/></td></tr>}
    </React.Fragment>;})}
-  </tbody></table></div>:<Empty>{nba&&!data.position?'No projected position for this game. Select a position to view the matchup.':`No games recorded for this defense in ${seasonName(data.season)}.`}</Empty>}
+  </tbody></table></div>:<Empty>{five&&!data.position?'No projected position for this game. Select a position to view the matchup.':`No games recorded for this defense in ${seasonName(data.season)}.`}</Empty>}
   {entry&&rows.length<order.length&&<button type="button" className="wnba-dvp-more" onClick={()=>setAll(true)}>Show all {order.length} stats</button>}
   {entry&&all&&leading.length>=2&&leading.length<order.length&&<button type="button" className="wnba-dvp-more" onClick={()=>{setAll(false);setOpen(null);}}>Show the line's stats only</button>}
   <div className="wnba-scale" aria-hidden="true"><span>Tougher</span><i/><span>Weaker</span></div>

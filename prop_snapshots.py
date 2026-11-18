@@ -43,7 +43,9 @@ from uuid import uuid4
 
 PREFIX = 'krazy:propsnap:v1:nba'
 KEEP_SECONDS = 270 * 86400
-RUN_KEEP_SECONDS = 10 * 86400
+# Each run's full rows (the inputs as read, every line's grade): a few days,
+# for checking a run; each line's changes stay in `last` (KEEP_SECONDS).
+RUN_KEEP_SECONDS = 3 * 86400
 # The reports are checked this often (the timer ticks every ~90 seconds).
 CHECK_SECONDS = 10 * 60
 # Games starting within this are checked.
@@ -60,9 +62,10 @@ PULL_SHARE = 0.3
 # A line gone this close to its start is its game starting, not a pull.
 PULL_BEFORE_START = 10 * 60
 HEALTH_KEEP = 500
-MAX_ROWS = 3000
+# A full NBA night lists over 3,000 lines (Goblins and Demons included).
+MAX_ROWS = 8000
 MAX_BODY = 3_500_000
-TRAIL_KEEP = 30
+TRAIL_KEEP = 16
 MODIFIERS = ('standard', 'goblin', 'demon')
 TIERS = ('elite', 'strong', 'lean', 'risky', 'fade')
 # The props the list grades (props_record.MARKETS).
@@ -578,6 +581,8 @@ def accept_run(body, now=None, pipeline=None, site_sha=None):
     if not isinstance(body, dict) or not isinstance(body.get('rows'), list):
         return {'error': 'A graded run is required.'}
     rows, rejected, late = [], 0, 0
+    # Lines past MAX_ROWS are counted as rejected, never dropped silently.
+    rejected += max(0, len(body['rows']) - MAX_ROWS)
     for raw in body['rows'][:MAX_ROWS]:
         row = _clean_row(raw)
         if row is None:

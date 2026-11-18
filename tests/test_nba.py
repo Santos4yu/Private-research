@@ -513,11 +513,14 @@ class DefenseBySeasonTests(unittest.TestCase):
                 patch.object(api, "_kept_context", side_effect=lambda handler, resource, query, league: handler._context(resource, query, league)), \
                 patch.object(api, "_dvp", side_effect=lambda *args, **kw: asked.append((args, kw)) or {"ok": True}):
             request.do_GET()
-            # The server selects the NBA position mode regardless of the query flag.
+            # The depth-chart spots follow the admin's switch, never the request:
+            # a viewer adding _five=1 or _five=game-position doesn't get them.
             request.path += "&_five=1"
             request.do_GET()
-        self.assertEqual(sent, [(200, {"ok": True})] * 2)
-        self.assertEqual(asked, [(("nba", 2027, "G", "1", "per36", "BBB"), {"five": True, "player_team": "", "tip_at": ""})] * 2)
+            request.path += "&_five=game-position"
+            request.do_GET()
+        self.assertEqual(sent, [(200, {"ok": True})] * 3)
+        self.assertEqual(asked, [(("nba", 2027, "G", "1", "per36", "BBB"), {"five": False, "player_team": "", "tip_at": ""})] * 3)
 
     def test_the_request_passes_the_players_team_and_tip(self):
         request = object.__new__(api.handler)
@@ -553,9 +556,12 @@ class DefenseBySeasonTests(unittest.TestCase):
         with patch.object(depth, "index_for", return_value=depth.Index(value)), patch.object(api.time, "time", return_value=now * 60):
             auto = self.ask("", "50", five=True, player_team="BBB", tip_at="2026-10-26T00:00Z", payload=payload)
             manual = self.ask("SG", "50", five=True, player_team="BBB", tip_at="2026-10-26T00:00Z", payload=payload)
-            unknown = self.ask("F", "50", five=True, player_team="BBB", payload=payload)
-        self.assertEqual(auto["positions"], ["PG", "SG", "SF", "PF", "DC"])
+            unknown = self.ask("", "50", five=True, player_team="BBB", payload=payload)
+        # The spots beside the box score's G / F / C, for the admin to compare.
+        self.assertTrue({"G", "F", "C", "PG", "SG", "SF", "PF", "DC"} <= set(auto["positions"]))
+        self.assertEqual(auto["groups"][1], ["depth", ["PG", "SG", "SF", "PF", "DC"]])
         self.assertEqual((auto["position"], auto["playerPosition"]), ("SF", "SF"))
         self.assertEqual(manual["dvp"]["AAA"]["stats"]["pts"]["szn"][0], 14.0)
+        # Without the game's tip there is no projected spot: never a fallback to his box-score F.
         self.assertIsNone(unknown["position"])
         self.assertIsNone(unknown["dvp"]["AAA"])
