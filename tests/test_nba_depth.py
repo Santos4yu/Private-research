@@ -155,9 +155,26 @@ class BacktestTests(unittest.TestCase):
         }
         with patch.object(dvp_backtest, "MIN_PLAYER_GAMES", 1), patch.object(dvp_backtest, "MIN_DEFENSE_GAMES", 1), \
              patch.object(dvp_backtest, "FACTOR_GAMES", 0):
-            scored, _ = dvp_backtest.walk({"games": games, "players": players}, index)
-        pts = [entry for entry in scored if entry[2] == "pts"]
+            scored, _, checks = dvp_backtest.walk({"games": games, "players": players}, index)
+        pts = [entry for entry in scored if entry["stat"] == "pts"]
         self.assertEqual(len(pts), 1)
-        day, pid, _, actual, average, f_gfc, f_five, *_ = pts[0]
+        entry = pts[0]
         # AAA allowed 10 a player before day 2; the league 20: factor 0.5 -- day 2's 50 isn't in it.
-        self.assertEqual((pid, actual, average, f_gfc, f_five), ("902", 50, 30, 0.5, 0.5))
+        self.assertEqual((entry["pid"], entry["actual"], entry["average"], entry["gfc"], entry["five"]), ("902", 50, 30, 0.5, 0.5))
+        self.assertEqual(dvp_backtest._predict(entry, "combined"), 15.0)
+        audit = checks["audit"]
+        self.assertEqual((audit["stateFromSameOrLaterDay"], audit["chartReadAfterTip"], audit.get("playerHistoryFromSameOrLaterDay", 0)), (0, 0, 0))
+
+    def test_intervals_and_line_calls(self):
+        from backend.sports.wnba import dvp_backtest
+        self.assertEqual(dvp_backtest._wilson(0, 0), None)
+        rate, low, high = dvp_backtest._wilson(55, 100)
+        self.assertTrue(low < 55 < high and high - low > 15)  # 100 calls: an interval near +/- 10 points
+        self.assertEqual(dvp_backtest._mcnemar(0, 0), 1.0)
+        scored = [{"day": "2026-11-10", "pid": "1", "stat": "pts", "actual": 30, "average": 20, "gfc": 1.1, "five": 0.9}]
+        box = {("1", "2026-11-10"): row("1", 30, 30)}
+        reports = {"2026-11-10": {"1|player_points|20.5": [70, 0.6, "lean", "standard"], "1|player_points|21.5": [70, 0.6, "lean", "goblin"],
+                                  "1|player_points|30": [70, 0.6, "lean", "standard"]}}
+        calls, left = dvp_backtest.line_calls(scored, box, reports)
+        self.assertEqual(left, {"goblinOrDemon": 1, "push": 1})
+        self.assertEqual(calls[0]["calls"], {"average": False, "gfc": True, "five": False, "combined": False})
