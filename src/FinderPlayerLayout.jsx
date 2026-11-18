@@ -21,6 +21,7 @@ import {ChartColumn,Crosshair,HeartPulse,LayoutGrid,ListOrdered,Newspaper,Shield
 import {FinderPlayerBanner} from './FinderPlayerBanner';
 import './finder-player-v2.css';
 import './finder-player-app.css';
+import './player-kit.css';
 
 // Each research tab's icon, for the tiles on a computer (Nov 9, the owner
 // with PickFinder's player page: "i want this layout").

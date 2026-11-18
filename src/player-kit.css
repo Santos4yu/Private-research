@@ -1,0 +1,40 @@
+/* The Finder's player page in the redesign (Nov 18, kit.css). Flat panels
+   on the kit's ground (no sheen, no drop shadows, hairlines only), and the
+   research tabs as one bar instead of separate tiles (the owner: "the tabs
+   are like separated 1by1"). Imported last in FinderPlayerLayout.jsx. */
+html:root body .fp2 {
+  --fp2-panel: var(--k-panel);
+  --fp2-line: var(--k-line);
+  --fp2-well: var(--k-bg);
+  --fp2-sheen: linear-gradient(transparent, transparent);
+  --fp2-lit: linear-gradient(var(--k-high), var(--k-high));
+  --fp2-depth: 0 0 0 transparent;
+}
+
+/* The research tabs: one bar, the picked one raised inside it. */
+html:root body .fp2 .fp2-tabs.fp2-tabs-research {
+  display: flex !important; flex-wrap: nowrap; gap: 2px; padding: 4px !important; overflow-x: auto; scrollbar-width: none;
+  border: 0 !important; border-radius: 14px; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important;
+}
+html:root body .fp2 .fp2-tabs.fp2-tabs-research::-webkit-scrollbar { display: none; }
+html:root body .fp2 .fp2-tabs.fp2-tabs-research > button {
+  display: flex !important; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  min-width: 0; min-height: 0 !important; height: 54px; margin: 0; padding: 0 4px !important; border: 0 !important; border-radius: 10px !important;
+  background: transparent !important; box-shadow: none !important; color: var(--k-faint); font: 500 11px/1 var(--font-sans);
+  transition: background-color .15s ease, color .15s ease;
+}
+html:root body .fp2 .fp2-tabs.fp2-tabs-research > button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html:root body .fp2 .fp2-tabs.fp2-tabs-research > button svg { width: 17px; height: 17px; }
+html:root body .fp2 .fp2-tabs.fp2-tabs-research > button::after { content: none !important; }
+html:root body .fp2 .fp2-tabs.fp2-tabs-research > button:hover { color: var(--k-muted); }
+html:root body .fp2 .fp2-tabs.fp2-tabs-research > button[aria-pressed=true] { background: var(--k-high) !important; color: var(--k-text); }
+
+/* A phone: the bar scrolls sideways, each tab wide enough to read. */
+@media (max-width: 1050px) {
+  html:root body .fp2 .fp2-tabs.fp2-tabs-research { margin: 18px 0 12px; }
+  html:root body .fp2 .fp2-tabs.fp2-tabs-research > button { flex: 0 0 auto; min-width: 74px; padding: 0 8px !important; }
+}
+
+/* The cards under the tabs: flat, a hairline, the title row quieter. */
+html:root body .fp2 :is(.fp2-research, .fp2-his) :is(.mlb-context-card, .mp-card) { border-radius: var(--k-radius) !important; }
+html:root body .fp2 :is(.fp2-research, .fp2-his) :is(.mlb-context-card, .mp-card) > header { background: transparent !important; }

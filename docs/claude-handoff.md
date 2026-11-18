@@ -58,6 +58,17 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (c): redesign step 3, the Finder player page
+
+- `src/player-kit.css` (imported last in FinderPlayerLayout.jsx): the
+  page's `--fp2-*` colors point at the kit (flat panels, no sheen or drop
+  shadows), and the research tabs (`.fp2-tabs-research`) are one joined bar
+  with the picked tab raised inside it, on phones and computers (the owner
+  disliked the tabs "separated 1by1" as tiles). On a phone the bar scrolls
+  sideways and the next tab peeks in. The chart itself is unchanged (the
+  owner: the chart page "is fine normal").
+- Next: Props, then Games, the slip tools and the rest.
+
 ### Nov 18 (b): redesign step 2, the Finder list
 
 - Phones: each prop is a card (`PhoneCard` in `UnifiedFinder.jsx`, the
