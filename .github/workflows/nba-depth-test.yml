@@ -1,0 +1,167 @@
+# The private test of ESPN's live NBA depth charts (Nov 18; see
+# backend/sports/wnba/depth_probe.py). Asks the site -- with GitHub's signed
+# token for this workflow, no stored secret (github_oidc.py) -- to fetch every
+# team's chart from Vercel and set it against our stored box scores, then sets
+# SportsDataverse's dated charts against the same box scores. Prints the
+# results. Nothing is stored except the site's own test result. Run by hand.
+name: NBA depth chart test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the Parquet reader
+        run: pip install --quiet pyarrow pandas requests
+      - name: Ask the site, then check SportsDataverse
+        shell: python
+        run: |
+          import io, json, os, sys
+          from collections import Counter
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import pandas as pd
+          import requests
+
+          SITE = "https://aceprops.xyz/api/v2-admin?action=nba-depth-test"
+          SDV = "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_depthcharts"
+          SLOTS = ("pg", "sg", "sf", "pf", "c")
+          FAMILY = {"pg": "G", "sg": "G", "sf": "F", "pf": "F", "c": "C"}
+
+          def token():
+              url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=aceprops-nba-depth-test"
+              response = requests.get(url, headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]}, timeout=20)
+              response.raise_for_status()
+              return response.json()["value"]
+
+          def ask(part):
+              response = requests.get(f"{SITE}&part={part}", timeout=120,
+                                      headers={"X-GitHub-OIDC": token(), "User-Agent": "PropScout depth-chart test (GitHub Actions)"})
+              print(f"[{part}] HTTP {response.status_code}, {len(response.content):,} bytes, {response.elapsed.total_seconds():.1f}s")
+              if response.status_code != 200:
+                  print(response.text[:600])
+                  sys.exit(1)
+              return response.json()
+
+          def place(listings, label):
+              top = min(rank for rank, _ in listings)
+              tops = sorted({slot for rank, slot in listings if rank == top}, key=SLOTS.index)
+              if len(tops) == 1:
+                  return tops[0], "listed"
+              fit = [slot for slot in tops if FAMILY[slot] == label]
+              return (fit[0], "label") if len(fit) == 1 else (None, "tie")
+
+          def pct(part, whole):
+              return f"{100 * part / whole:.2f}%" if whole else "-"
+
+          # 1. ESPN's live charts, fetched by Vercel.
+          run = ask("run")
+          print(json.dumps({key: run.get(key) for key in ("at", "trigger", "season", "ok", "teams", "teamsComplete", "sources", "espnSeconds", "seconds", "stored")}, indent=1))
+          for row in run["teamRows"]:
+              first = row["tried"][0]
+              print(f'{row["team"]:>4} {str(row["source"]):>4} complete={row["complete"]} slots={row["slots"]} players={row["players"]} '
+                    f'multiSpot={row["multiSpot"]} placed={row["placed"]} site={first.get("status")} {first.get("ms")}ms')
+              print("      starters:", " | ".join(f"{slot.upper()}: {name}" for slot, name in row["starters"].items()))
+          print("first team's attempts:", json.dumps(run["teamRows"][0]["tried"]))
+          print(json.dumps({"recent": run["recent"], "seasonIds": run["seasonIds"]}, indent=1))
+
+          # 2. Our stored box scores against SportsDataverse's dated charts.
+          ours = ask("games")
+          stamp = requests.get(f"{SDV}/timestamp.json", timeout=30).json()
+          blob = requests.get(f"{SDV}/depthcharts_{ours['season']}.parquet", timeout=60)
+          blob.raise_for_status()
+          depth = pd.read_parquet(io.BytesIO(blob.content))
+          depth["as_of_date"] = pd.to_datetime(depth["as_of_date"]).dt.date
+          print(f"SportsDataverse: {len(blob.content):,} bytes, updated {stamp.get('last_updated')}, "
+                f"{depth.as_of_date.nunique()} snapshots {depth.as_of_date.min()} to {depth.as_of_date.max()}, {depth.team_id.nunique()} teams")
+          charts = {}
+          for (team, day), group in depth.groupby(["team_id", "as_of_date"]):
+              entry = {}
+              for aid, rank, slot in zip(group.athlete_id, group.depth_rank, group.position_slot):
+                  entry.setdefault(str(int(aid)), []).append((int(rank), str(slot).lower()))
+              charts.setdefault(int(team), {})[day] = entry
+          team_ids = {abbr: int(tid) for abbr, tid in ours["teams"].items() if tid}
+          labels = ours["labels"]
+          eastern = ZoneInfo("America/New_York")
+          tally, ages, months, missing = Counter(), Counter(), {}, Counter()
+          for game_id, date, abbr, aid, minutes in ours["rows"]:
+              day = datetime.fromisoformat(str(date).replace("Z", "+00:00")).astimezone(eastern).date()
+              team_charts = charts.get(team_ids.get(abbr, -1), {})
+              earlier = [d for d in team_charts if d < day]   # never the game's own day or later
+              if not earlier:
+                  how, spot = "no chart before the game", None
+              else:
+                  snap = max(earlier)
+                  ages[(day - snap).days] += 1
+                  listings = team_charts[snap].get(aid)
+                  spot, how = place(listings, labels.get(aid)) if listings else (None, "not on chart")
+              tally[("games", how)] += 1
+              tally[("minutes", how)] += minutes
+              tally[("games", "all")] += 1
+              tally[("minutes", "all")] += minutes
+              if spot:
+                  tally[("spot", spot)] += minutes
+              month = months.setdefault(str(day)[:7], Counter())
+              month["minutes"] += minutes
+              month["placed"] += minutes if spot else 0
+              if how == "not on chart":
+                  missing[(aid, abbr)] += minutes
+          print(f"our played rows: {tally[('games', 'all')]:,} player-games, {tally[('minutes', 'all')]:,.0f} minutes")
+          for how in ("listed", "label", "tie", "not on chart", "no chart before the game"):
+              print(f"  {how:>26}: {pct(tally[('games', how)], tally[('games', 'all')]):>8} of player-games, {pct(tally[('minutes', how)], tally[('minutes', 'all')]):>8} of minutes")
+          print("  chart age (days before game):", dict(sorted(ages.items())))
+          placed = sum(tally[("spot", slot)] for slot in SLOTS)
+          print("  placed minutes by spot:", {slot.upper(): pct(tally[("spot", slot)], placed) for slot in SLOTS})
+          print("  placed share by month:", {month: pct(c["placed"], c["minutes"]) for month, c in sorted(months.items())})
+          print("  not on chart (top):", [(aid, abbr, round(m)) for (aid, abbr), m in missing.most_common(10)])
+
+          # 3. SportsDataverse's newest snapshot against ESPN live (Vercel's fetch).
+          latest = depth.as_of_date.max()
+          same = differ = 0
+          notes = []
+          for abbr, live in run["charts"].items():
+              snap = charts.get(team_ids.get(abbr, -1), {}).get(latest, {})
+              by_slot = {}
+              for aid, listings in snap.items():
+                  for rank, slot in listings:
+                      by_slot.setdefault(slot, []).append((rank, aid))
+              for slot in SLOTS:
+                  a = [aid for _, aid in sorted(by_slot.get(slot, []))]
+                  b = live.get(slot, [])
+                  if a == b:
+                      same += 1
+                  else:
+                      differ += 1
+                      if len(notes) < 8:
+                          notes.append(f"{abbr} {slot.upper()}: SDV {a[:4]} live {b[:4]}")
+          print(f"SDV {latest} vs ESPN live now: {same} of {same + differ} team-spots identical", notes)
+
+          # 4. What a stored history would weigh: each team's chart only when it changes.
+          log = {}
+          for team, days in charts.items():
+              versions, last = [], None
+              for day in sorted(days):
+                  shape = {}
+                  for aid, listings in days[day].items():
+                      for rank, slot in listings:
+                          shape.setdefault(slot, []).append((rank, aid))
+                  shape = {slot: [aid for _, aid in sorted(rows)] for slot, rows in sorted(shape.items())}
+                  if shape != last:
+                      versions.append([str(day), shape])
+                      last = shape
+              log[team] = versions
+          size = len(json.dumps(log, separators=(",", ":")))
+          print(f"history as changes only: {sum(len(v) for v in log.values())} versions, {size:,} bytes of JSON")
+
+          # 5. The runs the site has kept (the daily cron shows up here).
+          print(json.dumps(ask("status"), indent=1))

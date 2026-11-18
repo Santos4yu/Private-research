@@ -58,6 +58,37 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (g): private test of ESPN's live NBA depth charts (five positions)
+
+The owner wants Defense vs position in PG / SG / SF / PF / C as well as
+G / F / C, from real dated positions only (never guessed, never a later
+chart for an earlier game), fully automatic. ESPN's box scores only say
+G / F / C. Research so far (no feature built):
+- SportsDataverse's `espn_nba_depthcharts` release (depthcharts_2027.parquet,
+  CC BY 4.0 label; the data is ESPN's) is one snapshot a day of every
+  team's ESPN depth chart since Sep 8 (missed Oct 5), ESPN athlete ids,
+  depth ranks. Against SportsDataverse's copy of the 2026-27 box scores:
+  99.8% of player-games / 99.95% of minutes on the team's chart from the
+  day before. Rule: highest listing = spot; a tie there broken only by
+  ESPN's G / F / C label; a tie left (~2.6% of minutes) or no chart =
+  unplaced. 74% of player-games are players listed at 2+ spots, so the
+  one-spot rule matters (no double counting).
+- Parquet can't be read on Vercel cheaply (any reader adds ~170MB to
+  functions already ~355MB installed); GitHub's runners can read it.
+- This step (the owner approved only the connectivity test):
+  `backend/sports/wnba/depth_probe.py` asks ESPN's live charts for all 30
+  teams (site API, core API if not), checks the five spots and sets them
+  against our stored season; `api/v2-admin.py ?action=nba-depth-test`
+  (part=run / status / games) answers only Vercel's cron (CRON_SECRET),
+  an admin session, or the `.github/workflows/nba-depth-test.yml`
+  workflow via GitHub's signed OIDC token (`github_oidc.py`: this repo,
+  main, that workflow file, audience aceprops-nba-depth-test; no stored
+  secret). A daily cron (06:10 UTC) runs it so the kept run log shows the
+  schedule works without deploys. The workflow (run by hand) prints the
+  live results, sets SportsDataverse's dated charts against OUR box
+  scores, compares its newest snapshot with ESPN live, and sizes a
+  change-only history. Nothing on the site reads any of it yet.
+
 ### Nov 18 (f): three fixes the owner sent with screenshots
 
 - Finder table on computers "cut off": it sat in a box as tall as the

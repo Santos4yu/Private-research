@@ -15,6 +15,7 @@ GET  ?action=announce-status         -- admin only (push_notices.py)
 GET  ?action=record                  -- admin only: the site's record (slip_ledger.py)
 POST {"action": "record-add" | "record-enter" | "record-enter-many" | "record-group" | "record-remove" | "record-result" | "record-clear", ...} -- admin only
 GET  ?action=moves-tick&key=...      -- the line-check timer (line_moves.py)
+GET  ?action=nba-depth-test          -- Vercel Cron, the depth-chart test workflow or admin (depth_probe.py)
 POST {"action": "announce", ...}     -- admin only
 GET  ?action=key-status              -- admin only
 GET  ?action=cron-scan               -- Vercel Cron only
@@ -126,6 +127,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._handle_moves_tick(qs)
             if action == "nba-phone":
                 return self._handle_nba_phone(qs)
+            if action == "nba-depth-test":
+                return self._handle_nba_depth_test(qs)
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -501,6 +504,33 @@ class handler(BaseHTTPRequestHandler):
             reason = str(error) if isinstance(error, nba_relay.Rejected) else "Not an NBA.com answer."
             nba_relay.note_problem(f"{reason} {seen}")
             return self._send(400, {"error": reason, "received": seen})
+
+    def _handle_nba_depth_test(self, qs):
+        """The private test of ESPN's live NBA depth charts (Nov 18,
+        backend/sports/wnba/depth_probe.py). Only Vercel's cron (CRON_SECRET),
+        the repository's "NBA depth chart test" workflow (GitHub's signed
+        token, github_oidc.py) or an admin session. ?part=run (default) asks
+        ESPN and keeps the result; status, the kept result's time and the last
+        runs; games, the stored season's played rows for the workflow's
+        SportsDataverse check."""
+        import hmac
+        secret = os.getenv("CRON_SECRET", "")
+        trigger = "cron" if secret and hmac.compare_digest(self.headers.get("Authorization", ""), f"Bearer {secret}") else None
+        if not trigger and self.headers.get("X-GitHub-OIDC"):
+            import github_oidc
+            if github_oidc.verify(self.headers.get("X-GitHub-OIDC", ""), audience="aceprops-nba-depth-test", workflow="nba-depth-test.yml"):
+                trigger = "github"
+        if not trigger and admin_auth.is_admin_request(self.headers):
+            trigger = "admin"
+        if not trigger:
+            return self._send(401, {"error": "Not allowed"})
+        from backend.sports.wnba import depth_probe
+        part = (qs.get("part") or ["run"])[0]
+        if part == "status":
+            return self._send(200, depth_probe.status())
+        if part == "games":
+            return self._send(200, depth_probe.games_export())
+        return self._send(200, depth_probe.run(trigger))
 
     def _handle_moves_tick(self, qs):
         """Check every league's PrizePicks lines now (line_moves.py), which
