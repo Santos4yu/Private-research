@@ -58,6 +58,32 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (d): tint, bigger type, glance cards (the owner: "everything looks the same")
+
+The owner saw the Finder player page and said "everything looks the same".
+Asked what to change, they picked: bigger text and spacing, a new color
+tint, new layouts.
+
+- `src/tint.css` (after kit.css in main.jsx): an ink-blue tint site-wide.
+  The kit names (`--k-*`) become ink blues (`#0b0e14` ground, `#121723`
+  panels, `#181f2d`, `#212a3b`, cool hairlines) and so do the older sheets'
+  names for the same surfaces: `--ace-*`, `--theme-bg/panel/border` (the
+  member's or admin's own tint from Settings still mixes in on top; the
+  base it mixes into is ink now), the Finder's `--f-*`, `--fb-*`, `--fba-*`,
+  `--fc-*`, `--fp-*`, the player page's `--fp2-*` and the chart panel's
+  `--te-*`. Pages with hard-coded greys stay grey until they're redone.
+- Bigger text and spacing on computers (min-width 1051px) on the Finder
+  player page: name 26px, stat tabs, window cells, filters, research tabs,
+  card titles and text, tables; wider gaps. In `player-kit.css`.
+- New cards: `Glance` in `FinderPlayerLayout.jsx`, above the research tabs
+  (on phones after the chart): **Matchup** (the opposing defense's rank in
+  this stat against his position group as a toughest-to-easiest slider,
+  "Nth most of N", tagged Tough / Average / Easy) and **The game** (his
+  team's win chance as a bar). Both come from the line's own row
+  (`defense`, `defenseTeams`, `defensePosition`, `winChance`); a card with
+  no data is left out.
+- Supporting stats bars are flat slate like the main chart's.
+
 ### Nov 18 (c): redesign step 3, the Finder player page
 
 - `src/player-kit.css` (imported last in FinderPlayerLayout.jsx): the

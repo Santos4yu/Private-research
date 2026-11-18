@@ -50,6 +50,7 @@ import './gloss.css';
 import './finish.css';
 import './app-feel.css';
 import './kit.css';
+import './tint.css';
 
 import { topTabs } from './navTabs';
 import { TopBar } from './TopBar';

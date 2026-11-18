@@ -34,6 +34,40 @@ function Tabs({list,picked,onPick,className,label,icons=false}){
   return <button type="button" key={key} aria-pressed={picked===key} onClick={()=>onPick(key)}>{icons&&<Icon size={17} aria-hidden="true"/>}<span>{name}</span></button>;})}</nav>;
 }
 
+// At a glance (Nov 18, the owner picked "New layouts": the matchup and the
+// game on their own cards above the research, like the first design they
+// liked). From the line's own row: the opposing defense's rank in this
+// stat against his position, and his team's chance to win. A card with
+// nothing to show is left out.
+const POSITION_GROUP={G:'guards',PG:'guards',SG:'guards',F:'forwards',SF:'forwards',PF:'forwards',C:'centers'};
+const finiteNumber=value=>typeof value==='number'&&Number.isFinite(value);
+const suffix=n=>{const t=n%100,o=n%10;return t>10&&t<14?'th':o===1?'st':o===2?'nd':o===3?'rd':'th';};
+function Glance({row}){
+ if(!row)return null;
+ const teams=row.defenseTeams||0,rank=finiteNumber(row.defense)&&teams>0?row.defense:null;
+ const group=POSITION_GROUP[String(row.defensePosition||row.position||'').toUpperCase()]||'his position';
+ // Rank 1 allows the least: the slider runs from the toughest on the left to the easiest on the right.
+ const most=rank?teams-rank+1:null,place=rank?(rank-1)/Math.max(1,teams-1):null;
+ const word=place==null?'':place>=2/3?'Easy matchup':place<=1/3?'Tough matchup':'Average matchup';
+ const tone=place==null?'':place>=2/3?'good':place<=1/3?'low':'mid';
+ const win=finiteNumber(row.winChance)?Math.round(row.winChance):null;
+ if(rank==null&&win==null)return null;
+ return <div className="fp2-glance">
+  {rank!=null&&<section className="fp2-glance-card" aria-label="Matchup">
+   <header><h2>Matchup</h2><span data-tone={tone}>{word}</span></header>
+   <p className="fp2-glance-lead">{row.opponentLogo&&<img src={row.opponentLogo} alt="" width="26" height="26"/>}<span><b>{row.opponent} vs {group}</b><small>{row.market} allowed: {most}{suffix(most)} most of {teams}</small></span></p>
+   <div className="fp2-glance-slider" style={{'--at':(place*100).toFixed(1)+'%'}}><i/></div>
+   <div className="fp2-glance-ends"><span>Toughest</span><span>Easiest</span></div>
+  </section>}
+  {win!=null&&<section className="fp2-glance-card" aria-label="The game">
+   <header><h2>The game</h2><span>Win chance</span></header>
+   <div className="fp2-glance-teams"><span>{row.teamLogo&&<img src={row.teamLogo} alt="" width="22" height="22"/>}<b>{row.teamAbbr}</b></span><span><b>{row.opponent}</b>{row.opponentLogo&&<img src={row.opponentLogo} alt="" width="22" height="22"/>}</span></div>
+   <div className="fp2-glance-bar"><i style={{width:win+'%'}}/><i style={{width:(100-win)+'%'}}/></div>
+   <div className="fp2-glance-ends fp2-glance-pct"><b>{win}%</b><b>{100-win}%</b></div>
+  </section>}
+ </div>;
+}
+
 // His sections' keys carry a prefix: a sport's research can have a tab of
 // the same name (soccer's Stats).
 const HIS='his:';
@@ -67,6 +101,7 @@ export function FinderPlayerLayout({row,playerRows,onBack,className='',style,not
     </div>}
    </div>
    <div className="fp2-research">
+    <Glance row={row}/>
     {/* A phone (and a narrow window): one row for every tab. */}
     <Tabs className="fp2-tabs-all" label="Research" list={[...researchList,...hisList]} picked={group==='research'?shownResearch:HIS+hisTab} onPick={pick} icons/>
     <Tabs className="fp2-tabs-research" label="Matchup research" list={researchList} picked={shownResearch} onPick={pick} icons/>

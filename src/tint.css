@@ -1,0 +1,55 @@
+/* The site's tint (Nov 18, the owner picked "New color tint": a deep
+   tinted dark instead of plain black and grey, our own color, not OddsIQ's
+   teal). Ink blue: the ground, panels a step lighter, cool hairlines. It
+   sets the kit's names (kit.css) and the older sheets' own names for the
+   same surfaces, so every page picks it up. Loaded after kit.css. */
+:root {
+  --k-bg: #0b0e14;
+  --k-panel: #121723;
+  --k-raised: #181f2d;
+  --k-high: #212a3b;
+  --k-line: rgba(148, 163, 196, .10);
+  --k-line-strong: rgba(148, 163, 196, .24);
+  --k-text: #eef1f6;
+  --k-muted: #9ba4b6;
+  --k-faint: #677187;
+
+  --ace-bg: var(--k-bg);
+  --ace-sidebar: var(--k-panel);
+  --ace-card: var(--k-panel);
+  --ace-card-2: var(--k-raised);
+  --ace-raised: var(--k-high);
+  --ace-border: rgba(148, 163, 196, .16);
+  --ace-border-soft: var(--k-line);
+  --ace-text: var(--k-text);
+  --ace-muted: var(--k-muted);
+  --ace-faint: var(--k-faint);
+}
+/* The member's or the admin's own tint (Settings) still mixes in on top. */
+:root[data-theme][data-custom-accents] {
+  --theme-bg: color-mix(in srgb, var(--theme-secondary) var(--theme-bg-tint, 0%), #0b0e14);
+  --theme-bg-2: color-mix(in srgb, var(--theme-secondary) var(--theme-bg2-tint, 0%), #0f131c);
+  --theme-panel: color-mix(in srgb, var(--theme-secondary) var(--theme-panel-tint, 0%), #121723);
+  --theme-panel-2: color-mix(in srgb, var(--theme-secondary) var(--theme-panel2-tint, 0%), #181f2d);
+  --theme-border: color-mix(in srgb, var(--theme-secondary) var(--theme-border-tint, 0%), #232b3b);
+}
+:root[data-theme="obsidian"]:not([data-custom-accents]) {
+  --theme-bg: #0b0e14; --theme-bg-2: #0f131c; --theme-panel: #121723; --theme-panel-2: #181f2d; --theme-border: #232b3b;
+}
+html, body, #app-shell:has(#panel-finder:not([hidden])) { background: var(--k-bg) !important; }
+
+/* The Finder's own names (unified-finder.css, finder-board*.css, finder-cards.css). */
+html:root body .unified-finder.unified-finder.unified-finder {
+  --f-bg: var(--k-bg); --f-row: var(--k-panel); --f-control: var(--k-raised); --f-border: var(--k-line-strong);
+  --fb-panel: var(--k-panel); --fb-head: var(--k-raised); --fb-control: var(--k-raised); --fb-line: var(--k-line); --fb-line-2: var(--k-line-strong);
+  --fba-panel: var(--k-panel); --fba-head: var(--k-raised); --fba-foot: var(--k-panel);
+  --fc-card: var(--k-panel); --fc-tile: var(--k-bg); --fc-line: var(--k-line);
+  --fp-bg: var(--k-bg); --fp-field: var(--k-panel); --fp-field-on: var(--k-high); --fp-rule: var(--k-line);
+  background: var(--k-bg) !important;
+}
+/* The player page (finder-player-*.css) and its chart panel (trend-edge.css). */
+html:root body .fp2.fp2 { --fp2-panel: var(--k-panel); --fp2-line: var(--k-line); --fp2-well: var(--k-bg); }
+html:root body #gamelog-overlay#gamelog-overlay.trend-edge { --te-bg: var(--k-bg); --te-card: var(--k-panel); --te-line: var(--k-line-strong); }
+/* The top bar and the phone's bottom bar. */
+@media (min-width: 761px) { html:root body .ps-top { background: #0d1119; } }
+@media (max-width: 760px) { html:root body .mobile-app-nav { background: rgba(13, 17, 25, .94); } }
