@@ -158,6 +158,14 @@ G / F / C. Research so far (no feature built):
   (accepted or not, whether a secret / bearer was there, never values) in
   the test's status (`cronCalls`). A header-only call runs at most once in
   20 minutes. Moved to 16:30 UTC to confirm the same day.
+- Confirmed (the owner pressed Run on the job in Vercel, 15:41 UTC): the
+  call was accepted and ran (30 teams). cronCalls showed secret_set false,
+  bearer false, agent vercel-cron/1.0: CRON_SECRET is NOT set in
+  production, which is why the strict first version turned the 06:10 call
+  away. With no secret, every cron on the site is reachable with Vercel's
+  cron headers (the site's existing rule); the depth jobs hold such calls
+  to one in 20 minutes. Setting CRON_SECRET in Vercel would close that for
+  all of them (the handlers already check it when set).
 
 ### Nov 18 (f): three fixes the owner sent with screenshots
 

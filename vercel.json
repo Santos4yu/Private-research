@@ -40,6 +40,7 @@
     { "path": "/api/v2-admin?action=nfl-cron-scan", "schedule": "0 11 * * *" },
     { "path": "/api/v2-admin?action=nfl-plays-cron", "schedule": "0 12 * * *" },
     { "path": "/api/v2-admin?action=health-cron", "schedule": "0 13 * * *" },
+    { "path": "/api/v2-admin?action=nba-depth-test", "schedule": "30 16 * * *" },
     { "path": "/api/v2-admin?action=nba-depth-sync", "schedule": "10 6 * * *" },
     { "path": "/api/v2-admin?action=nba-depth-sync&run=pm", "schedule": "10 20 * * *" },
     { "path": "/api/v2-admin?action=predictor-cron&step=epa", "schedule": "30 12 * * *" },
