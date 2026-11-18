@@ -58,6 +58,24 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (n): the Finder player page's top (owner: "i hate how this area looks")
+
+The owner sent the top of the Finder player page on a computer (the
+Finder's sport row, the player header, the stat tabs).
+
+- The player header (`FinderPlayerBanner.jsx` v2, `player-kit.css` "the top
+  of the page"): no card. The blurred team-logo glow behind him (muddy brown
+  on Charcoal) and the faint big logo are gone; the photo is bigger (68px,
+  50px on a phone) with his team's logo in a small badge on its corner
+  (`.fp2-face` / `.fp2-badge`), the position a small tag, then the game and
+  the time. Back and account buttons are framed panel squares.
+- The stat tabs over the chart (computer): plain tabs on one hairline, an
+  orange (accent) line under the picked one; no box of pills. The phone's
+  underline is the accent too.
+- The Finder's sport row (computer, `finder-kit.css`): one framed bar with
+  the picked sport raised in it; the "/" after "Finder" is hidden; the Pick
+  Builder and saved buttons match its height. Same on the board.
+
 ### Nov 18 (m): Charcoal, the site's new colors (owner: "we shouldnt have the old black on some menus or parts")
 
 The owner asked for a color rework that reaches everything, saw twelve

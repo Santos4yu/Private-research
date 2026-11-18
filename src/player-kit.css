@@ -98,12 +98,10 @@ html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-ta
 html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button { background: none !important; box-shadow: none !important; border-radius: 0 !important; }
 html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button b { color: var(--k-faint) !important; font: 600 13px/1 var(--font-sans) !important; letter-spacing: .02em; }
 html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button small { padding: 0 !important; border: 0 !important; background: none !important; color: var(--k-faint) !important; font: 500 12px/1 var(--font-sans) !important; }
-html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { box-shadow: inset 0 -2px 0 #fff !important; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { box-shadow: inset 0 -2px 0 var(--theme-accent, #ff7a33) !important; }
 html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active b { color: var(--k-text) !important; }
 html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active small { color: var(--k-muted) !important; }
 
-/* The banner: a faint team tint, not a bright glow. */
-html:root body .fp2 .fp2-glow img { opacity: .22; }
 
 /* At a glance: the matchup and the game, above the research (FinderPlayerLayout.jsx Glance). */
 html:root body .fp2 .fp2-glance { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 12px; }
@@ -181,3 +179,55 @@ html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > 
 }
 html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button > * { justify-self: center; max-width: 100%; white-space: nowrap; }
 html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button strong { justify-content: center; }
+
+/* ------------------------------------------------------------ the top of the page
+   Nov 18, the owner on the header and the stats under it: "i hate how
+   this area looks". The player straight on the page, no card: no team
+   glow behind him (on Charcoal it went a muddy brown), no faint logo; the
+   photo bigger with his team's logo on its corner (FinderPlayerBanner.jsx),
+   the position a small tag. The stats are plain tabs on one hairline with
+   an orange line under the picked one, not a box of pills. */
+html:root body .fp2 .fp2-head { margin: 0 0 22px !important; padding: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; overflow: visible !important; }
+html:root body .fp2 .fp2-head .fp2-top { gap: 16px; padding: 0; }
+html:root body .fp2 .fp2-back { width: 40px; height: 40px; border: 0 !important; border-radius: 12px !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; color: var(--k-text); }
+html:root body .fp2 .fp2-back:hover { background: var(--k-raised) !important; }
+html:root body .fp2 .fp2-who { gap: 16px; }
+html:root body .fp2 .fp2-face { position: relative; flex: none; display: block; }
+html:root body .fp2 .fp2-avatar { width: 68px; height: 68px; background: var(--k-raised) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; }
+html:root body .fp2 .fp2-badge { position: absolute; right: -4px; bottom: -2px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--k-raised); box-shadow: 0 0 0 3px var(--k-bg); }
+html:root body .fp2 .fp2-badge[hidden] { display: none; }
+html:root body .fp2 .fp2-badge img { width: 19px; height: 19px; object-fit: contain; }
+html:root body .fp2 .fp2-name { gap: 8px; }
+html:root body .fp2 .fp2-name h1 { color: var(--k-text); font: 700 28px/1.1 var(--font-sans) !important; letter-spacing: -.03em; }
+html:root body .fp2 .fp2-name small { gap: 8px; color: var(--k-muted); font: 500 14px/1.2 var(--font-sans) !important; }
+html:root body .fp2 .fp2-name small b { padding: 4px 7px; border-radius: 6px; background: var(--k-raised); color: var(--k-text); font: 600 12px/1 var(--font-sans); }
+html:root body .fp2 .fp2-name small i { color: var(--k-faint); }
+html:root body .fp2 .fp2-account { border: 0 !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; }
+
+@media (min-width: 761px) {
+  html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs {
+    gap: 0 !important; margin-bottom: 20px !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+    background: none !important; box-shadow: inset 0 -1px 0 var(--k-line) !important;
+  }
+  html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > :is(button, button:hover, button.active) {
+    height: 46px !important; padding: 0 16px !important; border-radius: 0 !important; background: none !important; box-shadow: none !important;
+  }
+  html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button:hover b { color: var(--k-text) !important; }
+  html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-stat-tabs > button.active { box-shadow: inset 0 -2px 0 var(--theme-accent, #ff7a33) !important; }
+}
+
+/* A phone: the same, smaller. */
+@media (max-width: 760px) {
+  html:root body .fp2 .fp2-head { margin: 2px 0 16px !important; }
+  html:root body .fp2 .fp2-head .fp2-top { gap: 10px; }
+  html:root body .fp2 .fp2-back { width: 36px; height: 36px; border-radius: 11px !important; }
+  html:root body .fp2 .fp2-who { gap: 12px; }
+  html:root body .fp2 .fp2-avatar { width: 50px; height: 50px; }
+  html:root body .fp2 .fp2-badge { width: 22px; height: 22px; right: -4px; bottom: -2px; box-shadow: 0 0 0 2px var(--k-bg); }
+  html:root body .fp2 .fp2-badge img { width: 15px; height: 15px; }
+  html:root body .fp2 .fp2-name { gap: 6px; }
+  html:root body .fp2 .fp2-name h1 { font-size: 20px !important; }
+  html:root body .fp2 .fp2-name small { gap: 6px; font-size: 12.5px !important; }
+  html:root body .fp2 .fp2-name small b { padding: 3px 6px; font-size: 11px; }
+  html:root body .fp2 .fp2-account { width: 36px; height: 36px; border-radius: 11px !important; }
+}

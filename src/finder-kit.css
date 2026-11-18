@@ -131,3 +131,18 @@ img[src$="/sportsbooks/underdog.png"] { background: #fff; }
   html:root body .unified-finder.unified-finder .finder-board { overflow: hidden; }
   html:root body .unified-finder.unified-finder .finder-scroll { max-height: none; min-height: 0; overflow: visible; }
 }
+
+/* The Finder's top on a computer (Nov 18, the owner on the player page's
+   top: "i hate how this area looks"): the sports as one bar with the
+   picked one raised in it, not loose words beside a slash; the Pick
+   Builder and saved buttons the same height, framed the same. */
+@media (min-width: 761px) {
+  html:root body .unified-finder .finder-title > h1 + span { display: none; }
+  html:root body .unified-finder .finder-title h1 { margin-right: 6px; }
+  html:root body .unified-finder .finder-sports { gap: 2px; padding: 4px; border-radius: 13px; background: var(--k-panel); box-shadow: inset 0 0 0 1px var(--k-line); }
+  html:root body .unified-finder .finder-sports > button { min-height: 34px; padding: 0 13px; border: 0; border-radius: 9px; background: none; color: var(--k-muted); font: 500 13px/1 var(--font-sans); }
+  html:root body .unified-finder .finder-sports > button:hover { background: none; color: var(--k-text); }
+  html:root body .unified-finder .finder-sports > button[aria-pressed=true] { background: var(--k-high); color: var(--k-text); font-weight: 600; box-shadow: none; }
+  html:root body .unified-finder :is(.finder-picks-trigger, .finder-top-save) { width: 42px; height: 42px; border-radius: 12px; background: var(--k-panel); box-shadow: inset 0 0 0 1px var(--k-line); }
+  html:root body .unified-finder :is(.finder-picks-trigger, .finder-top-save):hover { background: var(--k-raised); }
+}

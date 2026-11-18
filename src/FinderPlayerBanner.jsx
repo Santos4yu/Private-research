@@ -204,17 +204,21 @@ export function FinderPlayerBanner({row,playerRows=[],onBack,layout}){
     <b data-side={priced[sideKey]<0?'fav':'dog'}>{american(priced[sideKey])}</b></span>}
    {canAnalyze&&!slots?.tools&&<AnalyzeButton row={row} line={Number(line)} playerRows={playerRows}/>}
   </div>;
+  // Nov 18, the owner on this header: "i hate how this area looks". The
+  // player straight on the page (player-kit.css): no team-color glow behind
+  // him (on Charcoal it went a muddy brown) and no faint logo; his team's
+  // logo on the corner of his photo instead, the position as a tag.
   return <header ref={ref} className={`fpb fp2-head${slots?' fpb-merged':''}`}>
-   {/* The team's logo, blurred behind the header: its colors as a glow (finder-player-app.css). */}
-   {row.teamLogo&&<span className="fp2-glow" aria-hidden="true"><img src={row.teamLogo} alt="" onError={e=>{e.currentTarget.hidden=true;}}/></span>}
-   {row.teamLogo&&<img className="fp2-mark" src={row.teamLogo} alt="" aria-hidden="true" onError={e=>{e.currentTarget.hidden=true;}}/>}
    <div className="fp2-top">
     <button type="button" className="fp2-back" aria-label="Back to Finder" onClick={onBack}><ArrowLeft size={19} aria-hidden="true"/></button>
     <span className="fp2-who">
-     <span className="fpb-avatar fp2-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
-      {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+     <span className="fp2-face">
+      <span className="fpb-avatar fp2-avatar"><span className="fpb-initials" aria-hidden="true">{initials}</span>
+       {row.headshot&&<img className="fpb-photo" src={row.headshot} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+      {row.teamLogo&&<span className="fp2-badge" aria-hidden="true"><img src={row.teamLogo} alt="" width="18" height="18" onError={e=>{e.currentTarget.parentElement.hidden=true;}}/></span>}
+     </span>
      <span className="fp2-name"><h1>{row.player}</h1>
-      <small>{row.position&&<><b>{row.position}</b><i aria-hidden="true">·</i></>}{row.teamLogo&&<img src={row.teamLogo} alt="" width="14" height="14" onError={e=>{e.currentTarget.hidden=true;}}/>}{gameLabel(row)&&<span>{gameLabel(row)}</span>}
+      <small>{row.position&&<b>{row.position}</b>}{gameLabel(row)&&<span>{gameLabel(row)}</span>}
        {time&&<>{gameLabel(row)&&<i aria-hidden="true">·</i>}<span>{time}</span></>}</small></span>
     </span>
     <span className="fp2-actions">
