@@ -93,60 +93,6 @@
   }
   html:root body .unified-finder .finder-scroll { overflow: visible !important; }
 
-  /* The sort bar: stays at the top as the list scrolls, solid behind it. */
-  html:root body .unified-finder .finder-table thead {
-    position: sticky !important;
-    top: var(--site-status-inset, 0px);
-    z-index: 6;
-    background: var(--fp-bg) !important;
-    border: 0 !important;
-    box-shadow: 0 1px 0 var(--fp-rule) !important;
-  }
-  html:root body .unified-finder .finder-table thead tr { gap: 4px; padding: 8px 10px !important; }
-  html:root body .unified-finder .finder-table th > button,
-  html:root body .unified-finder .finder-table th:is(:first-child, :nth-child(2)) > button {
-    height: 34px;
-    padding: 0 13px;
-    border: 0 !important;
-    border-radius: 999px;
-    background: none;
-    color: var(--fp-faint);
-    font: 700 12px/1 var(--font-sans);
-    letter-spacing: .04em;
-    transition: background-color .2s ease, color .2s ease;
-  }
-  html:root body .unified-finder .finder-table th > button.is-sorted { background: rgba(255, 255, 255, .09); color: var(--fp-text); }
-  html:root body .unified-finder .finder-table th > button svg { opacity: .45; }
-  html:root body .unified-finder .finder-table th > button.is-sorted svg { color: var(--fp-good); opacity: 1; }
-
-  /* A prop: a full-width row, a hairline under it inset from both edges. */
-  html:root body .unified-finder .finder-table tbody tr,
-  html:root body .unified-finder .finder-table tbody tr:nth-child(even) {
-    padding: 16px 14px 15px !important;
-    border: 0 !important;
-    background: none !important;
-  }
-  html:root body .unified-finder .finder-table tbody tr::after {
-    content: "";
-    position: absolute;
-    right: 14px;
-    bottom: 0;
-    left: 14px;
-    height: 1px;
-    background: var(--fp-rule);
-    pointer-events: none;
-  }
-  html:root body .unified-finder .finder-table tbody tr:last-child::after { content: none; }
-  html:root body .unified-finder .finder-table tbody tr:active { background: rgba(255, 255, 255, .035) !important; }
-
-  /* Calmer type: names a touch bigger, the small words quieter, the dividers fainter. */
-  html:root body .unified-finder .finder-table .finder-name { font-size: 15.5px; letter-spacing: -.01em; }
-  html:root body .unified-finder .finder-table .finder-game { color: var(--fp-muted); }
-  html:root body .unified-finder .finder-table td.finder-num:is(:nth-child(4), :nth-child(5)) { border-left-color: var(--fp-rule) !important; }
-  html:root body .unified-finder .finder-table td.finder-num::before,
-  html:root body .unified-finder .finder-table .finder-heat::before { color: var(--fp-faint); letter-spacing: .07em; }
-  html:root body .unified-finder .finder-table .finder-portrait { border-color: rgba(255, 255, 255, .08); background: #181818; }
-  html:root body .unified-finder .finder-table .finder-team { background: var(--fp-bg); box-shadow: 0 0 0 1.5px var(--fp-bg); }
-
+  /* The phone shows cards and sort buttons instead of the table (finder-kit.css). */
   html:root body .unified-finder .finder-pagination { margin: 0 !important; border: 0 !important; border-top: 1px solid var(--fp-rule) !important; background: var(--fp-bg) !important; }
 }

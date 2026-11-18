@@ -58,6 +58,27 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (b): redesign step 2, the Finder list
+
+- Phones: each prop is a card (`PhoneCard` in `UnifiedFinder.jsx`, the
+  owner's "card C"): photo and team, name, More/Less line and stat, the
+  game; the best price (DraftKings first, else the first app with a price
+  on the pick's side); the stat's defense rank (tinted for the pick), the
+  other apps' prices, a + that opens the same More/Less chooser as the
+  computer's star (`onPick`); then L5 / L10 / L15 / H2H / SZN with the
+  record under each. Tapping the card opens the player page as before.
+  Sort buttons (`PhoneSorts`) sit above the cards and use the same
+  `onSort`. `usePhone()` (max-width 760px) picks cards or the table.
+- Computer: the same table; its hit-rate cells now read like the phone
+  strip (colored top edge, soft wash, number in green/red) and the Finder's
+  own logo is hidden (the top bar has it).
+- Styles: `src/finder-kit.css` (imported last in UnifiedFinder.jsx). The
+  phone table rules in `finder-phone.css` are gone. Underdog's dark logo
+  gets a white plate everywhere.
+- The welcome tour targets both the table and the cards.
+- Next: the Finder player page (chart page as is; research tabs in one
+  icon bar, still to be agreed with the owner).
+
 ### Nov 18 (a): redesign step 1, the frame (top bar, phone bar, menu)
 
 The owner approved the whole-site mockups (Finder list = "card C", the

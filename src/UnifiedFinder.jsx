@@ -1,7 +1,7 @@
 import React,{lazy,startTransition,Suspense,useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {matchesSearch,searchKey} from './finder-search.js';
 import {flushSync} from 'react-dom';
-import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
+import {ArrowDown,ArrowUp,ArrowUpDown,ArrowLeft,Check,Plus,Bookmark,ChartNoAxesColumnIncreasing,ChevronDown,ChevronLeft,ChevronRight,Grid2X2,ListFilter,LoaderCircle,RefreshCw,Search,SlidersHorizontal,Star,Swords,Table2,Trash2,Users,CalendarDays,Settings,UserRound,X} from 'lucide-react';
 import {loadFinderMoneylines,withMoneylines,finderPlayerRows,loadFinderSportRaw,loadFinderSnapshot,hasFinderSnapshot,applyFinderSnapshot,within,persistFinderCache,readFinderCache,carryHistory,matchesPrizePicksLine,finderSlipId,slipApps,windowGames,windowRate,loadFinderDefense,withDefense,trendPickRow,BOOK_NAMES,linkTarget,keepOpenPlayer,takeOpenPlayer,findLinkedRow,readFinderView,saveFinderView} from './unified-finder-data';
 import {comebackTag} from './workload';
 import {WNBAPlayerPage} from './sports/wnba/WNBAPlayerPage';
@@ -15,6 +15,7 @@ import './finder-desk.css';
 import './finder-board.css';
 import './finder-phone.css';
 import './finder-board-app.css';
+import './finder-kit.css';
 import {FinderDropdown,FinderDropdownAssets} from './FinderDropdown';
 import {FinderHitRateFilter,FinderMultiSelect,FinderSportMenu} from './FinderMultiSelect';
 import {PickSideMenu} from './PickSideMenu';
@@ -118,6 +119,54 @@ const Row=React.memo(function Row({row,index,onOpen,pick,onPick}){
   <td className="finder-pf finder-pf-diff">{delta!=null?<><b data-tone={avgTone}>{(delta>0?'+':delta<0?'−':'')+num(Math.abs(delta))}</b>{row.line?<small>{(delta>0?'+':delta<0?'−':'')+Math.abs(delta/row.line*100).toFixed(1)}%</small>:null}</>:dash}</td>
  </tr>;
 });
+// A prop on a phone (Nov 18, the redesign's "card C", the owner: "Am
+// leaning #3"): who, the line and the game, the best price with its app;
+// the stat's defense rank, the other apps' prices and the add button; then
+// each window's hit rate with its record under it. Same data and actions
+// as the computer's row (finder-kit.css).
+const SHORT_STAT={Points:'PTS',Rebounds:'REB',Assists:'AST','3-PT Made':'3PM','Pts+Rebs+Asts':'PRA','Pts+Rebs':'PR','Pts+Asts':'PA','Rebs+Asts':'RA',Steals:'STL',Blocks:'BLK','Blks+Stls':'BLK+STL',Turnovers:'TO','Fantasy Score':'FS'};
+const shortStat=market=>SHORT_STAT[market]||market;
+const sidePrice=(app,under)=>{const value=under?app?.under:app?.over;return finite(value)?value:null;};
+const PhoneCard=React.memo(function PhoneCard({row,index,onOpen,pick,onPick}){
+ const back=comebackTag(row);
+ const under=row.direction==='UNDER',loading=row.historyStatus==='pending',teams=row.defenseTeams||0;
+ const softness=finite(row.defense)&&teams>0?row.defense/teams:null;
+ const defTone=softness==null?undefined:softness>2/3?(under?'low':'good'):softness<=1/3?(under?'good':'low'):undefined;
+ const apps=row.apps||[],priced=apps.filter(app=>sidePrice(app,under)!=null);
+ const lead=priced.find(app=>app.key==='draftkings')||priced[0]||null;
+ const others=apps.filter(app=>app!==lead).slice(0,3);
+ const short=shortStat(row.market);
+ const label='Open '+row.sport.toUpperCase()+' '+row.player+' '+row.line+' '+row.market+' trends';
+ return <article className="fk-card" onClick={()=>onOpen(row)} onPointerDown={()=>prefetchResearch(row)} style={{'--i':index}}>
+  <div className="fk-top">
+   <span className="fk-face"><Photo src={row.headshot} className="fk-photo" width="44" height="44" loading="lazy" fallback={<span className="fk-photo fk-initials">{row.player.split(' ').map(p=>p[0]).slice(0,2).join('')}</span>}/>{row.teamLogo&&<img className="fk-team" src={row.teamLogo} alt="" width="16" height="16" loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/>}</span>
+   <button type="button" className="finder-open fk-who" aria-label={label} onClick={e=>{e.stopPropagation();onOpen(row);}}>
+    <span className="fk-name">{row.player}{row.position&&<em>{row.position}</em>}</span>
+    <span className="fk-line"><strong data-side={under?'less':'more'}>{under?'Less':'More'} {row.line} {short}</strong>{['goblin','demon'].includes(row.modifier)&&<img src={'/prizepicks/'+row.modifier+'.png'} alt={row.modifier} width="14" height="14"/>}<span className="fk-game">{row.teamAbbr||row.sport.toUpperCase()}{row.opponent?' vs '+row.opponent:''}{row.startsAt?' · '+when(row.startsAt):''}</span></span>
+   </button>
+   {lead&&<span className="fk-price" title={lead.name||lead.key}><img src={APP_LOGO(lead.key)} alt={lead.name||lead.key} width="20" height="20" loading="lazy" onError={e=>{e.currentTarget.style.visibility='hidden';}}/>{priceText(sidePrice(lead,under))}</span>}
+  </div>
+  <div className="fk-mid">
+   {finite(row.defense)&&<span className="fk-def" data-tone={defTone} title={row.opponent+' ranks '+row.defense+(teams?' of '+teams:'')+' in what it allows to this position in this stat (1 allows the least).'}><span>{short.length<=7?short:'DEF'}</span><b>#{row.defense}</b></span>}
+   {others.length>0&&<span className="fk-apps">{others.map(app=><span key={app.key}><img src={APP_LOGO(app.key)} alt={app.name||app.key} width="16" height="16" loading="lazy" onError={e=>{e.currentTarget.style.visibility='hidden';}}/>{priceText(sidePrice(app,under))||(app.key==='prizepicks'?row.line:'')}</span>)}</span>}
+   {back&&<b className="finder-comeback" title={back.title}>{back.text}</b>}
+   <button className="fk-add" type="button" data-requires-tab="saved" aria-label={pick?row.player+' '+row.line+' '+row.market+' is in your picks ('+pick+'). Change or remove':'Add '+row.player+' '+row.line+' '+row.market+' to your picks'} aria-haspopup="dialog" aria-pressed={Boolean(pick)} data-side={pick?pick.toLowerCase():undefined} onClick={e=>{e.stopPropagation();onPick(row,e.currentTarget);}}>{pick?<Check size={16} strokeWidth={2.4}/>:<Plus size={16} strokeWidth={2.2}/>}</button>
+  </div>
+  <div className="fk-rates">{WINDOWS.map(([key,name])=>{const w=row.windows?.[key],value=rate(w);return <div key={key} data-tone={finite(value)?tone(value):'none'}><small>{name}</small><b>{finite(value)?Math.round(value)+'%':loading?'…':'—'}</b><i>{played(w)?w.hits+'/'+played(w):'\u00a0'}</i></div>;})}</div>
+ </article>;
+});
+// The phone's sort buttons (the computer sorts from the table's headings).
+const PHONE_SORTS=[['l10','L10'],['l5','L5'],['l15','L15'],['h2h','H2H'],['season','Season'],['defense','Defense'],['streak','Streak'],['average','Avg']];
+function PhoneSorts({sort,onSort}){
+ return <nav className="fk-sorts" aria-label="Sort props">{PHONE_SORTS.map(([key,name])=>{const on=sort.key===key;return <button type="button" key={key} aria-pressed={on} onClick={()=>onSort(key)}>{name}{on?(sort.direction==='desc'?<ArrowDown size={12}/>:<ArrowUp size={12}/>):<ArrowUpDown size={11}/>}</button>;})}</nav>;
+}
+// Phone or computer, for the board's layout.
+function usePhone(){
+ const query='(max-width: 760px)';
+ const [phone,setPhone]=useState(()=>typeof window!=='undefined'&&window.matchMedia(query).matches);
+ useEffect(()=>{const list=window.matchMedia(query),sync=()=>setPhone(list.matches);sync();list.addEventListener?.('change',sync);return()=>list.removeEventListener?.('change',sync);},[]);
+ return phone;
+}
 // On phones the account and settings buttons live in this bar instead of
 // floating in a strip of their own above it (unified-finder.css hides the
 // floating pair while the Finder is open). They press the page's own
@@ -146,6 +195,7 @@ export function PhoneAccountButtons(){
 const storage=()=>{try{return window.localStorage;}catch{return null;}};
 const session=()=>{try{return window.sessionStorage;}catch{return null;}};
 export function UnifiedFinder(){
+ const phone=usePhone();
  // A notification's link (/finder?sport=&player=&stat=) opens that prop;
  // otherwise the Finder comes back the way it was left (readFinderView).
  const [target]=useState(()=>typeof location==='undefined'?null:linkTarget(location.search));
@@ -510,7 +560,7 @@ export function UnifiedFinder(){
    {/* Only while a league loads (Nov 11, the owner: remove the props count, the history time and the color key). */}
    {loading&&<div className="finder-meta"><span role="status"><LoaderCircle size={12} className="finder-spin"/>Loading {scope.filter(k=>boards[k].state!=='ready').map(k=>k.toUpperCase()).join(', ')}…</span></div>}
    {errors.length>0&&sportRows.length>0&&siteIsAdmin()&&<div className="finder-availability" role="status"><span>{scope.some(k=>boards[k].error&&boards[k].persisted)?'The latest props couldn’t load. Showing the last saved lines.':'Some props are temporarily unavailable.'}</span><button type="button" onClick={()=>scope.filter(k=>boards[k].error).forEach(k=>load(k,true))}>Retry</button></div>}
-   <section className="finder-board" aria-label="Player props"><div className="finder-scroll" ref={tableRef}><table className="finder-table"><caption className="finder-sr-only">Historical hit rates for the displayed line and side. Green 70 percent or more, yellow 45 to 69 percent, red below 45 percent. Missing data is shown as a dash.</caption><thead><tr><Heading name="player" label="Player" sort={sort} onSort={onSort}/><Heading name="line" label="Line" sort={sort} onSort={onSort}/><Heading name="defense" label="Defense" title="The defense’s rank against this stat (1 allows the least)" sort={sort} onSort={onSort}/><Heading name="average" label="L10 avg" title="Average over his last 10" sort={sort} onSort={onSort}/><Heading name="streak" label="Streak" title="His current run" sort={sort} onSort={onSort}/>{WINDOWS.map(([key,label])=><Heading key={key} name={key} label={key==='season'?'Season':label} sort={sort} onSort={onSort}/>)}<th scope="col" className="finder-pf finder-pf-apps">Apps</th><th scope="col" className="finder-pf finder-pf-ml" title="His team's chance to win, from the moneyline">Moneyline</th><th scope="col" className="finder-pf finder-pf-ip" title="The books' odds for the over and under">IP</th><th scope="col" className="finder-pf finder-pf-diff" title="His L10 average against the line">Diff</th></tr></thead><tbody>{/* Keyed by place on the page: turning the page updates the rows already there rather than building new ones. */}{visible.map((row,index)=><Row key={index} row={row} index={index} onOpen={open} pick={picks.get(row.id)} onPick={onPick}/>)}</tbody></table>{!visible.length&&<div className="finder-message finder-empty-board" role="status">{loading?<><LoaderCircle className="finder-spin"/><strong>Loading the prop board</strong><span>Lines appear here as each sport loads.</span></>:<><ChartNoAxesColumnIncreasing size={26} aria-hidden="true"/><strong>{errors.length&&!sportRows.length?(siteIsAdmin()?'Props temporarily unavailable':'Lines are on their way'):savedOnly?'No saved props found':'No props found'}</strong><span>{errors.length&&!sportRows.length?(siteIsAdmin()?'We couldn’t load the latest props. Please try again.':'Today’s props show here in a moment.'):sportRows.length?'No props match these filters. Loosen or reset them to see more.':'No upcoming props are available right now. Check back soon.'}</span><button type="button" onClick={errors.length&&!sportRows.length?()=>scope.filter(k=>boards[k].error).forEach(k=>load(k,true)):clear}>{errors.length&&!sportRows.length?(siteIsAdmin()?'Retry':'Refresh'):'Clear all filters'}</button></>}</div>}</div><footer className="finder-pagination"><span>{rows.length?(currentPage*pageSize+1)+'–'+Math.min((currentPage+1)*pageSize,rows.length)+' of '+rows.length.toLocaleString():'0 props'}</span><div><button type="button" aria-label="Previous page" disabled={currentPage===0} onClick={()=>changePage(currentPage-1)}><ChevronLeft size={17}/></button><span>Page <b>{currentPage+1}</b> / {pages}</span><button type="button" aria-label="Next page" disabled={currentPage>=pages-1} onClick={()=>changePage(currentPage+1)}><ChevronRight size={17}/></button><label><ListFilter size={14}/><FinderDropdown aria-label="Rows per page" value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[20,50,100].map(n=><option value={n} key={n}>{n} rows</option>)}</FinderDropdown><ChevronDown size={12}/></label></div><span className="finder-page-hint">Select a player to open Trends</span></footer></section>
+   <section className="finder-board" aria-label="Player props"><div className="finder-scroll" ref={tableRef}>{phone?<><PhoneSorts sort={sort} onSort={onSort}/><div className="fk-list">{visible.map((row,index)=><PhoneCard key={index} row={row} index={index} onOpen={open} pick={picks.get(row.id)} onPick={onPick}/>)}</div></>:<table className="finder-table"><caption className="finder-sr-only">Historical hit rates for the displayed line and side. Green 70 percent or more, yellow 45 to 69 percent, red below 45 percent. Missing data is shown as a dash.</caption><thead><tr><Heading name="player" label="Player" sort={sort} onSort={onSort}/><Heading name="line" label="Line" sort={sort} onSort={onSort}/><Heading name="defense" label="Defense" title="The defense’s rank against this stat (1 allows the least)" sort={sort} onSort={onSort}/><Heading name="average" label="L10 avg" title="Average over his last 10" sort={sort} onSort={onSort}/><Heading name="streak" label="Streak" title="His current run" sort={sort} onSort={onSort}/>{WINDOWS.map(([key,label])=><Heading key={key} name={key} label={key==='season'?'Season':label} sort={sort} onSort={onSort}/>)}<th scope="col" className="finder-pf finder-pf-apps">Apps</th><th scope="col" className="finder-pf finder-pf-ml" title="His team's chance to win, from the moneyline">Moneyline</th><th scope="col" className="finder-pf finder-pf-ip" title="The books' odds for the over and under">IP</th><th scope="col" className="finder-pf finder-pf-diff" title="His L10 average against the line">Diff</th></tr></thead><tbody>{/* Keyed by place on the page: turning the page updates the rows already there rather than building new ones. */}{visible.map((row,index)=><Row key={index} row={row} index={index} onOpen={open} pick={picks.get(row.id)} onPick={onPick}/>)}</tbody></table>}{!visible.length&&<div className="finder-message finder-empty-board" role="status">{loading?<><LoaderCircle className="finder-spin"/><strong>Loading the prop board</strong><span>Lines appear here as each sport loads.</span></>:<><ChartNoAxesColumnIncreasing size={26} aria-hidden="true"/><strong>{errors.length&&!sportRows.length?(siteIsAdmin()?'Props temporarily unavailable':'Lines are on their way'):savedOnly?'No saved props found':'No props found'}</strong><span>{errors.length&&!sportRows.length?(siteIsAdmin()?'We couldn’t load the latest props. Please try again.':'Today’s props show here in a moment.'):sportRows.length?'No props match these filters. Loosen or reset them to see more.':'No upcoming props are available right now. Check back soon.'}</span><button type="button" onClick={errors.length&&!sportRows.length?()=>scope.filter(k=>boards[k].error).forEach(k=>load(k,true)):clear}>{errors.length&&!sportRows.length?(siteIsAdmin()?'Retry':'Refresh'):'Clear all filters'}</button></>}</div>}</div><footer className="finder-pagination"><span>{rows.length?(currentPage*pageSize+1)+'–'+Math.min((currentPage+1)*pageSize,rows.length)+' of '+rows.length.toLocaleString():'0 props'}</span><div><button type="button" aria-label="Previous page" disabled={currentPage===0} onClick={()=>changePage(currentPage-1)}><ChevronLeft size={17}/></button><span>Page <b>{currentPage+1}</b> / {pages}</span><button type="button" aria-label="Next page" disabled={currentPage>=pages-1} onClick={()=>changePage(currentPage+1)}><ChevronRight size={17}/></button><label><ListFilter size={14}/><FinderDropdown aria-label="Rows per page" value={pageSize} onChange={e=>setPageSize(Number(e.target.value))}>{[20,50,100].map(n=><option value={n} key={n}>{n} rows</option>)}</FinderDropdown><ChevronDown size={12}/></label></div><span className="finder-page-hint">Select a player to open Trends</span></footer></section>
   </>}
   {chooser&&<PickSideMenu key={chooser.row.id} row={chooser.row} anchor={chooser.anchor} side={picks.get(chooser.row.id)} onClose={closeChooser}/>}
  </main></FinderDropdownAssets.Provider>;

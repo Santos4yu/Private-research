@@ -38,7 +38,7 @@ async function pageFor(step){
  if(!shown('panel-finder')){switchTab('finder');await sleep(250);}
  if(step.page==='player'){
   if(find(['.fpb-hero']))return true;
-  const open=find(['.finder-table tbody tr .finder-open']);
+  const open=find(['.finder-table tbody tr .finder-open','.fk-list .fk-card .finder-open']);
   if(!open)return false;
   open.click();
   return Boolean(await waitFor(['.fpb-hero'],8000));
