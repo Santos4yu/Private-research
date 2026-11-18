@@ -119,6 +119,19 @@ incomplete, tested against G / F / C on historical games before going public.
   days and scored on the second (log loss). Pick grading is untouched.
 - Diagnostics: the test workflow's part=depth (store status, placement,
   flagged cells) and part=backtest.
+- Live (Nov 18, 15:45 UTC, deploy 8d1bba9): the sync workflow imported
+  2,099 SportsDataverse reads (Sep 8 - Nov 17, 30 teams, 278 charts, 0
+  refused). Our DB (4,707 player-games): 94.8% of minutes listed, 2.7%
+  label, 2.5% tie (unplaced), 0.03% not on chart; flagged team-spots: 20 /
+  150 season, 24 / 150 L5 (most: OKC PF 18%, OKC SF 18%, MEM PF 16%).
+  Backtest on our DB and the Props tab's lines (Oct 30 - Nov 17): audit 0
+  leaks (28 days, 420 charts); 5,777 standard props (1,180 player-nights);
+  over rate 47.1%; calls right: average 50.55%, G/F/C 50.77%, five 50.91%,
+  combined 50.53% (each +/- ~1.3; five vs G/F/C p 0.81); no market and no
+  gap band shows a consistent edge; matchup terms add nothing beyond the
+  average and the line (logistic p 0.80 / 0.12 / 0.39; out of sample log
+  loss unchanged at 0.6965). Box scores: MAE 3.082 / 3.089 / 3.098 / 3.084.
+  Conclusion: five spots stay admin-only reference, out of pick grading.
 
 ### Nov 18 (g): private test of ESPN's live NBA depth charts (five positions)
 
