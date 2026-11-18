@@ -231,7 +231,37 @@ def status() -> dict:
     except Exception as exc:  # noqa: BLE001
         return {"error": type(exc).__name__}
     summary = {key: latest.get(key) for key in ("at", "trigger", "ok", "teamsComplete", "sources", "seconds")} if latest else None
-    return {"latest": summary, "runs": runs}
+    try:
+        cron = json.loads(store.get(CRON_KEY) or "[]")
+    except Exception:  # noqa: BLE001
+        cron = None
+    return {"latest": summary, "runs": runs, "cronCalls": cron}
+
+
+CRON_KEY = "krazy_data:nba:v1:depth-cron-calls"
+
+
+def note_cron(name: str, **seen) -> None:
+    """Keep the last calls that said they were Vercel's cron (accepted or
+    not, and whether a secret and a bearer were there; never their values)."""
+    from v2.board import store
+    try:
+        calls = json.loads(store.get(CRON_KEY) or "[]")
+        calls.insert(0, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "job": name, **seen})
+        store.set(CRON_KEY, json.dumps(calls[:KEEP_RUNS]), ex=KEEP_SECONDS)
+    except Exception:  # noqa: BLE001 -- a note that can't be kept never stops the job
+        pass
+
+
+def ran_within(seconds: int) -> bool:
+    """Whether the test ran in the last `seconds` (a cron call by headers alone is held to one a window)."""
+    from v2.board import store
+    try:
+        runs = json.loads(store.get(RUNS_KEY) or "[]")
+        last = datetime.fromisoformat(runs[0]["at"]) if runs else None
+    except Exception:  # noqa: BLE001
+        return False
+    return bool(last) and (datetime.now(timezone.utc) - last).total_seconds() < seconds
 
 
 def games_export() -> dict:

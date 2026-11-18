@@ -507,15 +507,17 @@ class handler(BaseHTTPRequestHandler):
 
     def _handle_nba_depth_test(self, qs):
         """The private test of ESPN's live NBA depth charts (Nov 18,
-        backend/sports/wnba/depth_probe.py). Only Vercel's cron (CRON_SECRET),
+        backend/sports/wnba/depth_probe.py). Only Vercel's cron (_vercel_cron),
         the repository's "NBA depth chart test" workflow (GitHub's signed
         token, github_oidc.py) or an admin session. ?part=run (default) asks
         ESPN and keeps the result; status, the kept result's time and the last
         runs; games, the stored season's played rows for the workflow's
         SportsDataverse check."""
-        import hmac
-        secret = os.getenv("CRON_SECRET", "")
-        trigger = "cron" if secret and hmac.compare_digest(self.headers.get("Authorization", ""), f"Bearer {secret}") else None
+        trigger = "cron" if self._vercel_cron("nba-depth-test") else None
+        if trigger and (qs.get("part") or ["run"])[0] == "run":
+            from backend.sports.wnba import depth_probe
+            if depth_probe.ran_within(20 * 60):
+                return self._send(200, {"skipped": "ran in the last 20 minutes"})
         if not trigger and self.headers.get("X-GitHub-OIDC"):
             import github_oidc
             if github_oidc.verify(self.headers.get("X-GitHub-OIDC", ""), audience="aceprops-nba-depth-test", workflow="nba-depth-test.yml"):
@@ -531,6 +533,26 @@ class handler(BaseHTTPRequestHandler):
         if part == "games":
             return self._send(200, depth_probe.games_export())
         return self._send(200, depth_probe.run(trigger))
+
+    def _vercel_cron(self, name: str) -> bool:
+        """Vercel's cron, the way this site's other crons take it
+        (predictor-cron): CRON_SECRET's bearer when the secret is set, else
+        Vercel's cron headers. Every call that says it is Vercel's cron is
+        noted (depth_probe.note_cron), accepted or not, so a schedule that
+        never arrives -- or is turned away -- shows in the test's status."""
+        import hmac
+        secret = os.getenv("CRON_SECRET", "")
+        agent = self.headers.get("User-Agent", "")
+        says_cron = "vercel-cron" in agent.lower() or self.headers.get("x-vercel-cron", "") == "1"
+        if secret:
+            accepted = hmac.compare_digest(self.headers.get("Authorization", ""), f"Bearer {secret}")
+        else:
+            accepted = says_cron
+        if says_cron or accepted:
+            from backend.sports.wnba import depth_probe
+            depth_probe.note_cron(name, accepted=accepted, secret_set=bool(secret),
+                                  bearer=bool(self.headers.get("Authorization")), agent=agent[:60])
+        return accepted
 
     def _handle_moves_tick(self, qs):
         """Check every league's PrizePicks lines now (line_moves.py), which

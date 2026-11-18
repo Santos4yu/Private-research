@@ -88,6 +88,14 @@ G / F / C. Research so far (no feature built):
   live results, sets SportsDataverse's dated charts against OUR box
   scores, compares its newest snapshot with ESPN live, and sizes a
   change-only history. Nothing on the site reads any of it yet.
+- The 06:10 UTC cron never showed up in the test's run log (only the
+  workflow's runs). The test took CRON_SECRET's bearer only; the site's
+  working crons (predictor-cron, cron-scan) take the bearer when the secret
+  is set, else Vercel's cron headers. `_vercel_cron` (api/v2-admin.py) now
+  does the same, and every call that says it is Vercel's cron is noted
+  (accepted or not, whether a secret / bearer was there, never values) in
+  the test's status (`cronCalls`). A header-only call runs at most once in
+  20 minutes. Moved to 16:30 UTC to confirm the same day.
 
 ### Nov 18 (f): three fixes the owner sent with screenshots
 
