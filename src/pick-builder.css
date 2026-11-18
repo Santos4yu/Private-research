@@ -193,3 +193,26 @@
 .pick-builder.is-compact .pick-builder-footer p{font-size:11.5px}
 .pick-builder.is-compact .pick-builder-export{min-height:42px;border-radius:12px;font-size:14px!important}
 .pick-builder.is-compact .pick-builder-link{min-height:30px;font-size:12px!important}
+
+/* ---- Nov 18: the top bar's Slip panel in the kit (the owner: "fix this";
+   each card stretched to fill the panel, leaving big gaps inside it). The
+   cards keep their own height, Export right under them. Flat colors: no gradients on Over, Under or Export, the heading
+   in sentence case. */
+.ps-top-builder { background: var(--k-panel, #121723); box-shadow: 0 24px 60px rgba(0, 0, 0, .6), inset 0 0 0 1px var(--k-line-strong, rgba(255, 255, 255, .14)); }
+.topbar-builder .pick-builder, .topbar-builder .pick-builder.is-compact { --pb-panel: var(--k-panel, #121723); --pb-card: var(--k-raised, #181f2d); --pb-rule: var(--k-line, rgba(255, 255, 255, .07)); --pb-text: var(--k-text, #eef1f6); --pb-muted: var(--k-muted, #9ba4b6); --pb-faint: var(--k-faint, #677187); }
+.pick-builder.is-compact .pick-builder-list { align-content: start; }
+/* The panel is as tall as what's in it (up to the window's height, then it scrolls). */
+@media (min-width: 761px) {
+  html body .ps-top-builder.topbar-builder { bottom: auto; max-height: calc(100dvh - 76px); }
+  .topbar-builder .pick-builder, .topbar-builder .pick-builder.is-compact { min-height: 0; height: auto; }
+}
+.pick-builder.is-compact .pick-builder-leg, .pick-builder.is-compact .pick-builder-leg + .pick-builder-leg { align-content: start; gap: 10px; padding: 12px; border-color: var(--pb-rule); background: var(--pb-card); }
+.pick-builder-rail-head h2 { color: var(--k-text, #eef1f6); font: 600 14px/1 var(--font-sans); letter-spacing: 0; text-transform: none; }
+.pick-builder-rail-head h2 small { color: var(--k-faint, #677187); font-size: 12.5px; font-weight: 500; letter-spacing: 0; }
+.pick-builder-leg .pick-builder-side button { background: var(--k-high, #212a3b); }
+.pick-builder-leg .pick-builder-side button:not(:disabled):not([aria-pressed=true]):hover { background: color-mix(in srgb, var(--k-high, #212a3b) 80%, #fff); }
+.pick-builder-leg .pick-builder-side button[data-side=over][aria-pressed=true] { background: var(--k-hit, #22c55e); color: #04170b; }
+.pick-builder-leg .pick-builder-side button[data-side=under][aria-pressed=true] { background: var(--k-miss, #ef4444); color: #fff; }
+.pick-builder-when { border-color: var(--k-line, rgba(255, 255, 255, .07)); background: transparent; }
+.pick-builder-export, .pick-builder.is-compact .pick-builder-export { background: #f2f3f5; color: #0b0e14; }
+.pick-builder-export:disabled, .pick-builder.is-compact .pick-builder-export:disabled { background: var(--k-high, #212a3b); color: var(--k-faint, #677187); }

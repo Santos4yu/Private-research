@@ -173,3 +173,11 @@ html:root body .fp2.finder-trend-view .mlb-supporting .mlb-support-track > div {
 html:root body .fp2.finder-trend-view .mlb-supporting .mlb-support-track > div span { color: var(--k-text); font-weight: 700; }
 /* Depth charts: rows on the panel, not a grey stripe. */
 html:root body .fp2 .fp2-his tr:nth-child(odd) td, html:root body .fp2 .fp2-his tr td { background-color: transparent; }
+/* The windows (L5, L10 ...): each cell's words centered and kept inside it
+   (Nov 18, the owner: "why arent these centered"; "HR 100%" ran past the
+   cell's right edge). */
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button {
+  justify-items: center !important; justify-content: center !important; min-width: 0; padding-inline: 4px !important; text-align: center !important;
+}
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button > * { justify-self: center; max-width: 100%; white-space: nowrap; }
+html:root body .fp2 #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button strong { justify-content: center; }

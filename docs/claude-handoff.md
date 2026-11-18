@@ -58,6 +58,25 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (f): three fixes the owner sent with screenshots
+
+- Finder table on computers "cut off": it sat in a box as tall as the
+  window with its own scrollbar (`.finder-scroll` max-height), which ran
+  under the bottom of the screen and hid the page buttons. Now the whole
+  table shows and the page scrolls (`finder-kit.css`, min-width 761px). The
+  titles scroll with the rows: the page scrolls on `body` (html and body
+  have overflow set site-wide), so a sticky header can't pin to the window
+  without changing that everywhere.
+- The top bar's Slip panel: each pick card stretched to fill the panel
+  (big empty gaps inside the cards). The cards keep their own height, the
+  panel is as tall as what's in it (up to the window, then it scrolls),
+  Export sits right under the picks. Kit colors, flat Over (green) / Under
+  (red) / Export (white), "Pick Builder 2 of 6" in sentence case. End of
+  `pick-builder.css`.
+- The player page's window cells (L5, L10 ...): words centered, and
+  "HR 100%" no longer runs past the cell's edge (less side padding). End
+  of `player-kit.css`.
+
 ### Nov 18 (e): the Opportunity card (the owner: "i hate how this looks")
 
 The Matchup tab's Opportunity card (`src/sports/wnba/Opportunity.jsx`,

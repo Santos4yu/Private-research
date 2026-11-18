@@ -121,3 +121,13 @@
 }
 /* Underdog's mark is dark: a light plate keeps it readable wherever it shows. */
 img[src$="/sportsbooks/underdog.png"] { background: #fff; }
+
+/* Computers: the whole table shows and the page scrolls (Nov 18, the owner:
+   "why is it not fully showing on the screen it shouldnt be cut off"). It
+   used to sit in a box as tall as the window with its own scrollbar, which
+   ran under the bottom of the screen. (The titles scroll with the rows: the
+   page scrolls on body, which has overflow set site-wide, so they can't pin.) */
+@media (min-width: 761px) {
+  html:root body .unified-finder.unified-finder .finder-board { overflow: hidden; }
+  html:root body .unified-finder.unified-finder .finder-scroll { max-height: none; min-height: 0; overflow: visible; }
+}
