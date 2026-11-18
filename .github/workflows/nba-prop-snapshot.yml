@@ -22,6 +22,9 @@ on:
       days:
         description: Nights the report reads
         default: "30"
+      key:
+        description: "report only: an RSA public key (base64 DER) to seal the report with, so public logs show ciphertext only"
+        default: ""
 
 permissions:
   contents: read
@@ -54,11 +57,12 @@ jobs:
           MODE: ${{ github.event.inputs.mode || 'snapshot' }}
           REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
           DAYS: ${{ github.event.inputs.days || '30' }}
+          REPORT_KEY: ${{ github.event.inputs.key || '' }}
         run: |
           case "$MODE" in
             report)
-              if [ "$REPOSITORY_VISIBILITY" != private ]; then
-                echo "Model Check reports require private workflow logs."
+              if [ "$REPOSITORY_VISIBILITY" != private ] && [ -z "$REPORT_KEY" ]; then
+                echo "Model Check reports require private workflow logs or a key to seal them with."
                 exit 1
               fi
               node tools/prop-snapshot/report.mjs ;;
