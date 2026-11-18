@@ -104,6 +104,19 @@ incomplete, tested against G / F / C on historical games before going public.
   x 8 stats): mean absolute error average-only 3.680, G / F / C 3.685,
   spots 3.694 -- neither beat his own average, the spots no better than
   G / F / C. The live run adds the Props tab's recorded lines.
+- The line test (the owner's ten points): the Props tab's recorded
+  standard lines (kept only before games start), one bet per player-market-
+  night (the middle line when it moved; collapsed snapshots counted), DNP =
+  void, a result on the line = push, a projection on the line = no call
+  (the prop leaves for all four models, so all are scored on the same
+  props); a player's minutes are never used to pick props (only known
+  after). Per market (pts, reb, ast, tpm, pra, pr, pa, ra -- RA has no
+  recorded lines -- stl, blk): calls right with Wilson 95% intervals,
+  McNemar pairs, accuracy by the projection's distance from the line (bands
+  fixed in advance: <5%, 5-10%, 10-20%, 20%+), and `value_beyond`: a
+  logistic fit of over on the average's gap to the line plus the matchup's
+  push (coefficient, SE, p), and the same fitted on the first half of the
+  days and scored on the second (log loss). Pick grading is untouched.
 - Diagnostics: the test workflow's part=depth (store status, placement,
   flagged cells) and part=backtest.
 

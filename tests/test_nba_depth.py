@@ -1,3 +1,4 @@
+import math
 import time
 import unittest
 from unittest.mock import patch
@@ -137,10 +138,6 @@ class SpotTests(unittest.TestCase):
         self.assertAlmostEqual(sum(summary["by"].values()), 1.0, places=3)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class BacktestTests(unittest.TestCase):
     def test_a_day_is_read_only_against_the_days_before_it(self):
         from backend.sports.wnba import dvp_backtest
@@ -165,16 +162,52 @@ class BacktestTests(unittest.TestCase):
         audit = checks["audit"]
         self.assertEqual((audit["stateFromSameOrLaterDay"], audit["chartReadAfterTip"], audit.get("playerHistoryFromSameOrLaterDay", 0)), (0, 0, 0))
 
-    def test_intervals_and_line_calls(self):
+    def test_intervals_and_one_bet_per_prop(self):
         from backend.sports.wnba import dvp_backtest
         self.assertEqual(dvp_backtest._wilson(0, 0), None)
         rate, low, high = dvp_backtest._wilson(55, 100)
         self.assertTrue(low < 55 < high and high - low > 15)  # 100 calls: an interval near +/- 10 points
         self.assertEqual(dvp_backtest._mcnemar(0, 0), 1.0)
-        scored = [{"day": "2026-11-10", "pid": "1", "stat": "pts", "actual": 30, "average": 20, "gfc": 1.1, "five": 0.9}]
-        box = {("1", "2026-11-10"): row("1", 30, 30)}
-        reports = {"2026-11-10": {"1|player_points|20.5": [70, 0.6, "lean", "standard"], "1|player_points|21.5": [70, 0.6, "lean", "goblin"],
-                                  "1|player_points|30": [70, 0.6, "lean", "standard"]}}
+        entry = {"day": "2026-11-10", "pid": "1", "stat": "pts", "actual": 30, "average": 20, "gfc": 1.1, "five": 0.9, "minutes": 30}
+        scored = [entry, {**entry, "pid": "2", "actual": 21}]
+        box = {("1", "2026-11-10"): row("1", 30, 30), ("2", "2026-11-10"): row("2", 30, 21)}
+        reports = {"2026-11-10": {
+            # Player 1's points recorded at three lines (it moved): one bet, the middle line 20.5.
+            "1|player_points|19.5": [70, 0.6, "lean", "standard"], "1|player_points|20.5": [70, 0.6, "lean", "standard"],
+            "1|player_points|22.5": [70, 0.6, "lean", "standard"],
+            "1|player_points|17.5": [70, 0.6, "lean", "goblin"],      # not a standard line
+            "2|player_points|21": [70, 0.6, "lean", "standard"],      # landed on it: push
+            "3|player_points|10.5": [70, 0.6, "lean", "standard"],    # didn't play: void
+        }}
         calls, left = dvp_backtest.line_calls(scored, box, reports)
-        self.assertEqual(left, {"goblinOrDemon": 1, "push": 1})
-        self.assertEqual(calls[0]["calls"], {"average": False, "gfc": True, "five": False, "combined": False})
+        self.assertEqual(left, {"goblinOrDemon": 1, "snapshotsCollapsed": 2, "push": 1, "voidDidNotPlay": 1})
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["line"], 20.5)
+        self.assertEqual({model: dvp_backtest._right(calls[0], model) for model in dvp_backtest.MODELS},
+                         {"average": False, "gfc": True, "five": False, "combined": False})
+        report = dvp_backtest.line_report(calls)
+        self.assertEqual(report["pts"]["props"], 1)
+        self.assertEqual(report["ra"], {"props": 0})
+        self.assertEqual(report["pts"]["byGap"]["gfc"]["5-10%"]["props"], 1)  # 22 vs 20.5: 7.3% off the line
+
+    def test_value_beyond_finds_a_real_signal_and_not_a_fake_one(self):
+        import random
+        from backend.sports.wnba import dvp_backtest
+        rng = random.Random(7)
+        calls = []
+        for n in range(2000):
+            day = f"2026-11-{1 + n % 28:02d}"
+            push = rng.uniform(-0.2, 0.2)              # a matchup factor's push, as a share of the line
+            real = rng.random() < 1 / (1 + math.exp(-8 * push))
+            average = 20.0 + rng.uniform(-2, 2)
+            calls.append({"day": day, "line": 20.0, "average": average, "over": real, "stat": "pts", "pid": str(n),
+                          "projection": {"average": average, "gfc": average + 20.0 * push, "five": average + 20.0 * rng.uniform(-0.2, 0.2),
+                                         "combined": average + 10.0 * push}})
+        found = dvp_backtest.value_beyond(calls)
+        self.assertLess(found["gfc"]["pValue"], 0.001)       # gfc carries the signal
+        self.assertGreater(found["five"]["pValue"], 0.01)    # five is noise
+        self.assertLess(found["gfc"]["outOfSample"]["logLossWithMatchup"], found["gfc"]["outOfSample"]["logLossAverageAndLine"])
+
+
+if __name__ == "__main__":
+    unittest.main()

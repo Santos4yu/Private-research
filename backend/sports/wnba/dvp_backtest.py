@@ -24,11 +24,14 @@ at that position.
 
 1. Box scores (10+ minutes): mean absolute error per market, and the five
    vs G / F / C difference with a 95% interval (paired).
-2. The Props tab's recorded PrizePicks lines (props_record.py), standard
-   lines, pushes left out: how often each model's over / under call was
-   right per market with a 95% interval, and five vs G / F / C paired
-   (McNemar). Calls on one player-night share him, so intervals are, if
-   anything, narrow.
+2. The Props tab's recorded PrizePicks lines (props_record.py; see
+   line_calls for what counts): how often each model's over / under call
+   was right per market with a 95% interval, the pairs (McNemar), each
+   model by how far its projection sat from the line (bands fixed in
+   advance), and whether a matchup factor adds anything beyond the
+   player's average and the line (value_beyond: a logistic fit, and one
+   fitted on the first half of the days and scored on the second). Props
+   on one player-night share him, so intervals are, if anything, narrow.
 3. Consistency: the same comparisons on the first and second half of the
    days, separately.
 """
@@ -127,7 +130,7 @@ def walk(payload: dict, index) -> tuple[list, dict, dict]:
                     audit["chartsChecked"] += 1
                     audit["chartReadAfterTip"] += int(read >= tip - depth.TIP_MARGIN_MINUTES)
                 for row in game["t"][team]["p"]:
-                    if not (row[minute] or 0) >= MIN_MINUTES:
+                    if not row[minute]:
                         continue
                     pid = str(row[0])
                     box[(pid, day)] = row
@@ -147,7 +150,7 @@ def walk(payload: dict, index) -> tuple[list, dict, dict]:
                         if f_gfc is None or f_five is None:
                             continue
                         scored.append({"day": day, "pid": pid, "stat": stat, "actual": context.stat_value(row, stat),
-                                       "average": past[stat] / past["_n"], "gfc": f_gfc, "five": f_five})
+                                       "average": past[stat] / past["_n"], "gfc": f_gfc, "five": f_five, "minutes": row[minute]})
         # Only now does the day count.
         for game in games:
             abbrs = list(game["t"])
@@ -210,6 +213,7 @@ def box_score_errors(scored: list) -> dict:
     """Per market (and all): mean absolute error of each model, and five
     minus G / F / C (negative = five closer) with its 95% interval."""
     out = {}
+    scored = [entry for entry in scored if (entry.get("minutes") or 0) >= MIN_MINUTES]
     for stat in ("all",) + STATS:
         rows = [entry for entry in scored if stat == "all" or entry["stat"] == stat]
         if not rows:
@@ -223,12 +227,26 @@ def box_score_errors(scored: list) -> dict:
     return out
 
 
+# The line test (Nov 18, the owner's ten points). Fixed before looking at any
+# result, never tuned on these games: the markets reported, the gap bands.
+LINE_MARKETS = ("pts", "reb", "ast", "tpm", "pra", "pr", "pa", "ra", "stl", "blk")
+GAP_BANDS = ((0.0, 0.05, "<5%"), (0.05, 0.10, "5-10%"), (0.10, 0.20, "10-20%"), (0.20, float("inf"), "20%+"))
+
+
 def line_calls(scored: list, box: dict, reports: dict) -> tuple[list, dict]:
-    """The recorded standard lines with a result and all four predictions:
-    ([{stat, day, over, calls: {model: over?}}], counts of what was left out)."""
+    """One bet per prop: the Props tab's recorded standard lines (recorded
+    only before each game started, props_record.remember), a player's
+    market on one night counted once -- when it was recorded at more than
+    one line (the line moved), the middle one. A player who didn't play is
+    void (left out); a result on the line is a push (left out); a projection
+    exactly on the line is no call for that model, so the prop is left out
+    for all four. Every prop kept has all four projections, so the models
+    are compared on exactly the same props. Returns ([{stat, day, pid, line,
+    over, average, projection: {model: value}}], counts left out)."""
     import props_record
     signal = {(entry["pid"], entry["day"], entry["stat"]): entry for entry in scored}
-    calls, left = [], defaultdict(int)
+    left = defaultdict(int)
+    props = defaultdict(list)   # (pid, day, stat) -> standard lines recorded
     for day, fields in reports.items():
         for field, kept in fields.items():
             try:
@@ -238,39 +256,164 @@ def line_calls(scored: list, box: dict, reports: dict) -> tuple[list, dict]:
                 left["unreadable"] += 1
                 continue
             stat = props_record.MARKETS.get(market)
+            if stat is None:
+                left["otherMarket"] += 1
+                continue
             modifier = kept[3] if isinstance(kept, list) and len(kept) > 3 else "standard"
             if modifier != "standard":
                 left["goblinOrDemon"] += 1
                 continue
-            row = box.get((pid, day))
-            if row is None:
-                left["didNotPlay10Minutes"] += 1
-                continue
-            entry = signal.get((pid, day, stat))
-            if entry is None:
-                left["notScored"] += 1   # too few earlier games, unplaced, or too few defense games
-                continue
-            actual = context.stat_value(row, stat)
-            if actual is None or actual == line:
-                left["push"] += 1
-                continue
-            calls.append({"stat": stat, "day": day, "over": actual > line,
-                          "calls": {model: _predict(entry, model) > line for model in MODELS}})
+            props[(pid, day, stat)].append(line)
+    calls = []
+    for (pid, day, stat), lines in props.items():
+        lines.sort()
+        left["snapshotsCollapsed"] += len(lines) - 1
+        line = lines[(len(lines) - 1) // 2]
+        row = box.get((pid, day))
+        if row is None:
+            left["voidDidNotPlay"] += 1
+            continue
+        actual = context.stat_value(row, stat)
+        if actual is None:
+            left["noResult"] += 1
+            continue
+        if actual == line:
+            left["push"] += 1
+            continue
+        entry = signal.get((pid, day, stat))
+        if entry is None:
+            left["notScored"] += 1   # under 5 earlier games, no depth-chart spot, or the defense under 5 games there
+            continue
+        projection = {model: _predict(entry, model) for model in MODELS}
+        if any(value == line for value in projection.values()):
+            left["projectionOnLine"] += 1
+            continue
+        calls.append({"stat": stat, "day": day, "pid": pid, "line": line, "over": actual > line,
+                      "average": entry["average"], "projection": projection})
     return calls, dict(left)
 
 
-def line_report(calls: list) -> dict:
+def _right(call, model) -> bool:
+    return (call["projection"][model] > call["line"]) == call["over"]
+
+
+def _paired(rows, first, second) -> dict:
+    first_only = sum(1 for call in rows if _right(call, first) and not _right(call, second))
+    second_only = sum(1 for call in rows if _right(call, second) and not _right(call, first))
+    return {f"{first}Only": first_only, f"{second}Only": second_only, "pValue": _mcnemar(first_only, second_only)}
+
+
+def _bands(rows, model) -> dict:
     out = {}
-    for stat in ("all",) + STATS:
+    for low, high, name in GAP_BANDS:
+        band = [call for call in rows if low <= abs(call["projection"][model] - call["line"]) / call["line"] < high]
+        out[name] = {"props": len(band), "right": _wilson(sum(_right(call, model) for call in band), len(band))}
+    return out
+
+
+def line_report(calls: list) -> dict:
+    """Per market (and all): over rate, each model's calls right with a 95%
+    interval, the pairs (McNemar), and each model by how far its projection
+    sat from the line."""
+    out = {}
+    for stat in ("all",) + LINE_MARKETS:
         rows = [call for call in calls if stat == "all" or call["stat"] == stat]
         if not rows:
+            out[stat] = {"props": 0}
             continue
-        right = {model: sum(1 for call in rows if call["calls"][model] == call["over"]) for model in MODELS}
-        five_only = sum(1 for call in rows if call["calls"]["five"] == call["over"] and call["calls"]["gfc"] != call["over"])
-        gfc_only = sum(1 for call in rows if call["calls"]["gfc"] == call["over"] and call["calls"]["five"] != call["over"])
-        out[stat] = {"lines": len(rows), "overRate": _wilson(sum(call["over"] for call in rows), len(rows)),
-                     "callsRight": {model: _wilson(count, len(rows)) for model, count in right.items()},
-                     "fiveVsGfc": {"fiveRightGfcWrong": five_only, "gfcRightFiveWrong": gfc_only, "pValue": _mcnemar(five_only, gfc_only)}}
+        nights = len({(call["pid"], call["day"]) for call in rows})
+        out[stat] = {"props": len(rows), "playerNights": nights,
+                     "overRate": _wilson(sum(call["over"] for call in rows), len(rows)),
+                     "callsRight": {model: _wilson(sum(_right(call, model) for call in rows), len(rows)) for model in MODELS},
+                     "paired": {"fiveVsGfc": _paired(rows, "five", "gfc"), "gfcVsAverage": _paired(rows, "gfc", "average"),
+                                "fiveVsAverage": _paired(rows, "five", "average"), "combinedVsAverage": _paired(rows, "combined", "average")},
+                     "byGap": {model: _bands(rows, model) for model in MODELS}}
+    return out
+
+
+def _solve(matrix, vector):
+    """Gaussian elimination for the small systems below."""
+    size = len(vector)
+    grid = [row[:] + [vector[i]] for i, row in enumerate(matrix)]
+    for col in range(size):
+        pivot = max(range(col, size), key=lambda r: abs(grid[r][col]))
+        if abs(grid[pivot][col]) < 1e-12:
+            raise ValueError("singular")
+        grid[col], grid[pivot] = grid[pivot], grid[col]
+        for r in range(size):
+            if r != col:
+                factor = grid[r][col] / grid[col][col]
+                grid[r] = [a - factor * b for a, b in zip(grid[r], grid[col])]
+    return [grid[i][size] / grid[i][i] for i in range(size)]
+
+
+def _logistic(rows, features):
+    """Logistic regression (Newton's method): coefficients, their standard
+    errors, and a predict function. `features(call)` -> list (with 1 first)."""
+    xs, ys = [features(call) for call in rows], [1.0 if call["over"] else 0.0 for call in rows]
+    size = len(xs[0])
+    beta = [0.0] * size
+    for _ in range(25):
+        grad, hess = [0.0] * size, [[0.0] * size for _ in range(size)]
+        for x, y in zip(xs, ys):
+            p = 1 / (1 + math.exp(-max(-30, min(30, sum(b * v for b, v in zip(beta, x))))))
+            for i in range(size):
+                grad[i] += (y - p) * x[i]
+                for j in range(size):
+                    hess[i][j] += p * (1 - p) * x[i] * x[j]
+        for i in range(size):
+            hess[i][i] += 1e-6   # keeps a constant column from stopping the fit; changes nothing else
+        step = _solve(hess, grad)
+        beta = [b + d for b, d in zip(beta, step)]
+        if max(abs(d) for d in step) < 1e-8:
+            break
+    errors = []
+    for i in range(size):
+        unit = [1.0 if j == i else 0.0 for j in range(size)]
+        errors.append(math.sqrt(max(_solve(hess, unit)[i], 0.0)))
+    predict = lambda call: 1 / (1 + math.exp(-max(-30, min(30, sum(b * v for b, v in zip(beta, features(call)))))))
+    return beta, errors, predict
+
+
+def value_beyond(calls: list) -> dict:
+    """Does a matchup factor add anything beyond the player's average and
+    the line itself? The outcome (over) on: the average's gap to the line
+    ((average - line) / line) and the matchup's own push ((projection -
+    average) / line). (1) On all props: the matchup term's coefficient,
+    its standard error and p. (2) Out of sample: fitted on the first half
+    of the days, scored on the second half (log loss), against the same fit
+    without the matchup term."""
+    if len(calls) < 60:
+        return {"props": len(calls), "note": "too few props to fit"}
+    base = lambda call: [1.0, (call["average"] - call["line"]) / call["line"]]
+    days = sorted({call["day"] for call in calls})
+    middle = days[len(days) // 2]
+    train = [call for call in calls if call["day"] < middle]
+    test = [call for call in calls if call["day"] >= middle]
+
+    def log_loss(predict, rows):
+        return sum(-math.log(max(1e-9, predict(call) if call["over"] else 1 - predict(call))) for call in rows) / len(rows)
+
+    out = {"props": len(calls), "trainProps": len(train), "testProps": len(test), "split": middle}
+    try:
+        _, _, base_all = _logistic(calls, base)
+        _, _, base_train = _logistic(train, base) if len(train) >= 30 else (None, None, None)
+    except ValueError:
+        return {**out, "note": "the fit did not converge"}
+    for model in ("gfc", "five", "combined"):
+        with_model = lambda call, m=model: base(call) + [(call["projection"][m] - call["average"]) / call["line"]]
+        try:
+            beta, errors, _ = _logistic(calls, with_model)
+            z = beta[2] / errors[2] if errors[2] else 0.0
+            entry = {"coefficient": round(beta[2], 3), "standardError": round(errors[2], 3), "pValue": round(math.erfc(abs(z) / math.sqrt(2)), 4)}
+            if base_train and len(train) >= 30 and test:
+                _, _, fitted = _logistic(train, with_model)
+                entry["outOfSample"] = {"logLossAverageAndLine": round(log_loss(base_train, test), 4),
+                                        "logLossWithMatchup": round(log_loss(fitted, test), 4)}
+        except ValueError:
+            entry = {"note": "the fit did not converge"}
+        out[model] = entry
+    out["baselineLogLossAllProps"] = round(log_loss(base_all, calls), 4)
     return out
 
 
@@ -285,9 +428,10 @@ def halves(scored: list, calls: list) -> dict:
         part = [entry for entry in scored if keep(entry["day"])]
         lines = [call for call in calls if keep(call["day"])]
         errors = box_score_errors(part).get("all", {})
+        report = line_report(lines).get("all", {})
         out[name] = {"days": [min((e["day"] for e in part), default=None), max((e["day"] for e in part), default=None)],
                      "boxScores": {"playerGames": errors.get("playerGames"), "mae": errors.get("mae"), "fiveMinusGfc": errors.get("fiveMinusGfc")},
-                     "lines": line_report(lines).get("all")}
+                     "lines": {"props": report.get("props"), "callsRight": report.get("callsRight")}}
     return out
 
 
@@ -316,5 +460,7 @@ def run(season: int | None = None) -> dict:
             "days": [days[0], days[-1]] if days else None, "reportDays": len(reports),
             "audit": checks["audit"], "coverage": checks["coverage"],
             "boxScores": box_score_errors(scored),
-            "lines": {"used": len(calls), "leftOut": left, "byMarket": line_report(calls)},
+            "lines": {"props": len(calls), "leftOut": left, "gapBands": [name for _, _, name in GAP_BANDS],
+                      "byMarket": line_report(calls), "valueBeyondAverageAndLine": value_beyond(calls),
+                      "recordedBeforeGames": "props_record keeps a line only while its game hasn't started"},
             "halves": halves(scored, calls)}
