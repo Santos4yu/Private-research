@@ -95,6 +95,10 @@ test('the job grades every listed line with the site\'s code and posts both side
     assert.equal(body.inputs.tonight.GS.injuries[0][2], 'Questionable');
     assert.equal(body.data.lines, 4);
     assert.equal(body.data.graded, 4);
+    assert.equal(body.data.eligible, 3);
+    assert.equal(body.data.bothSides, 3);
+    assert.equal(body.data['bothSides.player_threes'], 1);
+    assert.equal(body.data['bothSides.player_assists'], 1);
     assert.ok(!body.problems.some(text => /differed/.test(text)), body.problems.join('; '));
   } finally {
     server.close();

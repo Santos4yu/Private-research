@@ -1140,7 +1140,9 @@ def _nba_day(day):
                                                  "logo": team.get("logo")}
         start = timestamp(event.get("date"))
         if start and sides.get("home", {}).get("abbr") and sides.get("away", {}).get("abbr"):
-            games.append({"id": str(event.get("id")), "start": start, "home": sides["home"], "away": sides["away"]})
+            state = ((event.get("status") or {}).get("type") or {}).get("state")
+            games.append({"id": str(event.get("id")), "start": start, "state": state,
+                          "home": sides["home"], "away": sides["away"]})
     _nba_days[day] = (time.time(), games)
     return games
 
@@ -1172,13 +1174,13 @@ def _nba_tonight(now=None):
     def report(game):
         try:
             found = game_reports.matchup(game["id"], "nba")
-            return game, found.get("injuries"), found.get("odds") or {}
+            return game, found.get("injuries"), found.get("odds") or {}, found.get("fetchedAt")
         except Exception:  # noqa: BLE001 -- that game's teams stay unknown
-            return game, None, {}
+            return game, None, {}, None
 
     teams = {}
     with ThreadPoolExecutor(max_workers=6) as pool:
-        for game, injuries, odds in pool.map(report, games):
+        for game, injuries, odds, fetched_at in pool.map(report, games):
             # A game whose report lists nobody on either side can't be told
             # from one that wasn't published: unknown.
             if not injuries:
@@ -1187,7 +1189,7 @@ def _nba_tonight(now=None):
                 abbr = game[side]["abbr"]
                 if abbr in teams:
                     continue
-                teams[abbr] = {"eventId": game["id"], "startsAt": game["start"].isoformat(), "opponent": game[other]["abbr"],
+                teams[abbr] = {"eventId": game["id"], "fetchedAt": fetched_at, "startsAt": game["start"].isoformat(), "opponent": game[other]["abbr"],
                                # The game's line: his team's spread (negative: favored) and the total.
                                "spread": (odds.get(side) or {}).get("spread"), "total": odds.get("total"),
                                # ESPN's fantasy code (GTD, Q, OUT...) beside its status: a
@@ -1244,6 +1246,7 @@ def _nba_row(line, starts, directory, by_team):
            # PrizePicks' own stat name, so the board reads like the app and Export matches it exactly.
            "marketKey": market, "market": str(line.get("stat") or "").strip() or PRIZEPICKS_LABELS.get(market),
            "line": float(line["line"]), "modifier": modifier, "promo": bool(line.get("promo")), "startsAt": starts.isoformat(),
+           "gameStartsAt": game["start"].isoformat() if game else None, "gameState": game.get("state") if game else None,
            "apps": [{"key": "prizepicks", "name": "PrizePicks", "over": None, "under": None,
                      "updatedAt": line.get("updated_at") or None, "modifier": modifier}],
            "verified": True, "primaryBook": "prizepicks", "source": "prizepicks"}

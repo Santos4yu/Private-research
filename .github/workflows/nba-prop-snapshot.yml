@@ -43,16 +43,25 @@ jobs:
             src
             tools/prop-snapshot
             package.json
+            package-lock.json
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install locked production dependencies
+        run: npm ci --omit=dev
       - name: Grade and post, or report
         env:
           MODE: ${{ github.event.inputs.mode || 'snapshot' }}
+          REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
           DAYS: ${{ github.event.inputs.days || '30' }}
         run: |
           case "$MODE" in
-            report) node tools/prop-snapshot/report.mjs ;;
+            report)
+              if [ "$REPOSITORY_VISIBILITY" != private ]; then
+                echo "Model Check reports require private workflow logs."
+                exit 1
+              fi
+              node tools/prop-snapshot/report.mjs ;;
             dry) node tools/prop-snapshot/run.mjs --dry ;;
             *) node tools/prop-snapshot/run.mjs ;;
           esac

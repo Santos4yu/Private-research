@@ -60,9 +60,9 @@ def _median_pick(items):
     return items[(len(items) - 1) // 2]
 
 
-def job_records(days, results, pipeline=None):
+def job_records(days, results, pipeline=None, games=None, stat_value=None):
     """The snapshot job's newest pregame grade of each line, settled."""
-    out, removed, void = [], 0, 0
+    out, removed, void, missing = [], 0, 0, 0
     for day in days:
         kept = prop_snapshots.last_on(day, pipeline)
         groups = defaultdict(list)
@@ -74,9 +74,18 @@ def job_records(days, results, pipeline=None):
             entries.sort(key=lambda entry: (entry.get('l') or 0, entry.get('f') or 0))
             removed += len(entries) - 1
             row = entries[-1]['row']
-            value = (results.get((pid, day)) or {}).get(STATS[market])
+            if row.get('event') and games is not None:
+                game = games.get(row['event']) or {}
+                teams = (game.get('t') or {}).values()
+                player = next((player for team in teams for player in team.get('p', []) if str(player[0]) == pid), None)
+                if player is None and any(pid in {str(item) for item in team.get('dnp', [])} for team in teams):
+                    void += 1
+                    continue
+                value = stat_value(player, STATS[market]) if player is not None else None
+            else:
+                value = (results.get((pid, day)) or {}).get(STATS[market])
             if value is None:
-                void += 1
+                missing += 1
                 continue
             over, under = row.get('o'), row.get('u')
             out.append({'src': 'job', 'day': day, 'pid': pid, 'mk': market, 'md': modifier, 'ln': row['ln'], 'actual': value,
@@ -84,7 +93,7 @@ def job_records(days, results, pipeline=None):
                         'tierOver': over[3] if over else None, 'tierUnder': under[3] if under else None,
                         'needsOver': over[5] if over else None, 'proj': row.get('pj'),
                         'book': (row.get('dk') or [None])[0], 'score': row.get('sc'), 'at': entries[-1].get('l')})
-    return out, {'duplicatesRemoved': removed, 'void': void}
+    return out, {'duplicatesRemoved': removed, 'void': void, 'missingResults': missing}
 
 
 def list_records(days, results, pipeline):
@@ -313,8 +322,8 @@ def score_side(records, side, rng):
         mask = np.array([record['mk'] == market for record in rows])
         if mask.sum():
             markets.append({'market': market, 'n': int(mask.sum()), 'meanChance': round(float(p[mask].mean()), 4),
-                            'hitRate': round(float(y[mask].mean()), 4), 'logLoss': round(float(loss[mask].mean()), 4),
-                            'brier': round(float(brier[mask].mean()), 4), 'logLossCI': _ci(weights, loss, mask)})
+                            'hitRate': round(float(y[mask].mean()), 4), 'hitRateCI': _ci(weights, y, mask),
+                            'logLoss': round(float(loss[mask].mean()), 4), 'brier': round(float(brier[mask].mean()), 4), 'logLossCI': _ci(weights, loss, mask)})
     gaps = []
     for label, gap_key in (('projection', 'proj'), ('average', 'gapAvg')):
         values = [None if record.get(gap_key) is None else
@@ -375,11 +384,18 @@ def errors(records):
 
 def report(records, rng):
     standard = [record for record in records if record['md'] == 'standard']
+    by_day = defaultdict(list)
+    for record in standard:
+        by_day[record['day']].append(record)
+    timeline = []
+    for day, rows in sorted(by_day.items()):
+        chosen = favored(rows, rng)
+        timeline.append({'day': day, **chosen})
     specials = {modifier: score_side([record for record in records if record['md'] == modifier], 'over', rng) for modifier in ('goblin', 'demon')}
     return {'lines': len(records), 'standard': len(standard), 'pushes': sum(1 for record in standard if record['actual'] == record['ln']),
             'from': min((record['day'] for record in records), default=None), 'to': max((record['day'] for record in records), default=None),
             'over': score_side(standard, 'over', rng), 'under': score_side(standard, 'under', rng), 'favored': favored(standard, rng),
-            'errors': errors(records), 'specials': specials}
+            'errors': errors(records), 'specials': specials, 'timeline': timeline}
 
 
 def evaluate(days=30, now=None, pipeline=None, payloads=None, stat_value=None):
@@ -398,7 +414,8 @@ def evaluate(days=30, now=None, pipeline=None, payloads=None, stat_value=None):
     asked = [(first + timedelta(days=n)).isoformat() for n in range(days)]
     results = props_record.results(payloads, stat_value)
     avgs = averages(payloads[-1], stat_value)
-    job, job_counts = job_records(asked, results, pipeline)
+    games = {str(event): game for payload in payloads for event, game in ((payload or {}).get('games') or {}).items()}
+    job, job_counts = job_records(asked, results, pipeline, games=games, stat_value=stat_value)
     listed, list_counts = list_records(asked, results, pipeline)
     # The baselines are fitted on every line either record holds (an
     # outcome is the line's, whichever record kept it), one per

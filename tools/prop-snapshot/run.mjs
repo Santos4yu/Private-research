@@ -56,7 +56,7 @@ globalThis.fetch = async (input, init = {}) => {
   const watched = WATCH.find(([, pattern]) => pattern.test(url.search));
   if (watched && response.ok) {
     response.clone().json().then(body => {
-      seen.times[watched[0]] = body?.fetchedAt || body?.at || response.headers.get('date');
+      seen.times[watched[0]] = body?.fetchedAt || body?.at;
     }).catch(() => {});
   }
   return response;
@@ -102,6 +102,11 @@ const side = graded => graded && finite(graded.chance) ? [round(graded.chance), 
 async function main() {
   const board = await loadLines('nba', {only: wanted});
   const rows = pickLines(board.filter(wanted));
+  const coverage = {};
+  const count = (key, field) => {
+    coverage[key] = (coverage[key] || 0) + 1;
+    if (field) coverage[`${key}.${field}`] = (coverage[`${key}.${field}`] || 0) + 1;
+  };
   if (!rows.length) {
     // No NBA lines up (a night without games, or all started): nothing to keep.
     console.log(JSON.stringify({lines: 0, board: board.length, note: 'No NBA lines to grade now'}));
@@ -122,11 +127,21 @@ async function main() {
   const grades = league ? propGrades(rows, league) : new Map();
 
   const out = [];
-  let ungraded = 0, mismatched = 0, waiting = 0;
+  let ungraded = 0, mismatched = 0, waiting = 0, late = 0;
   const errors = new Set();
   const reportTeams = new Set(Object.keys(tonight?.teams || {}));
   const missingReports = new Set();
+  const staleReports = new Set();
   for (const listed of rows) {
+    const standard = String(listed.modifier || 'standard').toLowerCase() === 'standard';
+    if (standard) count('eligible', listed.marketKey);
+    const starts = [listed.startsAt, listed.gameStartsAt].map(Date.parse).filter(Number.isFinite);
+    const cutoff = Math.min(...starts);
+    if (!starts.length || cutoff <= Date.now() || (listed.gameState && listed.gameState !== 'pre')) {
+      late += 1;
+      continue;
+    }
+    if (standard && !listed.eventId) count('missingGame', listed.marketKey);
     if (!listed?.windows && !listed?.gameLog?.length) { waiting += 1; continue; }
     if (!league) continue;
     const row = withTonight(listed, league);
@@ -142,12 +157,21 @@ async function main() {
     const read = over?.read || under?.read;
     const fitted = read?.model;
     const dk = bookChance(listed, books);
+    if (standard && over && under) count('bothSides', listed.marketKey);
+    if (standard && over?.tier) count('overTier', over.tier);
+    if (standard && under?.tier) count('underTier', under.tier);
+    if (standard && dk) count('draftKings', listed.marketKey);
     const role = lineupRole(listed, league);
-    if (!reportTeams.has(listed.teamAbbr)) missingReports.add(listed.teamAbbr);
+    const report = tonight?.teams?.[listed.teamAbbr];
+    if (!report || (listed.eventId && String(report.eventId) !== String(listed.eventId))) {
+      missingReports.add(listed.teamAbbr || 'unknown team');
+    } else if (!Number.isFinite(Date.parse(report.fetchedAt)) || Date.now() - Date.parse(report.fetchedAt) > 30 * 60 * 1000) {
+      staleReports.add(listed.teamAbbr);
+    }
     const mine = (tonight?.teams?.[listed.teamAbbr]?.injuries || []).find(item => String(item.id) === String(listed.playerId));
     const log = listed.gameLog || [];
     out.push({pid: listed.playerId, pl: listed.player, tm: listed.teamAbbr, op: listed.opponent, mk: listed.marketKey, ln: Number(listed.line),
-      md: modifier, st: listed.startsAt, pp: String(listed.id || '').replace(/^nba:pp:/, ''), sc: scores.get(listed.id)?.score ?? null,
+      md: modifier, event: listed.eventId, st: new Date(cutoff).toISOString(), pp: String(listed.id || '').replace(/^nba:pp:/, ''), sc: scores.get(listed.id)?.score ?? null,
       o: side(over), u: side(under), pj: round(read?.projection, 3),
       m: fitted ? [round(fitted.usage), round(fitted.rate, 5), round(fitted.recentUsage), read?.games ?? null, round(fitted.prior, 5), round(fitted.weight)] : null,
       dk: dk ? [round(dk.chance), dk.line, dk.over, dk.under, dk.moved ? 1 : 0] : null,
@@ -155,6 +179,12 @@ async function main() {
       ns: mine ? [mine.status || '', mine.code || ''] : null,
       lg: log.length ? String(log.at(-1)?.date || '').slice(0, 10) : null, gn: log.length});
   }
+  if (coverage.eligible !== coverage.bothSides) {
+    problems.push(`${(coverage.eligible || 0) - (coverage.bothSides || 0)} eligible standard lines did not receive both grades`);
+  }
+  if (coverage.missingGame) problems.push(`${coverage.missingGame} eligible standard lines had no matched ESPN game`);
+  if (late) problems.push(`${late} lines had started or lacked a confirmed cutoff`);
+  if (staleReports.size) problems.push(`Injury report time stale or unknown for ${[...staleReports].sort().join(', ')}`);
   if (waiting) problems.push(`${waiting} lines had no game history yet and were not graded`);
   if (ungraded) problems.push(`${ungraded} lines could not be graded${errors.size ? ` (${[...errors].slice(0, 3).join('; ')})` : ''}`);
   if (mismatched) problems.push(`${mismatched} Over grades differed from the Props list's own: check the job's code`);
@@ -162,18 +192,20 @@ async function main() {
   if (seen.failed.length) problems.push(`${seen.failed.length} requests failed: ${[...new Set(seen.failed)].slice(0, 6).join('; ')}`);
 
   const compactTonight = Object.fromEntries(Object.entries(tonight?.teams || {}).map(([team, entry]) => [team,
-    {eventId: entry.eventId, startsAt: entry.startsAt, spread: entry.spread, total: entry.total,
+    {eventId: entry.eventId, fetchedAt: entry.fetchedAt ?? null, startsAt: entry.startsAt, spread: entry.spread, total: entry.total,
       injuries: (entry.injuries || []).map(item => [String(item.id || ''), item.name || '', item.status || '', item.code || ''])}]));
   const body = {action: 'nba-prop-snapshot', startedAt, sha: process.env.GITHUB_SHA || '', model: {...model, calibration: calibration ? `${calibration.version}|${calibration.at || ''}` : ''},
     data: {board: seen.times.board || null, league: seen.times.league || null, tonight: tonight?.fetchedAt || seen.times.tonight || null,
       books: seen.times.books || null, learning: calibration?.at || null, lines: rows.length, graded: out.length, teams, reports: reportTeams.size,
-      requests: seen.calls, finished: new Date().toISOString()},
+      requests: seen.calls, ...coverage, finished: new Date().toISOString()},
     inputs: {tonight: compactTonight, calibration: calibration ? {version: calibration.version, at: calibration.at, picks: calibration.picks} : null},
     problems, rows: out};
   console.log(JSON.stringify({lines: rows.length, graded: out.length, standard: out.filter(row => row.md === 'standard').length,
     model, data: body.data, problems}, null, 1));
   if (DRY) {
-    console.log(JSON.stringify(out.slice(0, 3), null, 1));
+    if (!process.env.GITHUB_ACTIONS || process.env.REPOSITORY_VISIBILITY === 'private') {
+      console.log(JSON.stringify(out.slice(0, 3), null, 1));
+    }
     return;
   }
   const response = await realFetch(`${SITE}/api/v2-admin`, {method: 'POST',
@@ -181,7 +213,7 @@ async function main() {
     body: JSON.stringify(body)});
   const answer = await response.text();
   console.log(`site: HTTP ${response.status} ${answer.slice(0, 600)}`);
-  if (!response.ok) process.exitCode = 1;
+  if (!response.ok || !JSON.parse(answer).kept) process.exitCode = 1;
 }
 
 main().catch(async error => {

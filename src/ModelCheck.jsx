@@ -36,6 +36,19 @@ function Table({head,rows,note}){
 
 const Rate=({value,ci})=><span className="mc-rate"><i style={{width:`${Math.max(0,Math.min(100,(value||0)*100))}%`}}/><b>{pct(value)}</b>{ci&&<small>{range(ci,value=>pct(value,0))}</small>}</span>;
 
+function CaptureCoverage({data}){
+ if(!data?.eligible)return null;
+ const markets=Object.entries(MARKETS).filter(([key])=>data[`eligible.${key}`]);
+ const tiers=Object.entries(TIER_NAMES).filter(([key])=>data[`overTier.${key}`]||data[`underTier.${key}`]);
+ return <details>
+  <summary>Latest run graded both sides for {data.bothSides??0} of {data.eligible} eligible standard lines</summary>
+  <Table head={['Stat','Eligible','Both grades','DraftKings']} rows={markets.map(([key,name])=>
+   [name,data[`eligible.${key}`],data[`bothSides.${key}`]??0,data[`draftKings.${key}`]??0])}/>
+  {tiers.length>0&&<Table head={['Tier','Over grades','Under grades']} rows={tiers.map(([key,name])=>
+   [name,data[`overTier.${key}`]??0,data[`underTier.${key}`]??0])}/>}
+ </details>;
+}
+
 function Recording({recording}){
  if(!recording)return null;
  if(recording.error)return <p className="mc-note">{recording.error}</p>;
@@ -52,6 +65,7 @@ function Recording({recording}){
   {(recording.days||[]).map(day=><div key={day.day} className="mc-day">
    <h4>{day.day}</h4>
    <p className="mc-note">{day.grades.lines} graded lines ({day.grades.changed} changed between runs) · {day.lines.tracked} PrizePicks lines tracked, {day.lines.moved} moved, {day.lines.pulled} taken down · {day.reports.events} report versions ({Object.entries(day.reports.kinds||{}).map(([kind,count])=>`${kind} ${count}`).join(', ')||'none'}) · {day.runs.length} runs · {Math.round((day.bytes?.grades||0)/1024)} KB of grades</p>
+   <CaptureCoverage data={day.runs.at(-1)?.data}/>
    {day.grades.sample.length>0&&<Table head={['Player','Stat','Line','Over','Under','Tier','Proj.','DK','Seen']}
     rows={day.grades.sample.map(row=>[row.pl,`${MARKETS[row.mk]||row.mk}${row.md!=='standard'?` ${row.md}`:''}`,row.ln,pct(row.o?.[0]),pct(row.u?.[0]),TIER_NAMES[row.o?.[3]]||'–',
      num(row.pj,1),pct(row.dk?.[0]),`${time(row.first)} – ${time(row.last)}`])}/>}
@@ -78,9 +92,9 @@ function Side({side,label}){
    rows={side.tiers.map(item=>[TIER_NAMES[item.tier]||item.tier,item.n,item.playerGames,pct(item.meanChance),<Rate value={item.hitRate} ci={item.hitRateCI}/>])}/></>}
   {side.thresholds?.length>0&&<><h4>By chance</h4><Table head={['Chance at least','Lines','Player-games','Hit']}
    rows={side.thresholds.map(item=>[pct(item.atLeast,0),item.n,item.playerGames,<Rate value={item.hitRate} ci={item.hitRateCI}/>])}
-   note="A PrizePicks Power Play breaks even near 54–58% a pick."/></>}
-  {side.markets?.length>0&&<><h4>By stat</h4><Table head={['Stat','Lines','Average chance','Hit','Log loss']}
-   rows={side.markets.map(item=>[MARKETS[item.market]||item.market,item.n,pct(item.meanChance),pct(item.hitRate),num(item.logLoss)])}/></>}
+/></>}
+  {side.markets?.length>0&&<><h4>By stat</h4><Table head={['Stat','Lines','Average chance','Hit','Log loss','Brier']}
+   rows={side.markets.map(item=>[MARKETS[item.market]||item.market,item.n,pct(item.meanChance),<Rate value={item.hitRate} ci={item.hitRateCI}/>,num(item.logLoss),num(item.brier)])}/></>}
   {side.gaps?.length>0&&<><h4>By gap to the line</h4><Table head={['Gap','From','Lines','Average chance','Hit']}
    rows={side.gaps.map(item=>[`${item.gap[0]==null?'below':pct(item.gap[0],0)} to ${item.gap[1]==null?'above':pct(item.gap[1],0)}`,item.by==='projection'?'Our projection':'His average',
     item.n,pct(item.meanChance),<Rate value={item.hitRate} ci={item.hitRateCI}/>])}/></>}
@@ -90,14 +104,16 @@ function Side({side,label}){
 function Source({source,name}){
  const [side,setSide]=useState('over');
  if(!source)return null;
- if(!source.lines)return <p className="mc-note">{name}: no settled lines in this window yet.</p>;
+ if(!source.lines)return <p className="mc-note">{name}: no settled lines in this window yet.{source.missingResults>0&&` Results missing for ${source.missingResults} lines.`}</p>;
  const favored=source.favored||{};
  return <>
-  <p className="mc-note">{source.from} to {source.to} · {source.standard} standard lines · {source.duplicatesRemoved} duplicate lines removed · {source.void} void (didn’t play) · {source.pushes} pushes left out.</p>
+  <p className="mc-note">{source.from} to {source.to} · {source.standard} standard lines · {source.duplicatesRemoved} duplicate lines removed · {source.void} void (didn’t play) · {source.pushes} pushes left out.{source.missingResults>0&&` Results missing for ${source.missingResults} lines.`}</p>
   {favored.n>0&&<p className="mc-note">The side our grade favored won {pct(favored.right)} of {favored.n} ({range(favored.rightCI,value=>pct(value,1))}){Number.isFinite(favored.averageRight)?`; the player average’s side ${pct(favored.averageRight)}`:''}. Overs went {pct(favored.overRate)}; we favored the Over on {pct(favored.overPicked)}.</p>}
   <div className="mc-switch" role="group" aria-label="Side">{[['over','Over'],['under','Under']].map(([key,text])=>
    <button type="button" key={key} aria-pressed={side===key} onClick={()=>setSide(key)}>{text}</button>)}</div>
   <Side side={source[side]} label={side==='over'?'Over':'Under'}/>
+  {source.timeline?.length>0&&<><h4>Accuracy by night</h4><Table head={['Night','Picks','Correct','Over picked']}
+   rows={source.timeline.map(item=>[item.day,item.n,<Rate value={item.right} ci={item.rightCI}/>,pct(item.overPicked)])}/></>}
   {source.errors?.length>0&&<><h4>Projection error</h4><Table head={['Stat','Lines','Average miss','RMSE','Bias','Line’s miss','Average’s miss']}
    rows={source.errors.map(item=>[MARKETS[item.market]||item.market,item.n,num(item.mae,2),num(item.rmse,2),num(item.bias,2),num(item.lineMae,2),num(item.averageMae,2)])}/></>}
   {['goblin','demon'].map(kind=>source.specials?.[kind]?.n>0&&<p key={kind} className="mc-note">{kind==='goblin'?'Goblins':'Demons'} (Over only): {source.specials[kind].n} lines hit {pct(source.specials[kind].hitRate)}; our average chance {pct((source.specials[kind].summary||[])[0]?.meanChance)}; log loss {num((source.specials[kind].summary||[])[0]?.logLoss)}.</p>)}

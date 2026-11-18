@@ -35,6 +35,9 @@ class FakeKV:
             return 'OK'
         if op == 'GET':
             return data.get(args[0])
+        if op == 'COMPAREDEL':
+            key, value = args
+            return int(data.pop(key, None) is not None) if data.get(key) == value else 0
         if op == 'DEL':
             return sum(1 for key in args if data.pop(key, None) is not None)
         if op in ('RPUSH', 'LPUSH'):
@@ -117,6 +120,15 @@ class LineTests(unittest.TestCase):
         closing = snaps.closing_lines(day, self.kv)
         self.assertEqual((closing[('P3', 'Points', 'standard')], closing[('P5', 'Points', 'standard')], closing[('Stephen Curry', 'Points', 'goblin')]),
                          (14.5, None, 8.5))
+
+    def test_a_large_first_board_fits_the_storage_batch_limit(self):
+        def bounded(commands):
+            self.assertLessEqual(len(commands), 128)
+            self.assertTrue(all(command[0] != 'RPUSH' for command in commands))
+            return self.kv(commands)
+
+        rows = [pp_row(str(index), 10.5) for index in range(350)]
+        self.assertEqual(snaps.observe_lines(rows, NOW, pipeline=bounded, memory=self.memory), 350)
 
     def test_an_incomplete_feed_takes_nothing_down_and_started_games_are_left_out(self):
         board = [pp_row(f'p{n}', 10.5) for n in range(10)]
@@ -357,6 +369,22 @@ class EvaluationTests(unittest.TestCase):
         alone = prop_eval._ci(prop_eval._weights(list(range(100)), rng), values)
         together = prop_eval._ci(prop_eval._weights([n // 10 for n in range(100)], rng), values)
         self.assertGreater(together[1] - together[0], alone[1] - alone[0])
+
+    def test_job_settles_all_markets_and_preserves_tiers_with_explicit_results(self):
+        kv = FakeKV()
+        day = snaps.day_of(TIP)
+        rows = [graded(market=market, pid='1', event='game', line=0.5) for market in snaps.MARKETS]
+        rows[0]['o'][3] = 'elite'
+        rows[1]['u'][3] = 'strong'
+        rows.extend([graded(pid='2', event='game'), graded(pid='3', event='game')])
+        self.assertEqual(snaps.accept_run({'rows': rows}, NOW, kv)['kept'], len(rows))
+        games = {'game': {'t': {'GS': {'p': [box('1', 30)], 'dnp': ['2']}}}}
+        records, counts = prop_eval.job_records([day], {}, kv, games=games, stat_value=context.stat_value)
+        self.assertEqual({record['mk'] for record in records}, set(snaps.MARKETS))
+        self.assertEqual(records[0]['tierOver'], 'elite')
+        self.assertEqual(records[1]['tierUnder'], 'strong')
+        self.assertEqual(counts['void'], 1)
+        self.assertEqual(counts['missingResults'], 1)
 
     def test_job_records_take_the_latest_pregame_line(self):
         kv = FakeKV()

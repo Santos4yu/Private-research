@@ -39,6 +39,7 @@ import time
 import zlib
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 PREFIX = 'krazy:propsnap:v1:nba'
 KEEP_SECONDS = 270 * 86400
@@ -236,19 +237,20 @@ def observe_lines(rows, fetched_at=None, pipeline=None, memory=None):
         if not events and not fields:
             continue
         if events:
-            commands.append(['RPUSH', key('lines', day), *[_dump(event) for event in events]])
+            commands.append(['LPUSH', key('lines', day), *[_dump(event) for event in events]])
             commands.append(['EXPIRE', key('lines', day), KEEP_SECONDS])
         if fields:
             commands.append(['HSET', key('lstate', day), *[part for pp, (line, start) in fields.items()
                                                           for part in (pp, f"{'x' if line is None else format(line, 'g')}|{int(start)}")]])
             commands.append(['EXPIRE', key('lstate', day), KEEP_SECONDS])
-        for pp in fresh:
-            commands.append(['HSETNX', key('lmeta', day), pp, _dump(meta[pp])])
         if fresh:
+            commands.append(['HSET', key('lmeta', day), *[part for pp in fresh for part in (pp, _dump(meta[pp]))]])
             commands.append(['EXPIRE', key('lmeta', day), KEEP_SECONDS])
         updates[day] = fields
         written += len(events)
     if commands and pipeline(commands) is None:
+        note('error', 'storage', 'Storage did not keep the PrizePicks line feed', once='line-write',
+             every=1800, now=fetched_at, pipeline=pipeline)
         return 0
     for day, fields in updates.items():
         memory['days'][day].update(fields)
@@ -274,11 +276,14 @@ def line_history(day: str, pipeline=None) -> dict:
         except (TypeError, ValueError):
             continue
     out = {}
+    events = []
     for raw in replies[0] or []:
         try:
             at, pp, line = json.loads(raw)
         except (TypeError, ValueError):
             continue
+        events.append((at, pp, line))
+    for at, pp, line in sorted(events, key=lambda event: event[0]):
         entry = out.setdefault(pp, {'meta': meta.get(pp), 'moves': []})
         if not entry['moves'] or entry['moves'][-1][1] != line:
             entry['moves'].append([at, line])
@@ -353,12 +358,14 @@ def check_reports(games, now, pipeline=None, report_of=None, depth_index=None):
         return found
     state_fields = [f'{kind}|{team}|{game["id"]}' for game in upcoming for team in (game['away'], game['home'])
                     for kind in ('inj', 'proj', 'conf')]
-    replies = pipeline([['HMGET', key('rstate'), *state_fields]])
+    replies = pipeline([['HGETALL', key('rstate')]])
     if replies is None:
         note('error', 'storage', 'Storage did not answer the report check', once='report-check', every=1800, now=now, pipeline=pipeline)
         return found
     before = {}
-    for field, value in zip(state_fields, replies[0] or []):
+    stored = dict(_pairs(replies[0]))
+    for field in state_fields:
+        value = stored.get(field)
         try:
             before[field] = json.loads(value) if value else None
         except (TypeError, ValueError):
@@ -397,6 +404,9 @@ def check_reports(games, now, pipeline=None, report_of=None, depth_index=None):
                  once=f'fail:{game["id"]}', every=3600, now=now, pipeline=pipeline)
             continue
         fetched = _epoch(report.get('fetchedAt'))
+        if (report.get('status') or {}).get('state') not in (None, 'pre') or (fetched and fetched >= game['start']):
+            found['missing'] += 1
+            continue
         injuries = report.get('injuries') or {}
         stale = fetched is None or now - fetched > STALE_REPORT_SECONDS
         if stale:
@@ -428,7 +438,7 @@ def check_reports(games, now, pipeline=None, report_of=None, depth_index=None):
                 keep('conf', team, game, sorted(str(item) for item in listed), int(fetched) if fetched else None, {'src': 'espn before tip'})
     commands = []
     for day, items in events.items():
-        commands += [['RPUSH', key('reports', day), *items], ['EXPIRE', key('reports', day), KEEP_SECONDS]]
+        commands += [['LPUSH', key('reports', day), *items], ['EXPIRE', key('reports', day), KEEP_SECONDS]]
     if fields:
         commands += [['HSET', key('rstate'), *[part for item in fields.items() for part in item]], ['EXPIRE', key('rstate'), 4 * 86400]]
     if commands and pipeline(commands) is None:
@@ -446,7 +456,7 @@ def reports_on(day: str, pipeline=None) -> list:
             out.append(json.loads(raw))
         except (TypeError, ValueError):
             continue
-    return out
+    return sorted(out, key=lambda event: event['at'])
 
 
 def watch_runs(games, now, pipeline=None):
@@ -534,7 +544,7 @@ def _clean_row(row):
         return out if any(item is not None for item in out) else None
     lineup = row.get('ro') if isinstance(row.get('ro'), list) else None
     return {'pid': pid, 'pl': str(row.get('pl') or '')[:60], 'tm': str(row.get('tm') or '')[:6], 'op': str(row.get('op') or '')[:6],
-            'mk': market, 'ln': line, 'md': modifier, 'st': int(start), 'pp': str(row.get('pp') or '')[:24],
+            'mk': market, 'ln': line, 'md': modifier, 'st': int(start), 'event': str(row.get('event') or '')[:24] or None, 'pp': str(row.get('pp') or '')[:24],
             'sc': None if _number(row.get('sc')) is None else round(_number(row.get('sc'))),
             'o': over, 'u': under,
             'pj': None if _number(row.get('pj')) is None else round(_number(row.get('pj')), 3),
@@ -601,11 +611,10 @@ def accept_run(body, now=None, pipeline=None, site_sha=None):
         return {'kept': 0, 'late': late, 'rejected': rejected, 'days': [], 'run': None}
     for day, day_rows in by_day.items():
         commands = [['SET', key('run', day, run_id), pack({'meta': meta, 'inputs': inputs, 'rows': day_rows}), 'EX', RUN_KEEP_SECONDS],
-                    ['RPUSH', key('runs', day), _dump({**meta, 'rows': len(day_rows)})], ['EXPIRE', key('runs', day), KEEP_SECONDS]]
-        if pipeline(commands) is None:
+                    ['LPUSH', key('runs', day), _dump({**meta, 'rows': len(day_rows)})], ['EXPIRE', key('runs', day), KEEP_SECONDS]]
+        if not _merge_last(day, day_rows, run_id, now, pipeline, commands):
             note('error', 'storage', f'Storage did not keep the graded run for {day}', once=f'run-write:{day}', every=1800, now=now, pipeline=pipeline)
             return {'error': 'Storage unavailable.'}
-        _merge_last(day, day_rows, run_id, now, pipeline)
     _status('run', {'at': run_id, 'rows': len(rows), 'late': late, 'rejected': rejected, 'sha': sha, 'model': meta['model'].get('hash'),
                     'problems': len(problems), 'days': sorted(by_day)}, pipeline)
     for problem in problems:
@@ -618,27 +627,34 @@ def accept_run(body, now=None, pipeline=None, site_sha=None):
     return {'kept': len(rows), 'late': late, 'rejected': rejected, 'days': sorted(by_day), 'run': run_id}
 
 
-def _merge_last(day, rows, run_id, now, pipeline):
+def _merge_last(day, rows, run_id, now, pipeline, archive):
     """`last:{day}`: line key -> {f: first seen with this content, l: last
     seen, r: run, row, tr: trail of [time, line, over chance, under chance,
     over tier, projection]} -- a change only when the content changed."""
     lock = key('lock', 'last', day)
+    owner = uuid4().hex
     for _ in range(10):
-        reply = pipeline([['SET', lock, str(run_id), 'NX', 'EX', 30]])
+        reply = pipeline([['SET', lock, owner, 'NX', 'EX', 30]])
         if reply and reply[0] == 'OK':
             break
         time.sleep(0.5)
     else:
-        note('warn', 'storage', f'The latest grades for {day} were busy; this run is in its own record only', once=f'lock:{day}', every=1800,
+        note('warn', 'storage', f'The latest grades for {day} were busy; the run could not be saved', once=f'lock:{day}', every=1800,
              now=now, pipeline=pipeline)
-        return
+        return False
     try:
         reply = pipeline([['GET', key('last', day)]])
-        kept = (unpack(reply[0]) if reply and reply[0] else None) or {}
+        if not reply:
+            return False
+        kept = unpack(reply[0]) if reply[0] is not None else {}
+        if not isinstance(kept, dict):
+            return False
         for row in rows:
             field = row_key(row)
             digest = _digest(_material(row))
             entry = kept.get(field)
+            if entry and entry.get('l', 0) > run_id:
+                continue
             point = [run_id, row['ln'], row['o'][0] if row['o'] else None, row['u'][0] if row['u'] else None,
                      row['o'][3] if row['o'] else None, row['pj']]
             if not entry or entry.get('h') != digest:
@@ -646,9 +662,10 @@ def _merge_last(day, rows, run_id, now, pipeline):
                 kept[field] = {'f': run_id, 'l': run_id, 'r': run_id, 'h': digest, 'row': row, 'tr': trail, 'n': (entry or {}).get('n', 0) + 1}
             else:
                 entry.update(l=run_id, r=run_id)
-        pipeline([['SET', key('last', day), pack(kept), 'EX', KEEP_SECONDS]])
+        written = pipeline([['SET', key('last', day), pack(kept), 'EX', KEEP_SECONDS], *archive])
+        return bool(written and written[0] == 'OK' and written[1] == 'OK')
     finally:
-        pipeline([['DEL', lock]])
+        pipeline([['COMPAREDEL', lock, owner]])
 
 
 def last_on(day: str, pipeline=None) -> dict:
@@ -666,7 +683,7 @@ def runs_on(day: str, pipeline=None) -> list:
             out.append(json.loads(raw))
         except (TypeError, ValueError):
             continue
-    return out
+    return sorted(out, key=lambda run: run['at'])
 
 
 # ---------------------------------------------------------------- what's recorded
@@ -681,12 +698,13 @@ def recording(days=None, now=None, pipeline=None) -> dict:
     commands = [['HGETALL', key('status')], ['LRANGE', key('health'), 0, 59]]
     for day in days:
         commands += [['LLEN', key('lines', day)], ['HLEN', key('lstate', day)], ['LLEN', key('reports', day)],
-                     ['LRANGE', key('runs', day), 0, -1], ['STRLEN', key('last', day)]]
+                     ['LRANGE', key('runs', day), 0, -1], ['GET', key('last', day)]]
     replies = pipeline(commands)
     if replies is None:
         return {'error': 'Storage unavailable.'}
     # The whole store's key count, where the storage answers it.
-    size = pipeline([['DBSIZE']])
+    from v2.board import store
+    size = pipeline([['DBSIZE']]) if store.STORAGE_BACKEND == 'upstash' else None
     status = {}
     for name, value in _pairs(replies[0]):
         try:
@@ -708,7 +726,9 @@ def recording(days=None, now=None, pipeline=None) -> dict:
                 runs.append(json.loads(raw))
             except (TypeError, ValueError):
                 continue
-        last = last_on(day, pipeline)
+        packed = replies[base + 4]
+        last = (unpack(packed) or {}) if packed else {}
+        runs.sort(key=lambda run: run['at'])
         history = line_history(day, pipeline) if replies[base] else {}
         reports = reports_on(day, pipeline) if replies[base + 2] else []
         moved = [(pp, entry) for pp, entry in history.items() if sum(1 for move in entry['moves'] if move[1] is not None) > 1]
@@ -723,7 +743,7 @@ def recording(days=None, now=None, pipeline=None) -> dict:
             'runs': [{key_: run.get(key_) for key_ in ('id', 'at', 'started', 'rows', 'late', 'rejected', 'sha', 'model', 'problems', 'data')} for run in runs[-12:]],
             'grades': {'lines': len(last), 'changed': sum(1 for entry in last.values() if (entry.get('n') or 0) > 1),
                        'sample': [{**entry['row'], 'first': entry['f'], 'last': entry['l'], 'trail': entry.get('tr', [])[-6:]} for entry in sample]},
-            'bytes': {'grades': replies[base + 4] or 0},
+            'bytes': {'grades': len(packed or '')},
         })
     return out
 

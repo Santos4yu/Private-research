@@ -58,6 +58,13 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (k): Model Check capture audit
+
+- At the audit, GitHub listed one failed manual snapshot run and no scheduled runs. The runner imports React through shared site modules, but the workflow omitted dependency installation. Install from the lockfile before running.
+- The storage RPC rejects unsupported commands and batches above 128 commands. The snapshot store now uses supported commands and batches first-seen line metadata into a hash write. Existing list entries still read in timestamp order.
+- Snapshot runs report eligible standard lines, both-sided grades, tier counts and DraftKings coverage. ESPN report fetch times are archived per team. New snapshots carry the ESPN event ID so evaluation can separate confirmed DNPs from missing results. The dashboard shows coverage and nightly accuracy.
+- Keep all changes local pending deployment approval. Production workflow logs and live capture coverage still need verification after release.
+
 ### Nov 18 (j): Phase 0, pregame records and the model check (admin only)
 
 - The owner approved Phase 0 only: record reliable pregame data and measure
