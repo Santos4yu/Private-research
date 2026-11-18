@@ -58,6 +58,26 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (i): NBA prop model audit and plan (nothing built yet)
+
+- The owner: keep PG/SG/SF/PF/C admin-only as reference data; don't touch
+  pick grades or confidence scores. Next focus: a genuinely better NBA
+  prop model. They asked for an audit and a plan first, no coding.
+- The audit, the weaknesses and the plan are in `docs/nba-prop-model-plan.md`.
+  In short:
+  - The line already beats a player-average projection: 50.6% right side,
+    and a log loss of 0.6965 against 0.6931 for a coin flip.
+  - Overs hit 47.1%.
+  - The biggest gaps are measuring production properly, minutes, and the
+    injury logic. Injury reports aren't archived.
+- Next step if the owner approves: Phase 0.
+  - Archive injury reports and stamp the record rows.
+  - Add an admin report scoring production with log loss, Brier and
+    calibration.
+  - One push. Grades unchanged.
+- Production grading stays untouched until a shadow model passes the
+  promotion gate in that file and the owner approves.
+
 ### Nov 18 (h): PG / SG / SF / PF / C Defense vs position (admin-only until switched on)
 
 The owner, after the live test: build the complete five-position system,
