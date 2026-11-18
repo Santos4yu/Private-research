@@ -1,7 +1,7 @@
 import { Crosshair, Layers2 as BarChart3, Ticket as ClipboardList, TicketPercent, Radar as FlaskConical, ScanLine, Compass as Search, Sparkles, SearchCheck, Trophy, CircleDot, MessagesSquare, ShieldCheck, Activity, Bot, NotebookTabs, ImageUp, ChartNoAxesCombined } from 'lucide-react';
 
 // Single source of truth for the site's primary navigation destinations,
-// shared by the top pill bar (VortexTopTabs) and the sidebar (VortexSidebar)
+// shared by the top pill bar (VortexTopTabs) and the computer top bar (TopBar)
 // so the two can never drift apart on where a tab actually goes.
 export const topTabs = [
   { title: 'Finder', icon: SearchCheck, value: 'finder' },

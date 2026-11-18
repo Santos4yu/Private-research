@@ -84,7 +84,6 @@
 }
 
 /* The bottom bar: a lit top edge on its glass. */
-:root[data-theme] body .mobile-app-nav { border-top-color: rgba(255,255,255,.16); }
 
 /* Numbers in green, yellow or red glow in their own color. */
 :root[data-theme] body :is(.nm-grade b, .nm-l10 b, .nm-rate-cell, .unified-finder .finder-heat strong) {

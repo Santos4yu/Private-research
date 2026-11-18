@@ -37,7 +37,6 @@ import './sports/nfl/nfl-research.css';
 // The NFL sheets (alternate lines, filters) on the Finder's NFL player page.
 import './sports/nfl/mobile-research.css';
 import './community-feed.css';
-import './vortex-sidebar.css';
 import './gamelog-inline.css';
 import './trend-workspace.css';
 import './ace-theme.css';
@@ -50,9 +49,10 @@ import './page-switch.css';
 import './gloss.css';
 import './finish.css';
 import './app-feel.css';
+import './kit.css';
 
 import { topTabs } from './navTabs';
-import { VortexSidebar } from './VortexSidebar';
+import { TopBar } from './TopBar';
 
 // Sections other than the Finder load their code the first time they're
 // opened (and in idle time once the Finder is up), so signing in only waits
@@ -130,7 +130,7 @@ if (dockRoot) createRoot(dockRoot).render(<MobileNavigation />);
 const tabsRoot = document.getElementById('tabs');
 if (tabsRoot) createRoot(tabsRoot).render(<VortexTopTabs />);
 const sidebarRoot = document.getElementById('sidebar-root');
-if (sidebarRoot) createRoot(sidebarRoot).render(<VortexSidebar />);
+if (sidebarRoot) createRoot(sidebarRoot).render(<TopBar />);
 const builderDropdownRoot = document.getElementById('prop-builder-dropdown-root');
 if (builderDropdownRoot) createRoot(builderDropdownRoot).render(<ActivityDropdown />);
 const mobileSlipRoot = document.getElementById('mobile-slip-actions-root');

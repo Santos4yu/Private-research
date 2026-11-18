@@ -18,7 +18,7 @@ export const pickBuilder={
  // Current prices and start times for saved Finder picks.
  refresh:updates=>send('vortex:prop-builder-refresh',{updates}),
  // On desktop the Pick Builder opens inside the sidebar rail
- // (VortexSidebar registers window.vortexRailBuilder); on phones, in the
+ // (TopBar registers window.vortexRailBuilder); on phones, in the
  // side panel (#side-panel) under the menu.
  open:()=>{
   const rail=typeof window!=='undefined'?window.vortexRailBuilder:null;

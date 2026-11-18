@@ -58,6 +58,35 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (a): redesign step 1, the frame (top bar, phone bar, menu)
+
+The owner approved the whole-site mockups (Finder list = "card C", the
+chart page as it is) and said "let's do this new change now". Built page by
+page; this is the frame.
+
+- `src/kit.css` (imported last in main.jsx): the font is Geist everywhere
+  (`--font-sans` / `--font-display`, loaded with the other Google Fonts in
+  index.html) and the redesign's color names (`--k-bg`, `--k-panel`,
+  `--k-raised`, `--k-high`, `--k-line`, `--k-text/muted/faint`,
+  `--k-hit*`, `--k-miss*`). The `--theme-*` colors are left alone (the
+  settings panel's appearance options use them).
+- Computer: `src/TopBar.jsx` + `src/topbar.css` replace the side rail
+  (`VortexSidebar.jsx` and `vortex-sidebar.css` are deleted). Logo, the
+  admin's dock sections (the same as the phone bar: `dockTabs(siteDockTabs())`
+  minus My Slip), "More" with every other allowed section in groups
+  (Discover / Build / More / Admin), the settings gear and account (they
+  press the page's hidden `#settings-btn` / `.site-account-trigger`, as
+  the rail did), and a white Slip button that opens the Pick Builder in a
+  panel on the right. `window.vortexRailBuilder` is still the hook
+  (pick-builder-client.js). The bar is in the page flow, not fixed.
+- Phone: `MobileNavigation.jsx` is a full-width bar with each section's name
+  under its icon (no sliding pill); styles in `mobile-app.css`.
+  `--app-bottom` is 62px + the safe area. The More drawer's menu
+  (`SideMenu.jsx`, `side-menu.css`) is tiles, three to a row, in groups.
+- Next: the Finder (card C on phones, the table on computers), then its
+  player page, Props, Games, the slip tools and the rest
+  (mockups: scratchpad `mock/w01..w19`, `wc1/wc2`; not committed).
+
 ### Nov 17 (c): the redesign's look is picked (not built yet)
 
 The owner: the site "feels and looks cheap ... it doesn't feel or look like

@@ -1,0 +1,33 @@
+/* The redesign's kit (Nov 18, the owner picked the "research tool" look:
+   docs/design/research-style/, docs/claude-handoff.md Nov 17 (c)). One
+   font, one dark ground, panels a step lighter, hairlines instead of
+   borders, green and red only for hits and misses, white for what is
+   picked or primary. Loaded last (main.jsx), so these names win.
+
+   Pages move onto these one at a time; each page's old stylesheet goes
+   when it does. */
+:root {
+  --font-sans: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Geist', 'Inter', system-ui, sans-serif;
+
+  --k-bg: #0a0a0c;
+  --k-panel: #111114;
+  --k-raised: #17171b;
+  --k-high: #1f1f24;
+  --k-line: rgba(255, 255, 255, .065);
+  --k-line-strong: rgba(255, 255, 255, .14);
+  --k-text: #ededef;
+  --k-muted: #9b9ca3;
+  --k-faint: #64656c;
+  --k-hit: #22c55e;
+  --k-hit-text: #4ade80;
+  --k-hit-soft: rgba(34, 197, 94, .15);
+  --k-miss: #ef4444;
+  --k-miss-text: #f87171;
+  --k-miss-soft: rgba(239, 68, 68, .15);
+  --k-warn-text: #fcd34d;
+  --k-warn-soft: rgba(245, 158, 11, .14);
+  --k-radius: 16px;
+  --k-radius-sm: 10px;
+}
+body { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }

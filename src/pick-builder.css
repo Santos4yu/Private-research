@@ -112,16 +112,9 @@
 .pick-builder a.pick-builder-export:focus-visible,.pick-builder button:focus-visible{outline:2px solid var(--theme-accent-soft,var(--theme-accent));outline-offset:2px}
 @media(prefers-reduced-motion:reduce){.pick-builder-leg{animation:none}.pick-builder-slots i{transition:none}}
 
-/* Desktop: the panel opens beside the rail (VortexSidebar), which is the
-   menu there, so it holds just the Pick Builder (side-menu.css hides the
-   phone menu). */
-@media(min-width:761px){
- .side-panel{left:64px!important}
-}
-
-/* In the desktop rail (VortexSidebar) the builder sits under the links
-   (PickBuilder's `compact`), styled at the end of this file. */
-.vortex-sidebar-builder .pick-builder{--pb-panel:#111317;min-height:100%;border:0;border-radius:20px;background:var(--pb-panel)}
+/* On a computer the builder opens in the top bar's right-hand panel
+   (TopBar.jsx, PickBuilder's `compact`), styled at the end of this file. */
+.topbar-builder .pick-builder{--pb-panel:#111114;min-height:100%;border:0;border-radius:18px;background:var(--pb-panel)}
 
 /* ---- Nov 11: each pick a card (the owner, with PickFinder's builder:
    "make our builder better our current is so ugly"). Its layout, our black
@@ -131,7 +124,7 @@
    Under and Over as two full buttons, the one picked filled: green for
    Over, red for Under. Export is the white button with PrizePicks' logo. */
 .pick-builder{--pb-panel:#0F0F11;--pb-card:#17181B;--pb-rule:rgba(255,255,255,.06);--pb-text:#F2F3F5;--pb-muted:#9DA1A8;--pb-faint:#6B6F76;--pb-over:#18DE96;--pb-under:#F4606E;--pb-accent:#F2F2F2}
-.side-panel .pick-builder,.vortex-sidebar-builder .pick-builder{--pb-panel:#0F0F11}
+.side-panel .pick-builder,.topbar-builder .pick-builder{--pb-panel:#0F0F11}
 .pick-builder-slots i[data-on]{background:#F2F2F2}
 .pick-builder-mark{background:rgba(255,255,255,.08);color:#fff}
 .pick-builder-list{display:grid;gap:10px;padding:4px 12px 12px}
