@@ -231,27 +231,36 @@ _dvp_memory = {}
 DVP_SEASONS = 4
 
 
-def _dvp(league_name, season, position, player_id, view="total", team=""):
+def _dvp(league_name, season, position, player_id, view="total", team="", five=False):
     """One stored season's Defense vs position for one position (ALL, G, F
-    or C, as ESPN's box scores list players) and view (context.VIEWS), every
+    or C, as ESPN's box scores list players -- and, with `five`, the NBA's
+    depth-chart spots PG, SG, SF, PF and DC) and view (context.VIEWS), every
     team: {season, seasons, positions, position, playerPosition, view,
     views, windows, teamCount, games, played, through, teams, stats, dvp:
     {team: {stats, n, g}}, log, audit}. `log`: `team`'s games one at a time
     (context.position_log); `audit`: the box scores checked
-    (context.reconcile; the card shows it to admins). None when that season
-    isn't stored."""
+    (context.reconcile; the card shows it to admins). With the depth-chart
+    spots also `groups`, `coverage` ({team: {window: placed / unsure
+    minutes, share, flag}} for a spot) and `depth` (the store's status, how
+    the season's minutes were placed, the player's spot now). None when
+    that season isn't stored."""
     from backend.sports.wnba import context, league
     current = league.current_season(league=league_name)
     payload = league.ensure(current, league_name) if season == current else league.stored(season, league_name)
     if not payload or not payload.get("games"):
         return None
-    key = (payload.get("builtAt"), len(payload.get("games") or {}))
-    memory = _dvp_memory.get((league_name, season))
+    index = None
+    if five and league_name == "nba":
+        from backend.sports.wnba import depth
+        index = depth.index_for(season)
+    key = (payload.get("builtAt"), len(payload.get("games") or {}), index.version if index else None)
+    memory = _dvp_memory.get((league_name, season, bool(index)))
     if not memory or memory["key"] != key:
-        memory = {"key": key, "value": context.season_dvp(payload), "audit": context.reconcile(payload)}
-        _dvp_memory[(league_name, season)] = memory
+        memory = {"key": key, "value": context.season_dvp(payload, index), "audit": context.reconcile(payload)}
+        _dvp_memory[(league_name, season, bool(index))] = memory
     table = memory["value"]
-    mine = context.primary_position((payload.get("players") or {}).get(str(player_id)))
+    players = payload.get("players") or {}
+    mine = context.primary_position(players.get(str(player_id)))
     chosen = position if position in table["positions"] else mine if mine in table["positions"] else "ALL"
     view = view if view in table["views"] else "total"
     def stored(year):
@@ -268,15 +277,32 @@ def _dvp(league_name, season, position, player_id, view="total", team=""):
         if item.get("completed"):
             for side in (item.get("home"), item.get("away")):
                 played[side] = played.get(side, 0) + 1
-    return {"season": season, "seasons": seasons, "positions": table["positions"], "position": chosen, "playerPosition": mine,
-            "view": view, "views": [list(item) for item in context.VIEWS],
-            "windows": [[name, size or 0] for name, size in context.DVP_WINDOWS],
-            "teamCount": table["teamCount"], "games": table["games"], "played": played, "through": table["through"],
-            "teams": {abbr: {"name": (teams.get(abbr) or {}).get("name"), "logo": (teams.get(abbr) or {}).get("logo")} for abbr in rows},
-            "stats": [[key, label] for key, label, _ in context.STATS],
-            "dvp": {abbr: entry.get(chosen) for abbr, entry in rows.items()},
-            "log": context.position_log(table, team, chosen) if team in rows else None,
-            "audit": memory["audit"]}
+    found = {"season": season, "seasons": seasons, "positions": table["positions"], "position": chosen, "playerPosition": mine,
+             "view": view, "views": [list(item) for item in context.VIEWS],
+             "windows": [[name, size or 0] for name, size in context.DVP_WINDOWS],
+             "teamCount": table["teamCount"], "games": table["games"], "played": played, "through": table["through"],
+             "teams": {abbr: {"name": (teams.get(abbr) or {}).get("name"), "logo": (teams.get(abbr) or {}).get("logo")} for abbr in rows},
+             "stats": [[key, label] for key, label, _ in context.STATS],
+             "dvp": {abbr: entry.get(chosen) for abbr, entry in rows.items()},
+             "log": context.position_log(table, team, chosen) if team in rows else None,
+             "audit": memory["audit"]}
+    if index:
+        from backend.sports.wnba import depth
+        spot = None
+        entry = players.get(str(player_id))
+        if entry and len(entry) > 3:
+            where, _ = index.spots(entry[3], int(time.time() // 60) + depth.TIP_MARGIN_MINUTES + 1,
+                                   {str(player_id): context.family(entry[1])})
+            listed = where.get(str(player_id))
+            # His spot on his team's newest chart; None when tied or not on it.
+            spot = context._SPOT_OF_SLOT.get(listed[0]) if listed and listed[0] else None
+        found.update({
+            "groups": [["box", ["G", "F", "C"]], ["depth", list(context.SPOT_KEYS)]],
+            "coverage": {abbr: (table["coverage"] or {}).get(abbr, {}).get(chosen) for abbr in rows} if chosen in context.SPOT_KEYS else None,
+            "depth": {"status": index.status(), "placement": table["placement"], "flagShare": context.FLAG_SHARE,
+                      "staleHours": depth.STALE_MINUTES // 60, "playerSpot": spot},
+        })
+    return found
 
 
 def _last_season(season, league_name):
@@ -1413,6 +1439,12 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 400, {"error": "A player, his team and the opponent are required."})
                 import nba_matchups
                 return _send(self, 200, nba_matchups.play_types(who, team, opponent))
+            if resource == "dvp":
+                # PG / SG / SF / PF / C (depth charts) only for whoever the
+                # admin's switch lets see them (site_controls "dvp5"); set here,
+                # over anything the request says, and part of the kept answer's key.
+                from site_controls import research_allowed
+                query["_five"] = ["1" if league == "nba" and research_allowed(self.headers, "dvp5") else "0"]
             if resource in ("matchup", "league-context", "player-context", "game-notes", "scout", "dvp"):
                 return _kept_context(self, resource, query, league)
             if resource == "props-record":
@@ -1502,7 +1534,8 @@ class handler(BaseHTTPRequestHandler):
                     return _send(self, 400, {"error": "A valid season is required."})
                 if not current - DVP_SEASONS < season <= current:
                     return _send(self, 400, {"error": "A valid season is required."})
-                found = _dvp(league_name, season, arg("position").upper(), arg("playerId"), arg("view"), team_code(arg("team")))
+                found = _dvp(league_name, season, arg("position").upper(), arg("playerId"), arg("view"), team_code(arg("team")),
+                             five=arg("_five") == "1")
                 if not found:
                     return _send(self, 404, {"error": "That season isn't stored."})
                 return _send(self, 200, found)

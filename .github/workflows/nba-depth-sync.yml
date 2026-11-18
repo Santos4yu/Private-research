@@ -1,0 +1,79 @@
+# Every evening: SportsDataverse's archive of ESPN's NBA depth charts (one read
+# of every team's chart a day, since Sep 8) into the site's dated depth-chart
+# store (backend/sports/wnba/depth.py), for the PG / SG / SF / PF / C Defense vs
+# position. Parquet can't be read on Vercel cheaply, so it is read here and
+# posted to the site with GitHub's signed token for this workflow (no stored
+# secret, github_oidc.py). Every read is sent each time; the site keeps the new
+# ones and checks every chart. Vercel's own cron reads ESPN live twice a day
+# besides. Runs on its own; nothing to do by hand.
+name: NBA depth chart sync
+
+on:
+  schedule:
+    - cron: "40 22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the Parquet reader
+        run: pip install --quiet pyarrow pandas requests
+      - name: Read SportsDataverse, post to the site
+        shell: python
+        run: |
+          import hashlib, io, json, os, sys
+          from datetime import datetime, timezone
+          import pandas as pd
+          import requests
+
+          SITE = "https://aceprops.xyz/api/v2-admin"
+          SDV = "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/espn_nba_depthcharts"
+          SLOTS = ("pg", "sg", "sf", "pf", "c")
+          now = datetime.now(timezone.utc)
+          season = now.year + 1 if now.month >= 8 else now.year   # ESPN names a season by the year it ends
+
+          stamp = requests.get(f"{SDV}/timestamp.json", timeout=30).json().get("last_updated")
+          blob = requests.get(f"{SDV}/depthcharts_{season}.parquet", timeout=60)
+          if blob.status_code != 200:
+              print(f"No SportsDataverse file for {season}: HTTP {blob.status_code}")
+              sys.exit(1)
+          frame = pd.read_parquet(io.BytesIO(blob.content))
+          frame["ts"] = pd.to_datetime(frame["espn_timestamp"], utc=True)
+          charts, snaps, skipped = {}, [], 0
+          for (abbr, day), group in frame.groupby(["team_abbreviation", "as_of_date"]):
+              chart = {}
+              for slot in SLOTS:
+                  rows = group[group.position_slot.str.lower() == slot].sort_values("depth_rank")
+                  ids = []
+                  for aid in rows.athlete_id:
+                      aid = str(int(aid))
+                      if aid not in ids:
+                          ids.append(aid)
+                  chart[slot] = ids
+              if not all(chart.values()):
+                  skipped += 1
+                  continue
+              digest = hashlib.sha1(json.dumps(chart, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:12]
+              charts[digest] = chart
+              snaps.append([int(group.ts.max().timestamp() // 60), str(abbr), digest])
+          body = {"action": "nba-depth-import", "season": season, "charts": charts, "snaps": snaps, "updated": stamp}
+          text = json.dumps(body, separators=(",", ":"))
+          print(f"SportsDataverse {season}: updated {stamp}, {frame.as_of_date.nunique()} days, {len(snaps)} team reads, "
+                f"{len(charts)} distinct charts, {skipped} incomplete skipped, {len(text):,} bytes to send")
+
+          token_url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"] + "&audience=aceprops-nba-depth-sync"
+          token = requests.get(token_url, headers={"Authorization": "bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]}, timeout=20).json()["value"]
+          response = requests.post(SITE, data=text, timeout=120, headers={
+              "Content-Type": "application/json", "X-GitHub-OIDC": token, "User-Agent": "PropScout depth-chart sync (GitHub Actions)"})
+          print(f"site: HTTP {response.status_code} {response.text[:800]}")
+          if response.status_code != 200:
+              sys.exit(1)

@@ -234,7 +234,7 @@ def extract_game(summary: dict, game: dict, players: dict) -> dict:
         team_of_id[str(side["team"].get("id"))] = abbr
         stats = (side.get("statistics") or [{}])[0]
         keys = stats.get("keys") or []
-        played, dnp = [], []
+        played, dnp, labels = [], [], {}
         for entry in stats.get("athletes", []):
             athlete = entry.get("athlete") or {}
             pid = str(athlete.get("id") or "")
@@ -257,7 +257,11 @@ def extract_game(summary: dict, game: dict, players: dict) -> dict:
                       "to": _number(line.get("turnovers")), "pf": _number(line.get("fouls")),
                       "oreb": _number(line.get("offensiveRebounds")), "dreb": _number(line.get("defensiveRebounds"))}
             played.append([pid, 1 if entry.get("starter") else 0] + [values[field] for field in FIELDS])
-        record["t"][abbr] = {"p": played, "dnp": dnp, "z": []}
+            # ESPN's G / F / C for him in this game (the depth-chart spots
+            # settle a tie with it, context.place_games), as the box score said it.
+            if players[pid][1]:
+                labels[pid] = players[pid][1]
+        record["t"][abbr] = {"p": played, "dnp": dnp, "z": [], "g": labels}
     # Shot locations, from the play-by-play. The first participant of a
     # shooting play is the shooter, also when it was blocked or assisted.
     zones: dict = {}

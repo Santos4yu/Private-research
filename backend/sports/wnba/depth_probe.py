@@ -279,3 +279,26 @@ def games_export() -> dict:
                     rows.append([game.get("id"), game.get("date"), team, str(row[0]), row[minute]])
     return {"season": season, "rows": rows, "labels": _labels(payload.get("players") or {}),
             "teams": {abbr: info.get("id") for abbr, info in league.team_directory("nba").items()}}
+
+
+def store_report() -> dict:
+    """The dated depth-chart store (depth.py) against the stored season: its
+    status, how every played minute is placed, and how many team / spot
+    numbers would be flagged incomplete in each window."""
+    from . import depth
+    season = league.current_season(league="nba")
+    index = depth.index_for(season)
+    if not index:
+        return {"season": season, "kept": False}
+    payload = league.stored(season, "nba") or {}
+    placed = context.place_games(payload, index)
+    _, cover = context.dated_spot_games(context.team_games(payload), placed)
+    coverage = context.spot_coverage(cover)
+    flagged = {window: sum(1 for spots in coverage.values() for cells in spots.values() if cells[window]["flag"])
+               for window, _ in context.DVP_WINDOWS}
+    worst = sorted(((cells["szn"]["share"] or 0, team, spot) for team, spots in coverage.items() for spot, cells in spots.items()), reverse=True)[:10]
+    return {"season": season, "kept": True, "status": index.status(), "teams": len(index.reads),
+            "reads": sum(len(minutes) for minutes, _ in index.reads.values()), "charts": len(index.charts),
+            "placement": context.placement_summary(payload, placed),
+            "flagged": {"cells": len(coverage) * len(context.SPOT_KEYS), "byWindow": flagged},
+            "mostUnsure": [{"team": team, "spot": spot, "seasonShare": share} for share, team, spot in worst]}

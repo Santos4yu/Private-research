@@ -509,7 +509,28 @@ class DefenseBySeasonTests(unittest.TestCase):
                 patch.object(api, "session_with_live_access", return_value=True), \
                 patch.object(site_controls, "finder_sport_allowed", return_value=True), \
                 patch.object(league, "current_season", return_value=2027), \
-                patch.object(api, "_dvp", side_effect=lambda *args: asked.append(args) or {"ok": True}):
+                patch.object(site_controls, "research_allowed", return_value=False), \
+                patch.object(api, "_kept_context", side_effect=lambda handler, resource, query, league: handler._context(resource, query, league)), \
+                patch.object(api, "_dvp", side_effect=lambda *args, **kw: asked.append((args, kw)) or {"ok": True}):
             request.do_GET()
-        self.assertEqual(sent, [(200, {"ok": True})])
-        self.assertEqual(asked, [("nba", 2027, "G", "1", "per36", "BBB")])
+            # The depth-chart spots follow the admin's switch, never the request:
+            # a viewer adding _five=1 doesn't get them.
+            request.path += "&_five=1"
+            request.do_GET()
+        self.assertEqual(sent, [(200, {"ok": True})] * 2)
+        self.assertEqual(asked, [(("nba", 2027, "G", "1", "per36", "BBB"), {"five": False})] * 2)
+
+    def test_the_depth_chart_spots_follow_the_research_switch(self):
+        request = object.__new__(api.handler)
+        request.path, request.headers = "/api/wnba?resource=dvp&league=nba&season=2027&position=pg&playerId=1&team=bbb", {}
+        asked = []
+        import site_controls
+        with patch.object(api, "_send", side_effect=lambda *_: None), \
+                patch.object(api, "session_with_live_access", return_value=True), \
+                patch.object(site_controls, "finder_sport_allowed", return_value=True), \
+                patch.object(site_controls, "research_allowed", return_value=True), \
+                patch.object(league, "current_season", return_value=2027), \
+                patch.object(api, "_kept_context", side_effect=lambda handler, resource, query, league: handler._context(resource, query, league)), \
+                patch.object(api, "_dvp", side_effect=lambda *args, **kw: asked.append(kw) or {"ok": True}):
+            request.do_GET()
+        self.assertEqual(asked, [{"five": True}])

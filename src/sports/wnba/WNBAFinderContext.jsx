@@ -80,7 +80,30 @@ const strength={good:'Weak',fair:'Average',poor:'Tough'};
 // says how many games it has ("L10 (5)"); a stat opens the games behind it
 // one at a time, a game where nobody at the position played shown as left
 // out. Admins also see the box scores checked against the final scores.
-const POSITION_NAMES={ALL:'All',G:'G',F:'F',C:'C'};
+const POSITION_NAMES={ALL:'All',G:'G',F:'F',C:'C',PG:'PG',SG:'SG',SF:'SF',PF:'PF',DC:'C'};
+// The NBA's depth-chart spots (depth.py) sit beside the box score's G / F / C
+// when the admin's switch shows them; their C is keyed DC so the two never mix.
+const POSITION_GROUPS={box:'Box score',depth:'Depth chart'};
+const SPOT_KEYS=['PG','SG','SF','PF','DC'];
+function readTime(iso){
+ const date=iso?new Date(iso):null;
+ return date&&!Number.isNaN(date.getTime())?date.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+}
+// The depth-chart spots' status under the menus: when the charts were last
+// read, how much of this defense's opponents' minutes were placed, and which
+// windows are incomplete (unplaced minutes that may be this spot's reach the
+// flag share). Never a number dressed up as complete.
+function SpotStatus({data,team}){
+ const status=data.depth?.status,cover=data.coverage?.[team];
+ if(!status)return null;
+ const flagged=(data.windows||[]).filter(([key])=>cover?.[key]?.flag).map(([key])=>key.toUpperCase());
+ const season=cover?.szn,share=season&&finite(season.share)?Math.round((1-season.share)*100):null;
+ return <p className="wnba-dvp-spot-status" data-flag={flagged.length||status.stale||undefined}>
+  <span>Depth charts {status.stale?'last read':'updated'} {readTime(status.newest)}</span>
+  {finite(share)&&<span>{share}% of minutes placed</span>}
+  {flagged.length>0&&<span className="wnba-dvp-spot-flag">Incomplete: {flagged.join(', ')}</span>}
+ </p>;
+}
 const VALUE_UNIT={total:'allowed/g',player:'per player',per36:'per 36 min'};
 const seasonName=year=>`${String(year-1).slice(-2)}/${String(year).slice(-2)}`;
 const dayName=value=>{const date=new Date(value);return Number.isNaN(date.getTime())?'':date.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
@@ -113,16 +136,18 @@ function DefenseVsPosition({row,stat}){
  const count=finite(played)&&finite(games)&&played>games?`${games} of ${played} games`:finite(games)?`${games} ${games===1?'game':'games'}`:'';
  const short=([key,size])=>size>0&&finite(entry?.g?.[key])&&entry.g[key]<size;
  const audit=data.audit;
+ const spot=SPOT_KEYS.includes(data.position);
  return <Card title="Defense vs position" note={[seasonName(data.season),count,through&&`thru ${through}`].filter(Boolean).join(' · ')} icon={Shield} className="wnba-dvp">
   <div className="wnba-dvp-menus" data-loading={state.loading||undefined}>
    <FinderDropdown aria-label="Season" value={data.season} onChange={e=>{setSeason(Number(e.target.value));setOpen(null);}}>{data.seasons.map(year=><option key={year} value={year}>{`${seasonName(year)} Season`}</option>)}</FinderDropdown>
-   <FinderDropdown aria-label="Position" value={data.position} onChange={e=>{setPosition(e.target.value);setOpen(null);}}>{data.positions.map(key=><option key={key} value={key}>{POSITION_NAMES[key]||key}</option>)}</FinderDropdown>
+   <FinderDropdown aria-label="Position" value={data.position} onChange={e=>{setPosition(e.target.value);setOpen(null);}}>{data.positions.map(key=>{const group=(data.groups||[]).find(([,keys])=>keys.includes(key))?.[0];return <option key={key} value={key} data-group={group?POSITION_GROUPS[group]:undefined} data-display={key==='DC'?'C · depth chart':undefined}>{POSITION_NAMES[key]||key}</option>;})}</FinderDropdown>
    <span className="wnba-dvp-vs" aria-hidden="true">vs</span>
    <FinderDropdownAssets.Provider value={{Defense:logos}}><FinderDropdown aria-label="Defense" value={team} onChange={e=>{setTeam(e.target.value);setOpen(null);}}>{Object.keys(data.teams).sort().map(abbr=><option key={abbr} value={abbr}>{abbr}</option>)}</FinderDropdown></FinderDropdownAssets.Provider>
    {data.views&&<FinderDropdown aria-label="View" value={data.view} onChange={e=>setView(e.target.value)}>{data.views.map(([key,label])=><option key={key} value={key}>{label}</option>)}</FinderDropdown>}
   </div>
+  {spot&&<SpotStatus data={data} team={team}/>}
   {entry?<div className="mlb-context-table-wrap"><table><thead><tr><th scope="col">Stat</th><th scope="col" className="wnba-bar-col">Allowed</th>
-   {windows.map(item=><th scope="col" key={item[0]}>{item[0].toUpperCase()}{short(item)?<small> ({entry.g[item[0]]})</small>:null}</th>)}<th scope="col" className="wnba-dvp-matchup">Matchup</th></tr></thead><tbody>
+   {windows.map(item=><th scope="col" key={item[0]} data-flag={(spot&&data.coverage?.[team]?.[item[0]]?.flag)||undefined}>{item[0].toUpperCase()}{short(item)?<small> ({entry.g[item[0]]})</small>:null}</th>)}<th scope="col" className="wnba-dvp-matchup">Matchup</th></tr></thead><tbody>
    {rows.map(key=>{const cell=entry.stats[key],[value,rank]=cell.szn||[],f=focus.of(key)||(key===stat?'key':null),isOpen=open===key;return <React.Fragment key={key}>
     <tr data-focus={f||undefined} data-open={isOpen||undefined}><th scope="row"><button type="button" className="wnba-dvp-stat" aria-expanded={isOpen} onClick={()=>setOpen(isOpen?null:key)}><span className="wnba-stat-name"><span className="prop-focus-label">{labels[key]}<PropFocusTag focus={f}/></span><small>{fmt(value)} {VALUE_UNIT[data.view]||VALUE_UNIT.total}</small></span></button></th>
     <td className="wnba-bar-col"><span className="wnba-rank-bar" data-tone={tone(rank)} aria-hidden="true"><i style={{width:finite(rank)?`${rank/n*100}%`:'0%'}}/></span></td>
@@ -147,6 +172,7 @@ function DefenseGames({log,index,position,logos}){
    <span className="wnba-dvp-log-game"><b>{dayName(game.date)}</b><span>{game.home?'vs':'@'}</span>{logos[game.opponent]&&<img src={logos[game.opponent]} alt="" width="16" height="16" loading="lazy"/>}<span>{game.opponent}</span></span>
    {game.players.length?<><strong>{fmt(total,total%1?1:0)}</strong><span className="wnba-dvp-log-players">{players.map(player=>`${lastName(player[0])} ${fmt(player[2][index],player[2][index]%1?1:0)}`).join(' · ')}</span></>
     :<span className="wnba-dvp-log-players">No {position} played · left out</span>}
+   {game.unsure?.length>0&&<span className="wnba-dvp-log-unsure">{game.unsure.reduce((sum,player)=>sum+(player[1]||0),0)} min unplaced ({game.unsure.map(player=>lastName(player[0])).join(', ')})</span>}
   </li>;})}</ol>;
 }
 const OVD=[['pr','Pts+Rebs'],['pts','Points'],['reb','Rebounds'],['ast','Assists'],['tpm','3-PT Made'],['fgm','FG Made'],['ftm','FT Made'],['fgPct','FG%']];

@@ -151,17 +151,136 @@ def spot_games(by_team: dict, positions, bucket) -> dict:
             cells = []
             for game in games:
                 at_spot = [row for row in game["opp"]["p"] if row[_I["min"]] and position in places(row[0])]
-                if not at_spot:
-                    cells.append(None)
-                    continue
-                cell = {"_n": len(at_spot)}
-                for key in STAT_KEYS:
-                    values = [(value, row[_I["min"]]) for row in at_spot if (value := stat_value(row, key)) is not None]
-                    if values:
-                        cell[key] = (sum(value for value, _ in values), len(values), sum(minutes for _, minutes in values))
-                cells.append(cell)
+                cells.append(_cell(at_spot) if at_spot else None)
             spots[(team, position)] = cells
     return spots
+
+
+def _cell(at_spot: list) -> dict:
+    """What these players put up in one game: {stat: (total, players, their minutes)}, "_n" players."""
+    cell = {"_n": len(at_spot)}
+    for key in STAT_KEYS:
+        values = [(value, row[_I["min"]]) for row in at_spot if (value := stat_value(row, key)) is not None]
+        if values:
+            cell[key] = (sum(value for value, _ in values), len(values), sum(minutes for _, minutes in values))
+    return cell
+
+
+# ---- Depth-chart spots (Nov 18): PG / SG / SF / PF / C from ESPN's dated
+# depth charts (depth.py), beside -- never instead of -- the box score's
+# G / F / C above. Keyed PG, SG, SF, PF and DC (the depth chart's center), so
+# the box score's C keeps its key and its numbers. Each opposing player is
+# placed from his team's chart read before that game; one spot or none.
+SPOTS = (("PG", "pg"), ("SG", "sg"), ("SF", "sf"), ("PF", "pf"), ("DC", "c"))
+SPOT_KEYS = tuple(key for key, _ in SPOTS)
+_SPOT_OF_SLOT = {slot: key for key, slot in SPOTS}
+# A spot's number is flagged incomplete when the opposing minutes that may
+# belong there but couldn't be placed reach this share of all the minutes
+# that are (or may be) the spot's in those games.
+FLAG_SHARE = 0.10
+
+
+def family(label) -> str | None:
+    """G, F or C from an ESPN position label (G, PG, SG; F, SF, PF; C)."""
+    label = str(label or "").upper()
+    if label in ("G", "PG", "SG"):
+        return "G"
+    if label in ("F", "SF", "PF"):
+        return "F"
+    return "C" if label == "C" else None
+
+
+def place_games(payload: dict, index) -> dict:
+    """(game id, team) -> {athlete id: (spot key or None, how, candidate
+    keys)} for every player with minutes, from that team's chart read before
+    the game (depth.Index.spots). A tie is settled by ESPN's G / F / C for him
+    in that game when the box score kept it, else his latest. Unplaced:
+    "tie" (candidates: the tied spots), "not on chart", "stale" or "none"
+    (no chart from the three days before the game; candidates: every spot)."""
+    from .depth import minute_of
+    latest = {pid: family((entry or [None, ""])[1]) for pid, entry in (payload.get("players") or {}).items()}
+    minute = _I["min"]
+    placed = {}
+    for game in (payload.get("games") or {}).values():
+        tip = minute_of(game.get("date"))
+        for abbr, side in (game.get("t") or {}).items():
+            own = side.get("g") or {}
+            pids = [str(row[0]) for row in side.get("p") or [] if row[minute]]
+            labels = {pid: family(own.get(pid)) or latest.get(pid) for pid in pids}
+            where, status = index.spots(abbr, tip, labels)
+            mapped = {}
+            for pid in pids:
+                found = where.get(pid)
+                if found is None:
+                    mapped[pid] = (None, "not on chart" if status == "ok" else status, SPOT_KEYS)
+                else:
+                    slot, how, tops = found
+                    mapped[pid] = (_SPOT_OF_SLOT.get(slot), how, tuple(_SPOT_OF_SLOT[top] for top in tops))
+            placed[(str(game["id"]), abbr)] = mapped
+    return placed
+
+
+def _unsure(found, key) -> bool:
+    return found is None or (found[0] is None and key in found[2])
+
+
+def dated_spot_games(by_team: dict, placed: dict) -> tuple[dict, dict]:
+    """spot_games for the depth-chart spots: (team, spot) -> the team's
+    games in order as the opponents placed there played them (None when
+    nobody was), and (team, spot) -> each game's [placed minutes, unsure
+    minutes] -- unsure being opposing minutes that may be the spot's but
+    weren't placed (a tie that includes it, no chart, a stale chart)."""
+    minute = _I["min"]
+    spots, cover = {}, {}
+    for team, games in by_team.items():
+        for key in SPOT_KEYS:
+            cells, minutes = [], []
+            for game in games:
+                where = placed.get((str(game["id"]), game["opponent"])) or {}
+                rows = [row for row in game["opp"]["p"] if row[minute]]
+                at_spot = [row for row in rows if (where.get(str(row[0])) or (None,))[0] == key]
+                cells.append(_cell(at_spot) if at_spot else None)
+                minutes.append([sum(row[minute] for row in at_spot), sum(row[minute] for row in rows if _unsure(where.get(str(row[0])), key))])
+            spots[(team, key)] = cells
+            cover[(team, key)] = minutes
+    return spots, cover
+
+
+def spot_coverage(cover: dict, windows=None) -> dict:
+    """team -> spot -> window -> {placed, unsure, share, flag} over the
+    window's games (the last N, as position_table takes them): share =
+    unsure / (placed + unsure); flag when it reaches FLAG_SHARE."""
+    windows = windows or DVP_WINDOWS
+    result = {}
+    for (team, key), minutes in cover.items():
+        for window, size in windows:
+            chosen = minutes[-size:] if size else minutes
+            placed, unsure = sum(item[0] for item in chosen), sum(item[1] for item in chosen)
+            share = unsure / (placed + unsure) if placed + unsure else None
+            result.setdefault(team, {}).setdefault(key, {})[window] = {
+                "placed": round(placed), "unsure": round(unsure), "share": None if share is None else round(share, 3),
+                "flag": share is not None and share >= FLAG_SHARE}
+    return result
+
+
+def placement_summary(payload: dict, placed: dict) -> dict:
+    """How every played minute of the season was placed: {playerGames,
+    minutes, by: {how: share of minutes}} -- listed, label, tie, not on
+    chart, stale, none."""
+    minute = _I["min"]
+    games = minutes = 0
+    by = defaultdict(float)
+    for game in (payload.get("games") or {}).values():
+        for abbr, side in (game.get("t") or {}).items():
+            where = placed.get((str(game["id"]), abbr)) or {}
+            for row in side.get("p") or []:
+                if not row[minute]:
+                    continue
+                games += 1
+                minutes += row[minute]
+                by[(where.get(str(row[0])) or (None, "none"))[1]] += row[minute]
+    return {"playerGames": games, "minutes": round(minutes),
+            "by": {how: round(value / minutes, 4) for how, value in sorted(by.items())} if minutes else {}}
 
 
 def _view_value(cells: list, key: str, view: str):
@@ -214,21 +333,33 @@ VIEWS = (("total", "Total"), ("player", "Per player"), ("per36", "Per 36 min"))
 DVP_WINDOWS = (("szn", None), ("l15", 15), ("l10", 10), ("l5", 5))
 
 
-def season_dvp(payload: dict) -> dict:
+def season_dvp(payload: dict, depth_index=None) -> dict:
     """One stored season's Defense vs position: {positions, games,
     teamCount, through, views: {view: position_table}} and, for
-    position_log, `_by_team`, `_places` and `_players`."""
+    position_log, `_by_team`, `_places` and `_players`. With the season's
+    depth charts (depth.Index) the depth-chart spots join G / F / C, with
+    `coverage` (spot_coverage), `placement` (placement_summary) and
+    `_placed`; G / F / C are worked out exactly as without them."""
     by_team = team_games(payload)
     players = payload.get("players") or {}
     positions = ("ALL",) + POSITIONS
     bucket = lambda pid: ("ALL", primary_position(players.get(pid)))
     spots = spot_games(by_team, positions, bucket)
+    placed = coverage = placement = None
+    if depth_index:
+        placed = place_games(payload, depth_index)
+        dated, cover = dated_spot_games(by_team, placed)
+        spots.update(dated)
+        positions = positions + SPOT_KEYS
+        coverage = spot_coverage(cover)
+        placement = placement_summary(payload, placed)
     dates = [game.get("date") for game in (payload.get("games") or {}).values() if game.get("date")]
     return {"season": payload.get("season"), "positions": list(positions),
             "games": {team: len(games) for team, games in by_team.items()}, "teamCount": len(by_team),
             "through": max(dates) if dates else None,
             "views": {view: position_table(by_team, spots, positions, DVP_WINDOWS, view) for view, _ in VIEWS},
-            "_by_team": by_team, "_places": bucket, "_players": players}
+            "coverage": coverage, "placement": placement,
+            "_by_team": by_team, "_places": bucket, "_players": players, "_placed": placed}
 
 
 # The game-by-game list's stats: the table's, in its order.
@@ -239,14 +370,27 @@ def position_log(table: dict, team: str, position: str) -> list:
     """`team`'s games in season_dvp's `table`, newest first, as the
     opponents at `position` played them: {id, date, opponent, home,
     players: [[name, minutes, [each LOG_KEYS stat]]]}. players [] when
-    nobody there played (that game is left out of the table)."""
+    nobody there played (that game is left out of the table). For a
+    depth-chart spot each game also lists `unsure`: [[name, minutes]] of
+    the opponents who may have been there but weren't placed."""
     places = table["_places"]
+    placed = table.get("_placed")
+    dated = position in SPOT_KEYS and placed is not None
+    minute = _I["min"]
     log = []
     for game in reversed(table["_by_team"].get(team) or []):
-        rows = [row for row in game["opp"]["p"] if row[_I["min"]] and position in places(row[0])]
-        log.append({"id": game["id"], "date": game["date"], "opponent": game["opponent"], "home": game["home"],
-                    "players": [[_player_name(row[0], table), row[_I["min"]], [stat_value(row, key) for key in LOG_KEYS]]
-                                for row in sorted(rows, key=lambda row: -(row[_I["min"]] or 0))]})
+        if dated:
+            where = placed.get((str(game["id"]), game["opponent"])) or {}
+            rows = [row for row in game["opp"]["p"] if row[minute] and (where.get(str(row[0])) or (None,))[0] == position]
+        else:
+            rows = [row for row in game["opp"]["p"] if row[minute] and position in places(row[0])]
+        entry = {"id": game["id"], "date": game["date"], "opponent": game["opponent"], "home": game["home"],
+                 "players": [[_player_name(row[0], table), row[minute], [stat_value(row, key) for key in LOG_KEYS]]
+                             for row in sorted(rows, key=lambda row: -(row[minute] or 0))]}
+        if dated:
+            entry["unsure"] = [[_player_name(row[0], table), row[minute]] for row in game["opp"]["p"]
+                               if row[minute] and _unsure(where.get(str(row[0])), position)]
+        log.append(entry)
     return log
 
 

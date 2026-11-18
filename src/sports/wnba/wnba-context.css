@@ -109,6 +109,14 @@ html:root .unified-finder .wnba-dvp-menus .finder-custom-select .finder-select-t
 .wnba-dvp-log-empty{margin:0;padding:8px;color:#9a9a9a;font-size:12.5px}
 .wnba-dvp-audit{margin:10px 0 0;color:#8f8f8f;font-size:11.5px}
 .wnba-dvp-audit[data-off]{color:#E8B85A}
+/* The depth-chart spots (PG / SG / SF / PF / C, Nov 18): when the charts were
+   read, the share of minutes placed, and an amber chip and dot on the windows
+   whose numbers are incomplete (WNBAFinderContext SpotStatus). */
+html:root body .wnba-dvp .wnba-dvp-spot-status{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin:2px 0 10px;color:var(--k-muted,#9ba4b6);font:500 12.5px/1.4 var(--font-sans)}
+html:root body .wnba-dvp .wnba-dvp-spot-flag{padding:2px 8px;border-radius:7px;background:var(--k-warn-soft,rgba(245,158,11,.14));color:var(--k-warn-text,#fcd34d);font-weight:600}
+html:root body .wnba-dvp th[data-flag]::after{content:"";display:inline-block;width:6px;height:6px;margin-left:4px;border-radius:50%;background:#f5b041;vertical-align:middle}
+html:root body .wnba-dvp .wnba-dvp-log-unsure{grid-column:1/-1;color:var(--k-warn-text,#fcd34d);font-size:11.5px;opacity:.85}
+.finder-select-menu .finder-select-group{padding:8px 10px 4px;color:var(--k-faint,#677187);font:600 12px/1 var(--font-sans);letter-spacing:0;text-transform:none}
 .wnba-stat-name{display:grid;gap:3px}.wnba-stat-name small{font-weight:400;color:#afafaf;font-size:10px}
 .wnba-bar-col{width:26%;min-width:70px}
 .wnba-rank-bar{display:block;height:5px;border-radius:5px;background:#2f2f2f;overflow:hidden}.wnba-rank-bar i{display:block;height:100%;border-radius:inherit;background:#bfbfbf}

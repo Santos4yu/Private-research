@@ -81,9 +81,9 @@ class SiteControlsTests(unittest.TestCase):
  def test_player_news_starts_off_until_the_admin_saves_it_on(self):
   import json
   with patch.object(controls.store,'get',return_value=json.dumps(controls.DEFAULT)):
-   self.assertEqual(controls.read()['disabledResearch'],['news'])
+   self.assertEqual(controls.read()['disabledResearch'],['dvp5','news'])
   saved=controls.validate({**controls.DEFAULT,'disabledResearch':[]})
-  self.assertEqual(saved['researchSeen'],['news'])
+  self.assertEqual(saved['researchSeen'],['news','dvp5'])
   with patch.object(controls.store,'get',return_value=json.dumps(saved)):
    self.assertEqual(controls.read()['disabledResearch'],[])
   with self.assertRaises(ValueError):

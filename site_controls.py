@@ -40,8 +40,10 @@ LEGACY_SHEETS=tuple(key for key in SHEETS if key.startswith('mlb:'))
 # starts switched off until the admin turns it on (propsLeaguesSeen).
 PROPS_LEAGUES=('nba','nfl')
 # Research inside the pages, one switch each, off until the admin turns it on
-# (researchSeen): the Finder player page's News card (player_news.py).
-RESEARCH_SECTIONS=('news',)
+# (researchSeen): the Finder player page's News card (player_news.py); the
+# NBA Defense vs position's PG / SG / SF / PF / C from ESPN's dated depth
+# charts (dvp5, backend/sports/wnba/depth.py; G / F / C stay for everyone).
+RESEARCH_SECTIONS=('news','dvp5')
 HEX_COLOR_RE=re.compile(r'^#[0-9a-fA-F]{6}$')
 # The phone dock: the sections the admin puts in its four slots, in order
 # (More is always last). Any section a member can have may go there; one
@@ -222,6 +224,17 @@ def sheet_allowed(headers,key):
  if policy['maintenance']:return False
  if key in (policy.get('disabledSheets') or []) and (policy.get('temporaryPublicAccess') or not member_full_access(headers)):return False
  return _items_open(headers,policy,['tab:sheets'])
+def research_allowed(headers,key):
+ """Whether this viewer may see the research section `key` (RESEARCH_SECTIONS):
+ switched on, or an admin, or a member with the Admin badge. Enforced where
+ the data is sent, not only hidden in the page."""
+ if admin_auth.is_admin_request(headers):return True
+ try:
+  policy=read()
+ except Exception:  # noqa: BLE001 -- settings unreadable: keep the section closed
+  return False
+ if key not in (policy.get('disabledResearch') or []):return True
+ return not policy.get('temporaryPublicAccess') and member_full_access(headers)
 def finder_sports_allowed(headers):
  """The Finder leagues this viewer may see, all at once (the league
  switches only; the Line Moves page uses it apart from the Finder tab)."""

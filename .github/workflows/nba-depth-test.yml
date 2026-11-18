@@ -3,7 +3,9 @@
 # token for this workflow, no stored secret (github_oidc.py) -- to fetch every
 # team's chart from Vercel and set it against our stored box scores, then sets
 # SportsDataverse's dated charts against the same box scores. Prints the
-# results. Nothing is stored except the site's own test result. Run by hand.
+# results, then the dated depth-chart store's report and the five-spot vs
+# G / F / C backtest. Nothing is stored except the site's own test result.
+# Run by hand.
 name: NBA depth chart test
 
 on:
@@ -163,5 +165,13 @@ jobs:
           size = len(json.dumps(log, separators=(",", ":")))
           print(f"history as changes only: {sum(len(v) for v in log.values())} versions, {size:,} bytes of JSON")
 
-          # 5. The runs the site has kept (the daily cron shows up here).
+          # 5. The runs the site has kept.
           print(json.dumps(ask("status"), indent=1))
+
+          # 6. The dated depth-chart store (depth.py) against our box scores:
+          #    its last reads, how every minute is placed, flagged numbers.
+          print(json.dumps(ask("depth"), indent=1))
+
+          # 7. Depth-chart spots vs G / F / C, walked forward through the season
+          #    on our box scores and the Props tab's recorded lines (dvp_backtest.py).
+          print(json.dumps(ask("backtest"), indent=1))

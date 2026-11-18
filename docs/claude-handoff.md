@@ -58,6 +58,55 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 18 (h): PG / SG / SF / PF / C Defense vs position (admin-only until switched on)
+
+The owner, after the live test: build the complete five-position system,
+G / F / C unchanged, fully automatic, never guessed, flagged when
+incomplete, tested against G / F / C on historical games before going public.
+
+- `backend/sports/wnba/depth.py`: the dated store, one gzip record a season
+  (`krazy_data:nba:v1:depth:{season}`, ~27KB for the season so far): every
+  chart once by hash, each team's every read as [Unix minute, hash]. A game
+  uses its team's newest chart read 15+ minutes before tip
+  (TIP_MARGIN_MINUTES), never a later one; older than 72 hours
+  (STALE_MINUTES) = no chart. `place`: highest listing; a tie settled only
+  by ESPN's G / F / C for him in that game (league.extract_game now keeps
+  each side's labels as `g`; older games use his latest); else unplaced.
+- Feeding it, all automatic: Vercel cron `?action=nba-depth-sync` at 06:10
+  and 20:10 UTC (`_vercel_cron`, the site's usual cron rule; once in 20
+  minutes on headers alone) reads ESPN live; the scheduled workflow
+  `.github/workflows/nba-depth-sync.yml` (22:40 UTC) reads SportsDataverse's
+  Parquet on GitHub's machines and POSTs `action=nba-depth-import` with
+  GitHub's signed token for that workflow (every hash re-checked, unknown
+  teams / pre-season / future reads refused). Its first run brings the
+  season's history. No commits, no deploys.
+- `context.py`: spots keyed PG, SG, SF, PF, DC (the depth chart's C, so the
+  box score's C keeps its key). `season_dvp(payload, depth_index)` adds them
+  on a separate path (`place_games`, `dated_spot_games`); G / F / C are
+  byte-for-byte the same (tested on the real season). `spot_coverage`:
+  per team / spot / window, placed vs unsure minutes (a tie including the
+  spot, no chart, stale); flagged at FLAG_SHARE 10%. `position_log` lists
+  each game's unplaced players for a spot.
+- The switch: site_controls RESEARCH_SECTIONS `dvp5` (starts off; Settings,
+  Research). `research_allowed` is enforced in api/wnba.py: the dvp answer
+  gets `_five` set server-side (part of the kept answer's key), so members
+  can't ask for the spots while it's off. Admins see them.
+- The card (WNBAFinderContext DefenseVsPosition): Position menu grouped
+  "Box score" (G, F, C) / "Depth chart" (PG ... C, shown "C · depth chart"
+  when picked; FinderDropdown takes data-group / data-display); under the
+  menus, when the charts were read, % of minutes placed and an amber
+  "Incomplete: L10, L5" chip; an amber dot on those window headers; the
+  game list says "N min unplaced (names)".
+- `dvp_backtest.py` (test workflow, part=backtest): walks the season day by
+  day, each defense's allowance per player at a position from earlier games
+  only (shrunk by 10 games), on the same player-games for both systems.
+  Local run on SportsDataverse's copy of the box scores (2,092 player-games
+  x 8 stats): mean absolute error average-only 3.680, G / F / C 3.685,
+  spots 3.694 -- neither beat his own average, the spots no better than
+  G / F / C. The live run adds the Props tab's recorded lines.
+- Diagnostics: the test workflow's part=depth (store status, placement,
+  flagged cells) and part=backtest.
+
 ### Nov 18 (g): private test of ESPN's live NBA depth charts (five positions)
 
 The owner wants Defense vs position in PG / SG / SF / PF / C as well as

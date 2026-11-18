@@ -129,6 +129,8 @@ class handler(BaseHTTPRequestHandler):
                 return self._handle_nba_phone(qs)
             if action == "nba-depth-test":
                 return self._handle_nba_depth_test(qs)
+            if action == "nba-depth-sync":
+                return self._handle_nba_depth_sync()
             if action == "key-status":
                 if not admin_auth.is_admin_request(self.headers):
                     return self._send(401, {"error": "Admin session required"})
@@ -226,6 +228,8 @@ class handler(BaseHTTPRequestHandler):
 
         action = body.get("action", "")
         try:
+            if action == "nba-depth-import":
+                return self._handle_nba_depth_import(body)
             if action == "site-settings":
                 if not admin_auth.is_admin_request(self.headers):return self._send(401, {"error":"Admin session required"})
                 from site_controls import validate,same_origin,KEY
@@ -532,6 +536,12 @@ class handler(BaseHTTPRequestHandler):
             return self._send(200, depth_probe.status())
         if part == "games":
             return self._send(200, depth_probe.games_export())
+        if part == "depth":
+            # The dated depth-chart store (depth.py) and how the season's minutes are placed.
+            return self._send(200, depth_probe.store_report())
+        if part == "backtest":
+            from backend.sports.wnba import dvp_backtest
+            return self._send(200, dvp_backtest.run())
         return self._send(200, depth_probe.run(trigger))
 
     def _vercel_cron(self, name: str) -> bool:
@@ -553,6 +563,29 @@ class handler(BaseHTTPRequestHandler):
             depth_probe.note_cron(name, accepted=accepted, secret_set=bool(secret),
                                   bearer=bool(self.headers.get("Authorization")), agent=agent[:60])
         return accepted
+
+    def _handle_nba_depth_sync(self):
+        """Vercel's cron (twice a day): read every NBA team's ESPN depth chart
+        and keep it in the dated store (backend/sports/wnba/depth.py)."""
+        cron = self._vercel_cron("nba-depth-sync")
+        if not cron and not admin_auth.is_admin_request(self.headers):
+            return self._send(401, {"error": "Not allowed"})
+        from backend.sports.wnba import depth
+        if cron and depth.synced_within(20):
+            return self._send(200, {"skipped": "read in the last 20 minutes"})
+        return self._send(200, depth.sync_live())
+
+    def _handle_nba_depth_import(self, body):
+        """SportsDataverse's archive of ESPN's depth charts, posted by the
+        "NBA depth chart sync" workflow on GitHub's machines (GitHub's signed
+        token for that workflow only, github_oidc.py): this season's history
+        and each day's new reads, merged into the dated store."""
+        import github_oidc
+        if not github_oidc.verify(self.headers.get("X-GitHub-OIDC", ""), audience="aceprops-nba-depth-sync", workflow="nba-depth-sync.yml"):
+            return self._send(401, {"error": "Not allowed"})
+        from backend.sports.wnba import depth
+        report = depth.import_snapshots(body)
+        return self._send(400 if report.get("error") else 200, report)
 
     def _handle_moves_tick(self, qs):
         """Check every league's PrizePicks lines now (line_moves.py), which
