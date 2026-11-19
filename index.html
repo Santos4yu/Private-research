@@ -336,6 +336,8 @@
            the sample metrics wrap below the controls on smaller screens. -->
       <div class="gamelog-toolbar-row">
         <div class="gamelog-toolbar-head">
+          <button type="button" class="gl-mobile-action" data-trend-sheet="line" aria-haspopup="dialog" aria-controls="gl-mobile-sheet">Edit line</button>
+          <button type="button" class="gl-mobile-action" data-trend-sheet="filters" aria-haspopup="dialog" aria-controls="gl-mobile-sheet">Filters <span id="gl-mobile-filter-count"></span></button>
           <div class="gamelog-line-control" aria-label="Prop line controls">
             <button type="button" id="gamelog-line-down" aria-label="Decrease prop line">−</button>
             <strong id="gamelog-line-value">—</strong>
@@ -422,6 +424,10 @@
       </div>
       <div class="gamelog-ext-chips" id="gamelog-ext-chips" aria-label="Applied lineup filters" hidden></div>
     </div>
+    <dialog class="gl-mobile-sheet" id="gl-mobile-sheet" aria-labelledby="gl-mobile-sheet-title">
+      <header><h2 id="gl-mobile-sheet-title"></h2><button type="button" data-close-sheet autofocus>Done</button></header>
+      <div class="gl-mobile-sheet-content"></div>
+    </dialog>
     <!-- Real per-line sportsbook odds (PrizePicks/DraftKings/BetRivers --
          the only 3 books this app has both real odds data AND a real logo
          file for). Populated by loadGameLogBookOdds()/renderGameLogBookOdds()

@@ -310,7 +310,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
           {children}
         </div>
       </SelectContentContext.Provider>,
-      document.body
+      triggerRef.current?.closest("dialog[open]") ?? document.body
     );
   }
 );

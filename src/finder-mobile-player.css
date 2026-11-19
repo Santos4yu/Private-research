@@ -1,0 +1,94 @@
+.gl-mobile-action,
+.gl-mobile-sheet:not([open]) { display: none !important; }
+
+@media (max-width: 760px) {
+  html:root body .unified-finder .finder-trend-view.fp2-nba {
+    --fp-text: #f4f0e7;
+    --fp-muted: #b7b7b2;
+    --fp-faint: #9a9b96;
+    --fp-rule: #ffffff12;
+    --fp2-panel: #1b1e20;
+    --fp2-line: #ffffff0d;
+    padding-top: max(4px, env(safe-area-inset-top, 0px)) !important;
+  }
+  html:root body .fp2-nba .fp2-head {
+    background: none; box-shadow: none; margin-bottom: 12px; padding: 6px 8px;
+  }
+  html:root body .fp2-nba .fp2-glow { display: none; }
+  html:root body .fp2-nba .fp2-back,
+  html:root body .fp2-nba .fp2-account { width: 44px; height: 44px; background: none; }
+
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge {
+    --c-hit: #81b8a2;
+    --c-miss: #d88c83;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal {
+    grid-template-areas: "tabs" "bet" "tool" "windows" "summary" "chart" "quotes" "odds" !important;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-modal::before {
+    background: #1b1e20;
+    box-shadow: none;
+    border-radius: 24px;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .fp2-bet-title {
+    font-size: 25px;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .fp2-bet-side {
+    color: #dec798; font-size: 14px;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-toolbar-head > :is(.gamelog-line-control, #gamelog-lines-select-root),
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-workbench > #gamelog-filter-panel { display: none !important; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gl-mobile-action {
+    display: inline-flex !important;
+    min-height: 44px; align-items: center; gap: 5px; padding: 0 10px;
+    color: var(--fp-muted); background: #ffffff08; border-radius: 10px; white-space: nowrap;
+    font: 650 12px/1 var(--font-sans);
+  }
+  .gl-mobile-action span:not(:empty) { color: #dec798; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .fp2-analyze { margin-left: auto; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .fp2-analyze .ap-trigger {
+    min-height: 44px !important;
+    background: #dec798 !important; color: #22201b !important;
+    border-color: transparent !important; box-shadow: none !important;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-save { height: 44px !important; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs {
+    gap: 2px !important; padding: 3px !important; margin: 4px 0 0 !important;
+    background: #111414 !important; border-radius: 12px !important;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button {
+    display: flex !important; align-items: center; justify-content: center;
+    min-height: 44px !important; height: auto !important; padding: 0 3px !important;
+    background: none !important; border-radius: 9px !important; box-shadow: none !important;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs > button.active { background: #2d3232 !important; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-tabs :is(.gl-window-pct,.gl-window-rec,.gl-window-avg) { display: none !important; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary {
+    flex-wrap: wrap; gap: 6px 15px; margin: 0 !important; padding: 15px 2px 2px !important; box-shadow: none !important;
+  }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gamelog-summary > .gl-sum-rate { display: inline-flex !important; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gl-sum-rate strong { color: #a9d6c4; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge #gamelog-summary-rate-percent { display: none; }
+  html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gl-bar { box-shadow: none !important; }
+
+  html:root body .fp2-nba .fp2-tabs.fp2-tabs-all { gap: 3px; margin-inline: 0; }
+  html:root body .fp2-nba .fp2-tabs.fp2-tabs-all > button { height: 54px; background: none !important; box-shadow: none; }
+  html:root body .fp2-nba .fp2-tabs.fp2-tabs-all > button[aria-pressed=true] { background: #ffffff0c !important; color: #dec798; }
+}
+
+.gl-mobile-sheet[open] {
+  position: fixed; inset: auto 0 0; margin: 0 auto;
+  box-sizing: border-box; width: min(100%, 540px); max-width: 100%; max-height: 76dvh;
+  border: 0; border-radius: 24px 24px 0 0; padding: 18px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: #222627; color: #f4f0e7; overflow: auto; overscroll-behavior: contain; color-scheme: dark;
+}
+.gl-mobile-sheet::backdrop { background: #080a0acc; }
+.gl-mobile-sheet header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.gl-mobile-sheet header h2 { margin: 0; font: 700 20px/1.25 var(--font-sans); }
+.gl-mobile-sheet header button { min-height: 44px; padding: 0 14px; background: #dec798 !important; color: #22201b !important; border: 0; border-radius: 10px; font-weight: 700; }
+.gl-mobile-sheet-content { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gl-mobile-sheet #gamelog-filter-panel {
+  display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 12px !important; width: 100%;
+}
+html:root body .fp2-nba #gamelog-overlay#gamelog-overlay.trend-edge .gl-mobile-sheet :is(.ace-select-trigger,.gamelog-line-control button) { min-height: 44px !important; }
+.gl-mobile-sheet #gl-more-pop:not([hidden]) { position: static; width: 100% !important; max-height: none; box-shadow: none; }

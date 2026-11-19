@@ -22,6 +22,7 @@ import {FinderPlayerBanner} from './FinderPlayerBanner';
 import './finder-player-v2.css';
 import './finder-player-app.css';
 import './player-kit.css';
+import './finder-mobile-player.css';
 
 // Each research tab's icon, for the tiles on a computer (Nov 9, the owner
 // with PickFinder's player page: "i want this layout").
@@ -89,7 +90,7 @@ export function FinderPlayerLayout({row,playerRows,onBack,className='',style,not
  const researchList=research.map(([key,label])=>[key,label]);
  const hisList=his.map(([key,label])=>[HIS+key,label]);
  const shownResearch=research.some(([key])=>key===researchTab)?researchTab:research[0]?.[0];
- return <section className={`finder-trend-view wnba-trend-page wnba-player-page fp2 ${className}`} style={style}>
+ return <section className={`finder-trend-view wnba-trend-page wnba-player-page fp2 ${row.sport==='nba'?'fp2-nba':''} ${className}`} style={style}>
   <FinderPlayerBanner row={row} playerRows={playerRows} onBack={onBack} layout="v2"/>
   {notice}
   {!blocked&&<div className="fp2-grid" data-group={group}>

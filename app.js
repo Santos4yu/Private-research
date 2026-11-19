@@ -3491,6 +3491,40 @@ function applyMoreFilters() {
   renderGameLogTabs();
   renderGameLogChart();
 }
+function wireMobileTrendSheet() {
+  const sheet = document.getElementById("gl-mobile-sheet");
+  if (!sheet || sheet.dataset.wired) return;
+  sheet.dataset.wired = "1";
+  const content = sheet.querySelector(".gl-mobile-sheet-content");
+  const phone = window.matchMedia("(max-width: 760px)");
+  let moved = [];
+  sheet.addEventListener("close", () => {
+    for (const [node, placeholder] of moved) placeholder.replaceWith(node);
+    moved = [];
+    delete sheet.dataset.mode;
+  });
+  sheet.querySelector("[data-close-sheet]").addEventListener("click", () => sheet.close());
+  sheet.addEventListener("click", (event) => { if (event.target === sheet) sheet.close(); });
+  phone.addEventListener("change", () => { if (!phone.matches && sheet.open) sheet.close(); });
+  els.gamelogOverlay.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-trend-sheet]");
+    if (!button || !phone.matches || !sheet.closest(".fp2-nba") || sheet.open || moved.length) return;
+    const mode = button.dataset.trendSheet;
+    const filters = mode === "filters";
+    sheet.dataset.mode = mode;
+    sheet.querySelector("h2").textContent = filters ? "Game filters" : "Edit line";
+    const nodes = filters ? [els.gamelogFilterPanel, document.getElementById("gl-more-pop")]
+      : [els.gamelogOverlay.querySelector(".gamelog-line-control"), document.getElementById("gamelog-lines-select-root")];
+    for (const node of nodes.filter(Boolean)) {
+      const placeholder = document.createComment("trend control");
+      node.before(placeholder);
+      content.append(node);
+      moved.push([node, placeholder]);
+    }
+    sheet.showModal();
+  });
+}
+
 function wireMoreFilters() {
   const wrap = document.getElementById("gl-more");
   if (!wrap || wrap.dataset.wired) return;
@@ -3590,6 +3624,7 @@ const labelForKey = (pairs, key) => (pairs.find(([k]) => k === key) || pairs[0])
 const keyForLabel = (pairs, label) => (pairs.find(([, l]) => l === label) || pairs[0])[0];
 function renderGameLogSubfilters() {
   wireMoreFilters();
+  wireMobileTrendSheet();
   renderMoreFilters();
   els.glHandFilterBridge?.setOptions(pairOptions(GL_HAND_PAIRS));
   els.glHandFilterBridge?.setValue(labelForKey(GL_HAND_PAIRS, gameLogState.handFilter));
@@ -3932,6 +3967,11 @@ function renderGameLogChart() {
     const wanted = gameLogState.extraFilters?.[field];
     if (wanted && wanted !== "all") filterBits.push(field === "opponent" ? `vs ${wanted}` : wanted);
   }
+  const filterCount = document.getElementById("gl-mobile-filter-count");
+  const advancedCount = Number(document.getElementById("gl-more-btn")?.dataset.count || 0);
+  const lineupCount = document.getElementById("gamelog-ext-chips")?.childElementCount || 0;
+  const count = filterBits.length + advancedCount + lineupCount - (gameLogState.seasonKind === "games" && seasonKindOn() ? 1 : 0);
+  if (filterCount) filterCount.textContent = count > 0 ? String(count) : "";
   const filterSuffix = filterBits.length ? ` (${filterBits.join(", ")})` : "";
 
   if (!games.length) {
