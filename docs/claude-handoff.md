@@ -58,6 +58,31 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 19 (b): the phone player page redone, the chart restyled, the list's top reachable
+
+The owner, with phone screenshots of Nov 19 (a): "Why cant I scroll up the
+top isn't reachable the actual inside of the finder looks the same and I
+hate the way the trend bars look I love the outside the like the props but
+the actual reaearch part is ugllyyy". The list stays as it is.
+
+- The list's top: finder-mobile.css had replaced the bar's padding, which
+  carried `--site-status-inset` (the status bar and iOS's blur band), so on
+  the home-screen app the title and search sat under that band, out of
+  reach. The bar's padding-top is `calc(var(--site-status-inset) + 8px)`
+  again.
+- Player page (`src/finder-mobile-player.css`, rewritten): new order on
+  phones: stats as small two-line tiles (stat over line, the picked one
+  ringed orange) above the panel; in the panel the prop, then the chart
+  first, then the windows as tiles under it (window, record, rate, colored;
+  the picked one ringed orange), Average left / Median right, then the
+  line's controls and the filters under a hairline.
+- The chart on phones: no number scale (`.gl-grid` hidden), rounded bars
+  with a slight two-tone fill, each game's number in a small dark bubble, a
+  faint green wash above the line and red under it (the line marker's
+  `::after`, sized from its own `--line-offset` and `--gl-track-height`),
+  the opponent's logo and the day under each bar when there are 12 games or
+  fewer (`data-logo`), the next game a dashed outline. No app.js change.
+
 ### Nov 19 (a): the Finder on a phone, compact and clean (owner: "simple and clean professional")
 
 The owner asked for a redesign of everything in the Finder on phones

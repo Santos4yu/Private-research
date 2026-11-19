@@ -24,8 +24,10 @@
 @media (max-width: 760px) {
   html:root body .unified-finder { --m-pad: 14px; --m-chip: 34px; --m-accent: var(--theme-accent, #ff7a33); overflow-x: clip; }
 
-  /* ------------------------------------------------------------ the top */
-  html:root body .unified-finder .finder-topbar { gap: 8px; min-height: 0; padding: 8px var(--m-pad) 4px !important; border: 0 !important; background: var(--k-bg) !important; box-shadow: none !important; }
+  /* ------------------------------------------------------------ the top
+     Below the phone's status bar and iOS's blur band (--site-status-inset,
+     site-access.css): without it the bar sat under that band, out of reach. */
+  html:root body .unified-finder .finder-topbar { gap: 8px; min-height: 0; padding: calc(var(--site-status-inset, 0px) + 8px) var(--m-pad) 4px !important; border: 0 !important; background: var(--k-bg) !important; box-shadow: none !important; }
   html:root body .unified-finder .finder-title { gap: 10px; min-width: 0; }
   html:root body .unified-finder .finder-title h1 { color: var(--k-text); font: 700 26px/1 var(--font-sans) !important; letter-spacing: -.04em !important; }
   html:root body .unified-finder .finder-title > h1 + span { display: none !important; }
