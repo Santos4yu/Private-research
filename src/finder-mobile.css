@@ -1,0 +1,179 @@
+/* The Finder on a phone, "Scout" (Nov 19, the owner: "redesign the whole
+   trends in the finder and the overall design of EVERYTHING in the finder
+   research the layout everything for mobile for now surprise me please
+   cause I obviously can't find a good fit"). The list here; the player
+   page is finder-mobile-player.css.
+
+   The idea: every prop shows how he has gone lately before anything else.
+     top        the title and the sport, the saved / settings / account
+                buttons as framed squares
+     search     a full-width field (no icon to open first), the apps
+                filter and refresh beside it; every other filter one row
+                of slim chips that scrolls sideways, orange when set
+     sort       words on one line with an orange line under the one
+                sorted, sticking to the top while the list scrolls
+     card       compact (the owner, the same day, on a first try with big
+                numbers and bars: "I want nice compact ... simple and clean
+                professional"): who, the line with its prices, the game, the
+                add button; one strip of every window's hit rate and the
+                defense's rank under a hairline
+   Charcoal panels on the page, hairlines, orange only for what's picked.
+   Loaded last (UnifiedFinder.jsx); html:root body wins over the older
+   sheets' html:root rules. */
+
+@media (max-width: 760px) {
+  html:root body .unified-finder { --m-pad: 14px; --m-chip: 34px; --m-accent: var(--theme-accent, #ff7a33); overflow-x: clip; }
+
+  /* ------------------------------------------------------------ the top */
+  html:root body .unified-finder .finder-topbar { gap: 8px; min-height: 0; padding: 8px var(--m-pad) 4px !important; border: 0 !important; background: var(--k-bg) !important; box-shadow: none !important; }
+  html:root body .unified-finder .finder-title { gap: 10px; min-width: 0; }
+  html:root body .unified-finder .finder-title h1 { color: var(--k-text); font: 700 26px/1 var(--font-sans) !important; letter-spacing: -.04em !important; }
+  html:root body .unified-finder .finder-title > h1 + span { display: none !important; }
+  html:root body .unified-finder .finder-mobile-sport {
+    height: 34px !important; min-height: 0 !important; padding: 0 12px !important; gap: 6px; border: 0 !important; border-radius: 999px !important;
+    background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; color: var(--k-text) !important; font: 600 13px/1 var(--font-sans) !important;
+  }
+  html:root body .unified-finder .finder-topbar > .finder-icon {
+    width: 38px !important; height: 38px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 12px !important;
+    background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; color: var(--k-text) !important;
+  }
+  html:root body .unified-finder .finder-topbar > .finder-icon svg { width: 17px; height: 17px; }
+  html:root body .unified-finder .finder-topbar > .finder-top-save[aria-pressed="true"] { background: color-mix(in srgb, var(--m-accent) 16%, var(--k-panel)) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 45%, transparent) !important; color: var(--m-accent) !important; }
+  html:root body .unified-finder .finder-topbar > .finder-top-account { overflow: hidden; border-radius: 50% !important; background: var(--k-raised) !important; }
+  html:root body .unified-finder .finder-topbar > .finder-top-account b { color: var(--k-text); font: 700 14px/1 var(--font-sans); }
+
+  /* ------------------------------------------------------------ search and filters */
+  html:root body .unified-finder .finder-controls { display: grid !important; gap: 10px !important; margin: 0 !important; padding: 8px 0 0 !important; border: 0 !important; background: none !important; }
+  html:root body .unified-finder .finder-search-row { display: flex !important; align-items: center; gap: 8px !important; margin: 0 !important; padding: 0 var(--m-pad) !important; }
+  html:root body .unified-finder .finder-search-row > .finder-search {
+    display: flex !important; flex: 1 1 auto; align-items: center; gap: 9px; min-width: 0; width: auto !important; height: 44px !important; min-height: 0 !important; margin: 0 !important; padding: 0 14px !important;
+    border: 0 !important; border-radius: 14px !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; color: var(--k-faint);
+  }
+  html:root body .unified-finder .finder-search-row > .finder-search:focus-within { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 60%, transparent) !important; }
+  html:root body .unified-finder .finder-search svg { flex: none; width: 17px; height: 17px; }
+  html:root body .unified-finder .finder-search input { flex: 1; min-width: 0; height: 100% !important; padding: 0 !important; border: 0 !important; background: none !important; color: var(--k-text) !important; font: 500 16px/1 var(--font-sans) !important; outline: none; text-overflow: ellipsis; }
+  html:root body .unified-finder .finder-search input::placeholder { color: var(--k-faint); }
+  html:root body .unified-finder .finder-mobile-search-toggle,
+  html:root body .unified-finder .finder-search-chip { display: none !important; }
+  html:root body .unified-finder .finder-search-row > .finder-app-filter {
+    flex: none; width: auto !important; max-width: 118px; height: 44px !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important;
+    border: 0 !important; border-radius: 14px !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important;
+  }
+  html:root body .unified-finder .finder-app-filter .finder-multi-select { width: 100%; height: 100%; min-height: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; }
+  html:root body .unified-finder .finder-app-filter .finder-multi-trigger { width: 100%; height: 44px !important; min-height: 0 !important; padding: 0 10px 0 12px !important; gap: 5px; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--k-text) !important; font: 600 13px/1 var(--font-sans) !important; }
+  html:root body .unified-finder .finder-app-filter .finder-multi-trigger > svg:first-child { display: none; }
+  html:root body .unified-finder .finder-app-filter .finder-multi-trigger span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  html:root body .unified-finder .finder-app-filter .finder-app-icons { display: none !important; }
+  html:root body .unified-finder .finder-search-row > .finder-icon:not(.finder-mobile-search-toggle) {
+    flex: none; width: 40px !important; height: 44px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 14px !important;
+    background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; color: var(--k-muted) !important;
+  }
+
+  html:root body .unified-finder .finder-filters {
+    display: flex !important; flex-wrap: nowrap !important; gap: 8px !important; width: auto !important; margin: 0 !important; padding: 0 var(--m-pad) 2px !important;
+    overflow-x: auto; scrollbar-width: none; scroll-padding-inline: var(--m-pad); border: 0 !important; background: none !important;
+  }
+  html:root body .unified-finder .finder-filters::-webkit-scrollbar { display: none; }
+  html:root body .unified-finder .finder-filters .finder-multi-select {
+    flex: none !important; width: auto !important; min-width: 0 !important; height: var(--m-chip) !important; min-height: 0 !important; margin: 0 !important;
+    border: 0 !important; border-radius: 999px !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important;
+  }
+  html:root body .unified-finder .finder-filters .finder-multi-trigger {
+    width: auto !important; height: var(--m-chip) !important; min-height: 0 !important; padding: 0 12px 0 13px !important; gap: 6px !important; border: 0 !important; border-radius: 999px !important;
+    background: none !important; box-shadow: none !important; color: var(--k-muted) !important; font: 500 13px/1 var(--font-sans) !important; white-space: nowrap;
+  }
+  html:root body .unified-finder .finder-filters .finder-multi-trigger > svg:first-child { display: none; }
+  html:root body .unified-finder .finder-filters .finder-multi-trigger svg { width: 14px; height: 14px; color: var(--k-faint); }
+  /* A filter that's set: orange. */
+  html:root body .unified-finder .finder-filters .finder-multi-select.is-active { background: color-mix(in srgb, var(--m-accent) 14%, var(--k-panel)) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 42%, transparent) !important; }
+  html:root body .unified-finder .finder-filters .finder-multi-select.is-active .finder-multi-trigger,
+  html:root body .unified-finder .finder-filters .finder-multi-select.is-active .finder-multi-trigger svg { color: color-mix(in srgb, var(--m-accent) 70%, #fff) !important; }
+  html:root body .unified-finder .finder-filters .finder-reset {
+    flex: none; width: var(--m-chip) !important; height: var(--m-chip) !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 50% !important;
+    background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; color: var(--k-faint) !important;
+  }
+  html:root body .unified-finder .finder-filters .finder-reset svg { width: 15px; height: 15px; }
+
+  /* ------------------------------------------------------------ the sort */
+  html:root body .unified-finder .fk-sorts {
+    position: sticky; top: var(--site-status-inset, 0px); z-index: 6; display: flex; gap: 20px; margin: 6px 0 0; padding: 0 var(--m-pad);
+    overflow-x: auto; scrollbar-width: none; background: var(--k-bg); box-shadow: inset 0 -1px 0 var(--k-line);
+  }
+  html:root body .unified-finder .fk-sorts::-webkit-scrollbar { display: none; }
+  html:root body .unified-finder .fk-sorts button {
+    flex: none; display: inline-flex; align-items: center; gap: 4px; height: 42px; margin: 0; padding: 0 1px; border: 0; border-radius: 0;
+    background: none !important; box-shadow: none; color: var(--k-faint); font: 600 13.5px/1 var(--font-sans); cursor: pointer;
+  }
+  html:root body .unified-finder .fk-sorts button svg { display: none; width: 13px; height: 13px; }
+  html:root body .unified-finder .fk-sorts button[aria-pressed="true"] { color: var(--k-text) !important; box-shadow: inset 0 -2px 0 var(--m-accent); }
+  html:root body .unified-finder .fk-sorts button[aria-pressed="true"] svg { display: block; color: var(--m-accent); }
+
+  /* ------------------------------------------------------------ the cards */
+  html:root body .unified-finder .fk-list { display: grid; gap: 8px; padding: 10px 12px 18px; }
+  html:root body .unified-finder .fk-card {
+    position: relative; padding: 12px 12px 10px; border-radius: 16px; background: var(--k-panel); box-shadow: inset 0 0 0 1px var(--k-line);
+    cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color .15s ease;
+  }
+  html:root body .unified-finder .fk-card:active { background: var(--k-raised); }
+
+  html:root body .unified-finder .fk-top { display: flex; align-items: center; gap: 11px; }
+  html:root body .unified-finder .fk-face { position: relative; flex: none; align-self: flex-start; width: 42px; height: 42px; margin-top: 1px; }
+  html:root body .unified-finder .fk-photo { display: block; width: 42px; height: 42px; border-radius: 50%; object-fit: cover; object-position: top; background: var(--k-raised); }
+  html:root body .unified-finder .fk-initials { display: grid; place-items: center; color: var(--k-muted); font: 600 14px/1 var(--font-sans); }
+  html:root body .unified-finder .fk-team { position: absolute; right: -4px; bottom: -3px; width: 18px; height: 18px; padding: 2px; border-radius: 50%; background: var(--k-raised); box-shadow: 0 0 0 2px var(--k-panel); object-fit: contain; }
+  html:root body .unified-finder .fk-who {
+    flex: 1; min-width: 0; min-height: 0 !important; height: auto; display: grid; align-content: center; gap: 4px; margin: 0; padding: 0; border: 0; background: none; color: var(--k-text); text-align: left; cursor: pointer;
+  }
+  html:root body .unified-finder .fk-name { overflow: hidden; color: var(--k-text); font: 600 15px/1.2 var(--font-sans); white-space: nowrap; text-overflow: ellipsis; }
+  html:root body .unified-finder .fk-name em { margin-left: 6px; color: var(--k-faint); font-size: 12px; font-style: normal; font-weight: 500; }
+  html:root body .unified-finder .fk-line { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--k-muted); font: 500 12.5px/1.2 var(--font-sans); }
+  html:root body .unified-finder .fk-line strong { flex: none; color: var(--k-text); font: 650 13px/1.2 var(--font-sans); }
+  html:root body .unified-finder .fk-line img { flex: none; }
+  html:root body .unified-finder .fk-apps { display: flex; align-items: center; gap: 9px; min-width: 0; overflow: hidden; color: var(--k-muted); font: 500 12px/1 var(--font-sans); }
+  html:root body .unified-finder .fk-apps span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  html:root body .unified-finder .fk-apps img { border-radius: 4px; }
+  html:root body .unified-finder .fk-apps img[src*="underdog"] { padding: 1px; background: #fff; }
+  html:root body .unified-finder .fk-game { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: var(--k-faint); font: 500 12px/1.2 var(--font-sans); white-space: nowrap; text-overflow: ellipsis; }
+  html:root body .unified-finder .fk-game::before { content: none; }
+  html:root body .unified-finder .fk-game .finder-comeback { flex: none; }
+  html:root body .unified-finder .fk-add {
+    position: static; flex: none; align-self: flex-start; display: grid; place-items: center; width: 34px; height: 34px; margin: 0; padding: 0; border: 0; border-radius: 10px;
+    background: var(--k-raised); box-shadow: none; color: var(--k-text); opacity: 1; transform: none; cursor: pointer;
+  }
+  html:root body .unified-finder .fk-add svg { width: 16px; height: 16px; padding: 0; background: none; fill: none; }
+  html:root body .unified-finder .fk-add[aria-pressed="true"] { background: var(--m-accent); color: var(--theme-on-accent, #121212); }
+
+  /* Every window's hit rate and the defense, plain, the sorted one's name in white. */
+  html:root body .unified-finder .fk-rates { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--k-line); }
+  html:root body .unified-finder .fk-rates > div { display: grid; justify-items: center; gap: 4px; min-width: 0; }
+  html:root body .unified-finder .fk-rates small { color: var(--k-faint); font: 500 10.5px/1 var(--font-sans); letter-spacing: .02em; }
+  html:root body .unified-finder .fk-rates b { color: var(--k-text); font: 650 13px/1 var(--font-sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  html:root body .unified-finder .fk-rates [data-on] small { color: var(--k-text); font-weight: 650; }
+  html:root body .unified-finder .fk-rates [data-tone="good"] b { color: var(--k-hit-text); }
+  html:root body .unified-finder .fk-rates [data-tone="mid"] b { color: var(--k-warn-text); }
+  html:root body .unified-finder .fk-rates [data-tone="low"] b { color: var(--k-miss-text); }
+  html:root body .unified-finder .fk-rates [data-tone="none"] b { color: var(--k-faint); }
+
+  /* ------------------------------------------------------------ nothing found, the pages */
+  html:root body .unified-finder .finder-scroll:has(.finder-empty-board) { min-height: 0; }
+  html:root body .unified-finder .finder-empty-board { min-height: 0; margin: 14px 12px; padding: 34px 20px; border-radius: 20px; background: var(--k-panel); box-shadow: inset 0 0 0 1px var(--k-line); }
+  html:root body .unified-finder .finder-empty-board::before { content: none; }
+  html:root body .unified-finder .finder-empty-board > svg { padding: 11px; border: 0; border-radius: 14px; background: var(--k-raised); color: var(--k-muted); }
+  html:root body .unified-finder .finder-empty-board > strong { color: var(--k-text); font: 650 16px/1.2 var(--font-sans); }
+  html:root body .unified-finder .finder-empty-board > span { color: var(--k-muted); font: 500 13px/1.5 var(--font-sans); }
+  html:root body .unified-finder .finder-empty-board > button { height: 40px; padding: 0 16px; border: 0; border-radius: 12px; background: var(--m-accent); color: var(--theme-on-accent, #121212); font: 650 13.5px/1 var(--font-sans); }
+  html:root body .unified-finder .finder-pagination { display: grid !important; justify-items: center; gap: 10px; margin: 0 !important; padding: 6px var(--m-pad) 26px !important; border: 0 !important; background: none !important; }
+  html:root body .unified-finder .finder-pagination > span:first-child { color: var(--k-faint); font: 500 12px/1 var(--font-sans); }
+  html:root body .unified-finder .finder-pagination > div { display: flex; align-items: center; gap: 8px; max-width: 100%; }
+  html:root body .unified-finder .finder-pagination > div > button { display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border: 0 !important; border-radius: 13px !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; color: var(--k-text) !important; }
+  html:root body .unified-finder .finder-pagination > div > button:disabled { color: var(--k-faint) !important; opacity: .55; }
+  html:root body .unified-finder .finder-pagination > div > span { min-width: 84px; padding: 0 4px; border: 0 !important; background: none !important; color: var(--k-muted); font: 500 13px/1 var(--font-sans); text-align: center; }
+  html:root body .unified-finder .finder-pagination > div > span b { color: var(--k-text); }
+  html:root body .unified-finder .finder-pagination label { display: inline-flex; align-items: center; height: 42px; margin: 0; padding: 0 !important; border: 0 !important; border-radius: 13px !important; background: var(--k-panel) !important; box-shadow: inset 0 0 0 1px var(--k-line) !important; }
+  html:root body .unified-finder .finder-pagination label > svg { display: none; }
+  html:root body .unified-finder .finder-pagination label :is(button, select) { height: 42px !important; min-height: 0 !important; padding: 0 14px !important; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--k-text) !important; font: 600 13px/1 var(--font-sans) !important; }
+  html:root body .unified-finder .finder-page-hint { display: none !important; }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  html:root body .unified-finder .fk-card { transition: none; }
+}

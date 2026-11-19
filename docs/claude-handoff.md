@@ -58,6 +58,37 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 19 (a): the Finder on a phone, compact and clean (owner: "simple and clean professional")
+
+The owner asked for a redesign of everything in the Finder on phones
+("surprise me"). A first try (big hit-rate numbers, ten-game bars on every
+card, pill tabs, a big read-out block) was rejected before it shipped: "I
+hate it I want nice compact not something that's just to much I like simple
+and clean professional", with three other apps' player pages as examples
+(density and layout only; never their colors, branding or words). What
+shipped is the compact version. Phones only; the computer is unchanged.
+
+- List (`UnifiedFinder.jsx` PhoneCard, new `src/finder-mobile.css`, loaded
+  last; finder-kit.css's old phone card block is gone): the card is photo
+  with team badge, name and position, the line with up to three apps'
+  prices, the game and time, the add button; then one strip under a
+  hairline of L5 / L10 / L15 / H2H / SZN / DEF, label over value, the
+  sorted column's label in white. Top: framed square buttons, a full-width
+  search field (no search icon to open first; placeholder "Search players"
+  on phones), apps filter and refresh beside it, the other filters one row
+  of slim chips (orange when set), the sorts as words with an orange
+  underline (sticky). Empty state and page switcher restyled; the old 11px
+  sideways overflow is gone.
+- Player page (new `src/finder-mobile-player.css`, loaded last from
+  `FinderPlayerLayout.jsx`): same order as before (stats, the line, the
+  line's controls, filters, windows, chart, average/median). Stats as plain
+  words with their line, the picked one white over an orange line; the
+  controls all 36px on raised fills (Analyze neutral, not orange); the
+  windows one slim row (window over its rate, hairlines between, the picked
+  one raised, no "HR" or average); the chart taller (210px track); Average
+  and Median on one line. Under it every card is as wide as the chart's
+  panel and the research tabs are plain words like the stats (no icon tiles).
+
 ### Nov 18 (n): the Finder player page's top (owner: "i hate how this area looks")
 
 The owner sent the top of the Finder player page on a computer (the

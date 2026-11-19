@@ -22,6 +22,7 @@ import {FinderPlayerBanner} from './FinderPlayerBanner';
 import './finder-player-v2.css';
 import './finder-player-app.css';
 import './player-kit.css';
+import './finder-mobile-player.css';
 
 // Each research tab's icon, for the tiles on a computer (Nov 9, the owner
 // with PickFinder's player page: "i want this layout").
