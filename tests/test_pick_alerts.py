@@ -235,7 +235,26 @@ class RouteTests(Base):
             status, body = self.admin(f'?action=moves-tick&key={key}')
         self.assertEqual(status, 200)
         self.assertEqual(body['nba'], {'season': 2027, 'periods': {'done': 40, 'left': 900}})
-        self.assertEqual(caught.call_args.kwargs['deadline_seconds'], 20)
+        self.assertEqual(caught.call_args.kwargs['deadline_seconds'], 12)
+
+    def test_the_timer_does_its_work_at_most_every_five_minutes(self):
+        # Nov 23: called every minute or two, each run up to a minute, the
+        # timer used up Vercel's free allowance. A call inside the window
+        # answers at once and checks nothing.
+        path = self.admin('?action=announce-status')[1]['timer']['path']
+        key = path.split('key=')[1]
+        from v2.board import store
+        claim = []
+        def taken(commands, **_):
+            claim.append(commands[0])
+            return [{'result': None}]
+        with patch.object(moves, 'keep_fresh') as fresh, patch.object(store, 'pipeline', side_effect=taken):
+            status, body = self.admin(f'?action=moves-tick&key={key}')
+        self.assertEqual(status, 200)
+        self.assertEqual(body['skipped'], 'checked under five minutes ago')
+        fresh.assert_not_called()
+        self.assertEqual(claim[0][:2], ['SET', 'moves-tick:gate'])
+        self.assertEqual(claim[0][3:], ['NX', 'EX', 290])
 
 
 if __name__ == '__main__':

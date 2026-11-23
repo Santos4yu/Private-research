@@ -58,6 +58,33 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 23 (a): Vercel paused the free account (402 Payment required)
+
+The owner: "my website is down now all of them on vercel i dont want to pay
+what should i do". The site has answered `402 Payment required` since about
+11:40 UTC Nov 19 (first failed GitHub run that day; the depth sync logged
+"site: HTTP 402 Payment required"): Vercel paused the Hobby account for going
+over its free usage, which takes every project on the account down. The last
+deploy (d5a29ce) had succeeded, so it isn't a build. The pause came about 19
+hours after Phase 0 went live (more work on every timer run, 14 graded runs a
+day from GitHub). vercel.com can't be reached from the cloud container.
+
+To keep usage inside the free plan once it is resumed:
+- `api/v2-admin.py` moves-tick: a five-minute gate (`moves-tick:gate`, SET NX
+  EX 290): the first call claims it and does the full check, every other call
+  until it expires answers at once with `skipped`. The outside timer is at
+  cron-job.org (the admin panel says every 5 minutes; it was being called
+  every minute or two). Storage down: the check runs as before. CS2 warm
+  budget 45 s → 20 s (12 players), NBA period backfill deadline 20 s → 12 s.
+- GitHub Actions "NBA prop snapshot" (Phase 0 graded runs) is disabled
+  (`gh workflow disable nba-prop-snapshot.yml`); every run had failed on the
+  402 anyway. Turn it back on (`gh workflow enable`) only with a lighter
+  schedule once the owner knows the usage numbers.
+- For the owner: on Vercel, the Usage page shows which allowance went over;
+  paused projects don't come back by themselves, each has a Resume on its
+  page (or Vercel support unpauses a Hobby account on request); the free plan
+  is never charged.
+
 ### Nov 19 (b): the phone player page redone, the chart restyled, the list's top reachable
 
 The owner, with phone screenshots of Nov 19 (a): "Why cant I scroll up the

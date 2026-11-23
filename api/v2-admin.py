@@ -671,11 +671,18 @@ class handler(BaseHTTPRequestHandler):
         if not ((key and given and hmac.compare_digest(given, key))
                 or (secret and hmac.compare_digest(bearer, f"Bearer {secret}"))):
             return self._send(401, {"error": "Timer key required"})
+        # At most one full check every five minutes, however often the outside
+        # timer calls. Nov 23: the timer (cron-job.org) calling every minute or
+        # two, each run up to a minute, used up Vercel's free allowance and the
+        # account was paused ("402 Payment required" from Nov 19). A call
+        # inside the window answers at once and does nothing else.
+        if not self._moves_gate_open():
+            return self._send(200, {"ok": True, "skipped": "checked under five minutes ago"})
         # Run beside existing work, so other sports cannot starve CS2 backfill.
         from concurrent.futures import ThreadPoolExecutor
         from cs2_history import warm as cs2_warm, due as cs2_due
         cs2_pool = ThreadPoolExecutor(max_workers=1)
-        cs2_job = cs2_pool.submit(lambda: cs2_warm(budget=45, limit=24) if cs2_due() else {"waiting": True})
+        cs2_job = cs2_pool.submit(lambda: cs2_warm(budget=20, limit=12) if cs2_due() else {"waiting": True})
         cs2_pool.shutdown(wait=False)
         # The NBA's season of box scores (backend/sports/wnba/league.py) fills
         # in a few hundred games a tick until it is complete; after that the
@@ -695,7 +702,7 @@ class handler(BaseHTTPRequestHandler):
                     built = seasons.build(season, deadline_seconds=12, league="nba")
                     return {"season": season, "games": len(built["games"]), "partial": built["partial"]}
                 for year in (season, season - 1):
-                    filled = seasons.backfill_periods(year, "nba", deadline_seconds=20)
+                    filled = seasons.backfill_periods(year, "nba", deadline_seconds=12)
                     if filled["done"] or filled["left"]:
                         return {"season": year, "periods": filled}
                 return {"complete": True}
@@ -768,6 +775,18 @@ class handler(BaseHTTPRequestHandler):
             pass
         return self._send(200, {"ok": True, "checked": line_moves.checked(), "moneylines": moneylines, "nba": nba, "tennis": tennis, "histories":histories, "cs2":cs2,
                                 "slips": slips, "snapshots": snapshots})
+
+    MOVES_EVERY_SECONDS = 290
+
+    def _moves_gate_open(self):
+        """The timer's five-minute gate: the first call claims it (SET NX with
+        an expiry), every other call until it expires finds it taken. Storage
+        down: the check runs, as it always did."""
+        try:
+            claimed = store.pipeline([["SET", "moves-tick:gate", str(int(time.time())), "NX", "EX", self.MOVES_EVERY_SECONDS]])
+            return claimed[0].get("result") == "OK"
+        except Exception:  # noqa: BLE001
+            return True
 
     def _handle_cron_scan(self):
         secret = os.getenv("CRON_SECRET", "")
