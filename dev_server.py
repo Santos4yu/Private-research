@@ -1,5 +1,11 @@
 """
-Local-only dev server for predictions-site.
+The whole site on one computer: the built pages (dist/, `npm run build`) and
+every /api/* route on the REAL serverless handlers in api/, with the same
+address rules as vercel.json (Nov 23, the owner: "how can i just deploy it
+local rn", after Vercel paused the account). Run: `python dev_server.py 8080`
+with the settings in a .env file beside it, then open http://localhost:8080.
+
+Originally the local-only dev server for predictions-site.
 Serves the static files AND proxies every /api/* route to the REAL Vercel
 serverless handlers in api/ (BaseHTTPRequestHandler subclasses) -- so local
 testing reflects exactly what's deployed, including the auth gate. Not used
@@ -51,7 +57,22 @@ ROUTES = {
     "/api/nfl": _load_handler("nfl.py"),
     "/api/wnba": _load_handler("wnba.py"),
     "/api/session": _load_handler("session.py"),
+    "/api/mlb-logo": _load_handler("mlb-logo.py"),
 }
+
+
+def _rewrite(path: str) -> str:
+    """vercel.json's API rewrites, so links work the same as on the live site."""
+    parsed = urlparse(path)
+    query = ("&" + parsed.query) if parsed.query else ""
+    parts = parsed.path.strip("/").split("/")
+    if parsed.path.startswith("/api/auth/") and len(parts) == 3:
+        return f"/api/session?action={parts[2]}{query}"
+    if parsed.path == "/api/whop/webhook":
+        return f"/api/session?action=whop-webhook{query}"
+    if parsed.path.startswith("/api/nfl/") and len(parts) == 3:
+        return f"/api/nfl?resource={parts[2]}{query}"
+    return path
 
 
 class ThreadingHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -70,15 +91,27 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Resource-Policy", "same-site")
-        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://img.mlbstatic.com https://www.mlbstatic.com https://cdn.nba.com https://static.www.nfl.com https://a.espncdn.com https://github.com https://objects.githubusercontent.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
         if urlparse(self.path).path == "/index.html" or urlparse(self.path).path == "/":
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         super().end_headers()
 
+    def _page_path(self):
+        """A page address with no file behind it is the app (index.html), as
+        vercel.json's last rewrite does; /results is its own page."""
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            return
+        local = Path(self.translate_path(parsed.path))
+        if parsed.path != "/" and not local.exists():
+            self.path = "/results.html" if parsed.path == "/results" else "/index.html"
+
     def do_GET(self):
         try:
+            self.path = _rewrite(self.path)
             request_path = urlparse(self.path).path
-            route_cls = ROUTES.get(request_path) or (ROUTES.get("/api/nfl") if request_path.startswith("/api/nfl/") else None)
+            route_cls = ROUTES.get(request_path)
+            if not route_cls:
+                self._page_path()
             if route_cls:
                 # Naively calling route_cls.do_GET(self) breaks the moment
                 # a handler uses its own helper methods (every api/*.py
@@ -105,6 +138,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            self.path = _rewrite(self.path)
             route_cls = ROUTES.get(urlparse(self.path).path)
             if route_cls:
                 self.__class__ = type("_DispatchHandler", (route_cls, self.__class__), {})
@@ -133,9 +167,9 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     import os
     project_root = Path(__file__).parent
-    # Render runs the Vite production build from dist/. Local development
-    # continues to serve the source tree unless RENDER is present.
-    static_root = project_root / "dist" if os.getenv("RENDER") and (project_root / "dist").is_dir() else project_root
+    # The built site (npm run build) when there is one, as the live site serves.
+    static_root = project_root / "dist" if (project_root / "dist").is_dir() else project_root
     os.chdir(static_root)
     port = int(os.getenv("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8793))
+    print(f"PropScout running: open http://localhost:{port}", flush=True)
     ThreadingHTTPServer(("", port), Handler).serve_forever()
