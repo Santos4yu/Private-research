@@ -29,6 +29,16 @@ from urllib.parse import urlparse
 
 API_DIR = Path(__file__).parent / "api"
 
+# The settings: one .env (or .env.local) beside this file, read before any
+# handler loads. The site's modules look for theirs in different places
+# (some one folder up), so a single file here covers them all.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+    load_dotenv(Path(__file__).parent / ".env.local")
+except ImportError:
+    pass
+
 
 def _load_handler(rel_path: str):
     """Import an api/*.py handler module by file path -- needed because
