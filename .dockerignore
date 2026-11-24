@@ -1,0 +1,14 @@
+# Never in the image: settings and keys.
+.env
+.env.*
+*.pem
+# Rebuilt inside the image, or not needed to run the site.
+node_modules
+dist
+.git
+.github
+.vercel
+tests
+docs
+**/__pycache__
+*.pyc

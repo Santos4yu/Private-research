@@ -166,6 +166,26 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
+    def do_OPTIONS(self):
+        try:
+            self.path = _rewrite(self.path)
+            route_cls = ROUTES.get(urlparse(self.path).path)
+            if route_cls and hasattr(route_cls, "do_OPTIONS"):
+                self.__class__ = type("_DispatchHandler", (route_cls, self.__class__), {})
+                route_cls.do_OPTIONS(self)
+                return
+            self.send_response(204)
+            self.end_headers()
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            pass
+        except Exception:
+            traceback.print_exc()
+
+    def list_directory(self, path):
+        # No folder listings: a folder with no page is the app, like the live site.
+        self.path = "/index.html"
+        return super().send_head()
+
     def log_message(self, fmt, *args):
         # Don't let logging itself blow up on a dead connection.
         try:
@@ -174,12 +194,77 @@ class Handler(SimpleHTTPRequestHandler):
             pass
 
 
+def daily_jobs(config_path: Path | None = None) -> list:
+    """vercel.json's daily jobs ("crons") as (hour, minute, path), UTC."""
+    import json
+    crons = json.loads((config_path or Path(__file__).parent / "vercel.json").read_text())["crons"]
+    jobs = []
+    for cron in crons:
+        minute, hour, *rest = cron["schedule"].split()
+        if rest == ["*", "*", "*"] and minute.isdigit() and hour.isdigit():
+            jobs.append((int(hour), int(minute), cron["path"]))
+    return jobs
+
+
+def due_jobs(jobs: list, now, done: set) -> list:
+    """The paths due at `now` (a UTC datetime) that haven't run in this
+    minute yet; marks them run in `done`."""
+    due = []
+    for hour, minute, path in jobs:
+        slot = (now.date(), hour, minute, path)
+        if now.hour == hour and now.minute == minute and slot not in done:
+            done.add(slot)
+            due.append(path)
+    return due
+
+
+def _run_daily_jobs(port: int) -> None:
+    """The daily jobs, run by this server's own clock when it is the hosted
+    copy (PROPSCOUT_CRONS=1, set in the Dockerfile): each at its UTC hour and
+    minute, sent to this server as Vercel's scheduler sent them (CRON_SECRET
+    as a Bearer token; Vercel's cron markers when it isn't set)."""
+    import os
+    import threading
+    import time
+    import urllib.request
+    from datetime import datetime, timezone
+    try:
+        jobs = daily_jobs()
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+        return
+    def call(path):
+        headers = {"User-Agent": "vercel-cron/1.0 (PropScout server)", "x-vercel-cron": "1"}
+        secret = os.getenv("CRON_SECRET", "")
+        if secret:
+            headers["Authorization"] = f"Bearer {secret}"
+        try:
+            request = urllib.request.Request(f"http://127.0.0.1:{port}{path}", headers=headers)
+            with urllib.request.urlopen(request, timeout=900) as response:
+                print(f"daily job {path}: {response.status}", flush=True)
+        except Exception as error:  # noqa: BLE001
+            print(f"daily job {path}: {error}", flush=True)
+    def loop():
+        done = set()
+        while True:
+            now = datetime.now(timezone.utc)
+            for path in due_jobs(jobs, now, done):
+                threading.Thread(target=call, args=(path,), daemon=True).start()
+            done = {slot for slot in done if slot[0] == now.date()}
+            time.sleep(20)
+    threading.Thread(target=loop, daemon=True).start()
+    print(f"daily jobs: {len(jobs)} scheduled", flush=True)
+
+
 if __name__ == "__main__":
+    import functools
     import os
     project_root = Path(__file__).parent
-    # The built site (npm run build) when there is one, as the live site serves.
+    # The built site (npm run build) when there is one, as the live site
+    # serves; the working folder stays the project, as on Vercel.
     static_root = project_root / "dist" if (project_root / "dist").is_dir() else project_root
-    os.chdir(static_root)
     port = int(os.getenv("PORT") or (sys.argv[1] if len(sys.argv) > 1 else 8793))
+    if os.getenv("PROPSCOUT_CRONS") == "1":
+        _run_daily_jobs(port)
     print(f"PropScout running: open http://localhost:{port}", flush=True)
-    ThreadingHTTPServer(("", port), Handler).serve_forever()
+    ThreadingHTTPServer(("", port), functools.partial(Handler, directory=str(static_root))).serve_forever()

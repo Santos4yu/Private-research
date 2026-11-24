@@ -627,7 +627,7 @@ class handler(BaseHTTPRequestHandler):
         if not snapshot_runner.verified(self.headers):
             return self._send(401, {"error": "Not allowed"})
         import prop_snapshots
-        report = prop_snapshots.accept_run(body, site_sha=os.getenv("VERCEL_GIT_COMMIT_SHA", ""))
+        report = prop_snapshots.accept_run(body, site_sha=os.getenv("VERCEL_GIT_COMMIT_SHA", "") or os.getenv("RENDER_GIT_COMMIT", ""))
         status = 200 if not report.get("error") else 503 if report["error"] == "Storage unavailable." else 400
         return self._send(status, report)
 

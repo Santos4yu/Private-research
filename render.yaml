@@ -1,0 +1,79 @@
+# PropScout on Render's free plan (Nov 23: Vercel paused the account and the
+# owner wants a free host). One web service from the Dockerfile. Render asks
+# for each setting below when the Blueprint is created (sync: false: the
+# values live only in Render, never in this repository). Leave out any the
+# old Vercel project didn't have.
+#
+# It sleeps only after 15 minutes with no visits; the line-check timer at
+# cron-job.org visits every 5 minutes, so it stays up.
+services:
+  - type: web
+    name: propscout
+    runtime: docker
+    plan: free
+    region: virginia
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      # The database.
+      - key: WEBSITE_STORAGE_BACKEND
+        sync: false
+      - key: KV_REST_API_URL
+        sync: false
+      - key: KV_REST_API_TOKEN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      # Sign-in, admin and the timers.
+      - key: WEB_SECRET_KEY
+        sync: false
+      - key: ADMIN_PIN
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      # Odds.
+      - key: ODDS_API_KEY
+        sync: false
+      - key: ODDS_API_KEY_V2
+        sync: false
+      - key: NFL_ODDS_API_KEY
+        sync: false
+      # Memberships (Whop).
+      - key: WHOP_API_KEY
+        sync: false
+      - key: WHOP_WEBHOOK_SECRET
+        sync: false
+      - key: WHOP_PLAN_IDS
+        sync: false
+      - key: WHOP_API_BASE
+        sync: false
+      # Phone notifications.
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      # The assistant and slip reading.
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: OCR_API_KEY
+        sync: false
+      # Discord.
+      - key: CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_REDIRECT_URI
+        sync: false
+      - key: DISCORD_TOKEN
+        sync: false

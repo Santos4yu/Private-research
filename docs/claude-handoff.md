@@ -58,6 +58,34 @@ Last updated 2026-11-11 (the game page redesigned for computers around the Match
   old scores until the app was fully closed. Phones on a build from before
   this need one full close and reopen to pick it up.
 
+### Nov 24 (a): moving to Render's free plan
+
+The owner, after Vercel's block: "its because i didnt pay ... i dont want to
+pay its 60$ we need to find a better host that we can fully do this free".
+They turned down Oracle Cloud Free (too much setup) and first Render (it
+sleeps after 15 minutes with no visits), then took Render once it was clear
+the line-check timer keeps it awake.
+
+- `dev_server.py` is now the whole site on one server: the built pages
+  (served from dist/ with `directory=`, the working folder stays the
+  project as on Vercel), every api/*.py on its handler (OPTIONS too),
+  vercel.json's rewrites (/api/auth/*, /api/whop/webhook, /api/nfl/*,
+  /results, page addresses to the app), no folder listings, one .env /
+  .env.local beside it read first. With PROPSCOUT_CRONS=1 it runs
+  vercel.json's 24 daily jobs on its own clock (UTC hour and minute, sent to
+  itself with CRON_SECRET as a Bearer token). tests/test_dev_server.py.
+- `Dockerfile` (node 22 build stage, python 3.12 slim runtime, PORT from the
+  host, PROPSCOUT_CRONS=1), `.dockerignore` (every .env left out),
+  `render.yaml` (one free web service, Docker, virginia, autoDeploy from
+  main, every setting `sync: false` so Render asks for the values).
+- The owner's steps: Render sign-up with GitHub, New → Blueprint on this
+  repository, paste the settings from Vercel, cron-job.org's timer every 5
+  minutes (it keeps the service awake), aceprops.xyz's DNS to Render.
+- The GitHub "NBA prop snapshot" workflow stays off: the free machine is
+  small (0.1 CPU, 512 MB); turn it back on lighter once the site is steady.
+- Render builds on every push to main (free build minutes are limited);
+  CLAUDE.md's one push per finished change still holds.
+
 ### Nov 23 (a): Vercel paused the free account (402 Payment required)
 
 The owner: "my website is down now all of them on vercel i dont want to pay
